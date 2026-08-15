@@ -21,6 +21,16 @@
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: var(--tva-orange) var(--tva-concrete-mid);
+  user-select: none;
+}
+
+::selection {
+  background: var(--tva-orange);
+}
+
+input::selection,
+textarea::selection {
+  color: var(--tva-ink);
 }
 
 html,
@@ -37,6 +47,11 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+input,
+textarea {
+  user-select: text;
 }
 
 button {
@@ -802,6 +817,7 @@ button {
   flex-direction: column;
   width: max-content;
   min-width: 100%;
+  user-select: text;
 }
 
 .diff-split-frame {
@@ -826,6 +842,7 @@ button {
   min-height: 19px;
   line-height: 19px;
   box-sizing: border-box;
+  user-select: text;
 }
 
 .diff-gutter-row {
@@ -849,12 +866,17 @@ button {
   grid-template-columns: 44px;
 }
 
+.diff-gutter-row,
+.diff-ln,
+.diff-mark {
+  user-select: none;
+}
+
 .diff-ln,
 .diff-mark {
   padding: 0 6px;
   color: var(--tva-muted);
   text-align: right;
-  user-select: none;
 }
 
 .diff-code-scroll {
@@ -866,6 +888,11 @@ button {
   max-width: 100%;
 }
 
+.diff-code-row,
+.diff-code-row * {
+  user-select: text;
+}
+
 .diff-code-row {
   flex: 1 0 auto;
   padding: 0 10px 0 8px;
@@ -874,6 +901,10 @@ button {
   white-space: pre;
   tab-size: 4;
   color: var(--tva-paper-dim);
+}
+
+.diff-code-row ::selection {
+  background: rgba(232, 93, 4, 0.3);
 }
 
 .diff-tok-italic {
