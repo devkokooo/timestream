@@ -1,6 +1,5 @@
 # 🕰️ Timestream
-
-Local-first Git client. The commit graph is a TVA Chronomonitor: a gold Sacred Timeline with variant branches as spurs.
+⏱️ Local-first Git client, visualized TVA-style
 
 <img width="1367" height="926" alt="image" src="https://github.com/user-attachments/assets/2a2d9905-4fe3-4683-a876-dc0bd6a6e4d7" />
 
