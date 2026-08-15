@@ -16,9 +16,10 @@ interface Props {
   detail: CommitDetail | null;
   selectedPath: string | null;
   onOpenFile: (path: string) => void;
+  onSelectCommit: (id: string) => void;
 }
 
-export function CaseFile({ node, detail, selectedPath, onOpenFile }: Props) {
+export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommit }: Props) {
   if (!node) {
     return (
       <aside className="flex min-h-0 flex-col overflow-hidden border-l border-tva-gold/16 bg-[#1b1713] p-0">
@@ -33,6 +34,7 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile }: Props) {
   }
 
   const loading = !detail || detail.id !== node.id;
+  const parents = detail && !loading ? detail.parents : node.parents;
   const stampLabel = node.refs.some((r) => r.kind === "branch" && r.name !== "HEAD")
     ? node.column === 0
       ? "NEXUS"
@@ -53,23 +55,38 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile }: Props) {
             <div className="font-mono text-xs text-tva-gold">
               {detail && !loading ? detail.shortId : node.shortId}
             </div>
-            <h3 className="m-0 mb-2 font-display text-lg leading-[1.35] tracking-[0.02em]">
+            <h3 className="m-0 mb-2 font-display text-lg leading-[1.35] tracking-[0.02em] text-tva-paper">
               {detail && !loading ? detail.summary : node.summary}
             </h3>
-            {!loading && detail?.body ? <p className={cn(emptyText, "mb-0")}>{detail.body}</p> : null}
-            <p className={cn(emptyText, "mb-0")}>
-              {detail && !loading ? detail.author : node.author}
-              {detail && !loading && detail.email ? ` · ${detail.email}` : ""}
-            </p>
-            <p className={cn(emptyText, "mb-0")}>
-              {new Date((detail && !loading ? detail.timestamp : node.timestamp) * 1000).toUTCString()}
-            </p>
-            <p className={cn(emptyText, "mb-0")}>
-              parents{" "}
-              {(detail && !loading ? detail.parents : node.parents)
-                .map((p) => p.slice(0, 7))
-                .join(", ") || "none"}
-            </p>
+            {!loading && detail?.body ? (
+              <p className="mb-3 text-xs leading-relaxed text-tva-paper-dim">{detail.body}</p>
+            ) : null}
+            <div className="mt-3 space-y-0.5 border-t border-tva-gold/12 pt-3 font-mono text-[11px] leading-snug text-tva-muted">
+              <p className="m-0">
+                {detail && !loading ? detail.author : node.author}
+                {detail && !loading && detail.email ? ` · ${detail.email}` : ""}
+              </p>
+              <p className="m-0">
+                {new Date((detail && !loading ? detail.timestamp : node.timestamp) * 1000).toUTCString()}
+              </p>
+              <p className="m-0">
+                parents{" "}
+                {parents.length === 0
+                  ? "none"
+                  : parents.map((parentId, i) => (
+                      <span key={parentId}>
+                        {i > 0 ? ", " : null}
+                        <button
+                          type="button"
+                          className="border-0 bg-transparent p-0 font-mono text-[11px] text-tva-muted underline decoration-tva-gold/25 underline-offset-2 hover:text-tva-gold hover:decoration-tva-gold/60"
+                          onClick={() => onSelectCommit(parentId)}
+                        >
+                          {parentId.slice(0, 7)}
+                        </button>
+                      </span>
+                    ))}
+              </p>
+            </div>
           </TvaScrollArea>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -266,6 +266,7 @@ export default function App() {
           detail={detail}
           selectedPath={diffPath}
           onOpenFile={toggleDiffFile}
+          onSelectCommit={setSelectedId}
         />
         <AnomalyDock
           status={status}
