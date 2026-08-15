@@ -1,11 +1,10 @@
 import { btn, btnPrimary, eyebrow } from "../lib/ui";
 import { HintMark, TvaTerm } from "./TvaTerm";
-import type { AheadBehind, RemoteInfo, RepoSummary } from "../lib/types";
+import type { RemoteInfo, RepoSummary } from "../lib/types";
 
 interface Props {
   repo: RepoSummary;
   origin: RemoteInfo | null;
-  sync: AheadBehind | null;
   anomalyCount: number;
   anomalyLoading: boolean;
   reviewOpen: boolean;
@@ -15,7 +14,6 @@ interface Props {
 export function BureauHeader({
   repo,
   origin,
-  sync,
   anomalyCount,
   anomalyLoading,
   reviewOpen,
@@ -38,11 +36,9 @@ export function BureauHeader({
       <div className="flex min-w-0 flex-col items-end gap-1 font-mono text-[11px] text-tva-paper-dim">
         <span>CHRONOMONITORING DIVISION</span>
         <span className="max-w-[420px] overflow-hidden text-ellipsis whitespace-nowrap">
-          FILE {repo.name.toUpperCase()} · {repo.branch ?? "DETACHED"} ·{" "}
-          {repo.head?.slice(0, 7) ?? "—"}
+          FILE {repo.name.toUpperCase()}
           {origin?.owner && origin.nameOnHost ? ` · ${origin.owner}/${origin.nameOnHost}` : ""}
         </span>
-        <span>{sync ? `↑${sync.ahead} ↓${sync.behind}` : "↑— ↓—"}</span>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <button

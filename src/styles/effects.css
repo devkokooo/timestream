@@ -23,11 +23,10 @@
 }
 
 .ref-label.head {
-  fill: var(--color-tva-gold-bright);
+  font-weight: 600;
 }
 
 .ref-label.incursion {
-  fill: var(--color-tva-orange);
   letter-spacing: 0.12em;
 }
 

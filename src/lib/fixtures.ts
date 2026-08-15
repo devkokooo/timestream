@@ -214,3 +214,46 @@ export function crowdedTipsTimeline(): Timeline {
     ],
   };
 }
+
+/** Current local branch, another local variant, and a remote-only spur. */
+export function mixedRefTimeline(): Timeline {
+  return {
+    sacredBranch: "main",
+    head: "c",
+    nodes: [
+      node("a", 0, 0),
+      node("b", 0, 1, { parents: ["a"] }),
+      node("c", 0, 2, {
+        parents: ["b"],
+        isHead: true,
+        refs: [
+          { name: "main", kind: "branch" },
+          { name: "origin/main", kind: "remote" },
+        ],
+      }),
+      node("d", 1, 2, {
+        parents: ["b"],
+        refs: [{ name: "feature", kind: "branch" }],
+      }),
+      node("e", -1, 2, {
+        parents: ["b"],
+        refs: [{ name: "origin/hotfix", kind: "remote" }],
+      }),
+    ],
+    edges: [
+      { from: "a", to: "b", kind: "firstParent", fromColumn: 0, toColumn: 0, fromRow: 0, toRow: 1 },
+      { from: "b", to: "c", kind: "firstParent", fromColumn: 0, toColumn: 0, fromRow: 1, toRow: 2 },
+      { from: "b", to: "d", kind: "firstParent", fromColumn: 0, toColumn: 1, fromRow: 1, toRow: 2 },
+      { from: "b", to: "e", kind: "firstParent", fromColumn: 0, toColumn: -1, fromRow: 1, toRow: 2 },
+    ],
+    dossiers: [
+      dossier("main", "c", { isSacred: true, isHead: true }),
+      dossier("feature", "d", { exclusiveCommits: 1, commitsApart: 2 }),
+      dossier("origin/hotfix", "e", {
+        exclusiveCommits: 1,
+        commitsApart: 2,
+        isUpstream: true,
+      }),
+    ],
+  };
+}

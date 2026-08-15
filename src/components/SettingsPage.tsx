@@ -32,7 +32,7 @@ export function SettingsPage({ open, settings, focusKey, filter, onClose, onChan
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#161310]">
+    <div className="fixed inset-x-0 top-9 bottom-6 z-40 flex flex-col bg-[#161310]">
       <header className="flex items-center justify-between gap-4 border-b border-tva-gold/22 px-5 py-3">
         <h1 className={panelTitle}>
           <TvaTerm flavor="Bureau settings" noun="Settings" />
