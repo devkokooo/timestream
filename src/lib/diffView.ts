@@ -1,4 +1,4 @@
-import type { DiffLine, DiffLineKind, FileAction, FileChange } from "./types";
+import type { DiffHunk, DiffLine, DiffLineKind, FileAction, FileChange } from "./types";
 
 export interface SplitCell {
   no: number | null;
@@ -83,4 +83,18 @@ export function pairHunkLines(lines: DiffLine[]): SplitRow[] {
     }
   }
   return rows;
+}
+
+export function hunkKey(hunk: Pick<DiffHunk, "oldStart" | "newStart" | "header">): string {
+  return `${hunk.oldStart}:${hunk.newStart}:${hunk.header}`;
+}
+
+export function hunkLineCounts(hunk: Pick<DiffHunk, "lines">): { added: number; deleted: number } {
+  let added = 0;
+  let deleted = 0;
+  for (const line of hunk.lines) {
+    if (line.kind === "addition") added += 1;
+    else if (line.kind === "deletion") deleted += 1;
+  }
+  return { added, deleted };
 }
