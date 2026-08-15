@@ -40,11 +40,62 @@ export function actionLabel(action: FileAction): string {
   }
 }
 
+export type ActionMark = "M" | "R" | "D" | "A" | "U";
+
+export function actionMark(status: string): ActionMark {
+  switch (status) {
+    case "added":
+      return "A";
+    case "untracked":
+      return "U";
+    case "deleted":
+      return "D";
+    case "renamed":
+    case "copied":
+    case "moved":
+      return "R";
+    default:
+      return "M";
+  }
+}
+
+export function actionMarkTitle(status: string): string {
+  switch (actionMark(status)) {
+    case "A":
+      return "Added";
+    case "U":
+      return "Untracked";
+    case "D":
+      return "Deleted";
+    case "R":
+      return "Renamed";
+    default:
+      return "Modified";
+  }
+}
+
+export function actionTone(status: string): string {
+  return status === "untracked" ? "untracked" : fileAction(status);
+}
+
+export function fileBaseName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const i = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return i === -1 ? trimmed : trimmed.slice(i + 1);
+}
+
 export function fileDisplayPath(file: Pick<FileChange, "path" | "oldPath" | "status">): string {
   if (fileAction(file.status) === "moved" && file.oldPath && file.oldPath !== file.path) {
     return `${file.oldPath} → ${file.path}`;
   }
   return file.path;
+}
+
+export function fileDisplayName(file: Pick<FileChange, "path" | "oldPath" | "status">): string {
+  if (fileAction(file.status) === "moved" && file.oldPath && file.oldPath !== file.path) {
+    return `${fileBaseName(file.oldPath)} → ${fileBaseName(file.path)}`;
+  }
+  return fileBaseName(file.path);
 }
 
 export function pairHunkLines(lines: DiffLine[]): SplitRow[] {

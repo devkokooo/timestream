@@ -22,6 +22,7 @@ export const stampGold = "border-tva-gold text-tva-gold";
 
 export const stampByAction: Record<string, string> = {
   added: "border-[#8f9a62] text-[#c6d18d]",
+  untracked: "border-[#c4b5a0] text-[#e8d5a3]",
   deleted: "border-tva-stamp text-[#ff8a6a]",
   modified: "border-tva-gold text-tva-gold",
   moved: "border-tva-orange text-tva-orange-hot",
@@ -29,6 +30,7 @@ export const stampByAction: Record<string, string> = {
 
 export const actionColor: Record<string, string> = {
   added: "text-[#c6d18d]",
+  untracked: "text-[#e8d5a3]",
   deleted: "text-[#ff8a6a]",
   modified: "text-tva-gold",
   moved: "text-tva-orange-hot",

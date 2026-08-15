@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   actionLabel,
+  actionMark,
+  actionTone,
   fileAction,
+  fileBaseName,
+  fileDisplayName,
   fileDisplayPath,
   hunkKey,
   hunkLineCounts,
@@ -42,6 +46,38 @@ describe("actionLabel", () => {
   });
 });
 
+describe("actionMark", () => {
+  it.each([
+    ["modified", "M"],
+    ["typechange", "M"],
+    ["renamed", "R"],
+    ["moved", "R"],
+    ["copied", "R"],
+    ["deleted", "D"],
+    ["added", "A"],
+    ["untracked", "U"],
+  ] as const)("marks %s as %s", (status, mark) => {
+    expect(actionMark(status)).toBe(mark);
+  });
+});
+
+describe("actionTone", () => {
+  it("keeps untracked distinct from added", () => {
+    expect(actionTone("untracked")).toBe("untracked");
+    expect(actionTone("added")).toBe("added");
+  });
+});
+
+describe("fileBaseName", () => {
+  it("returns the last segment of a nested path", () => {
+    expect(fileBaseName("src/components/ReviewMode.tsx")).toBe("ReviewMode.tsx");
+  });
+
+  it("keeps a bare file name", () => {
+    expect(fileBaseName("README.md")).toBe("README.md");
+  });
+});
+
 describe("fileDisplayPath", () => {
   it("keeps a single path for ordinary changes", () => {
     expect(fileDisplayPath({ path: "a.rs", oldPath: null, status: "modified" })).toBe("a.rs");
@@ -51,6 +87,24 @@ describe("fileDisplayPath", () => {
     expect(
       fileDisplayPath({ path: "b.rs", oldPath: "a.rs", status: "moved" }),
     ).toBe("a.rs → b.rs");
+  });
+});
+
+describe("fileDisplayName", () => {
+  it("labels nested files by name", () => {
+    expect(
+      fileDisplayName({ path: "src/lib/diffView.ts", oldPath: null, status: "modified" }),
+    ).toBe("diffView.ts");
+  });
+
+  it("shows both names when a file is moved", () => {
+    expect(
+      fileDisplayName({
+        path: "src/components/ReviewMode.tsx",
+        oldPath: "src/components/AnomalyDock.tsx",
+        status: "moved",
+      }),
+    ).toBe("AnomalyDock.tsx → ReviewMode.tsx");
   });
 });
 
