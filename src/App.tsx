@@ -670,6 +670,13 @@ export default function App() {
                 error={diffError}
                 onMode={setDiffMode}
                 onClose={closeDiff}
+                onFile={
+                  activeTarget?.kind === "unstaged" && selectedFile
+                    ? async () => {
+                        setStatus(await stageFile(repo.path, selectedFile.path));
+                      }
+                    : undefined
+                }
                 reviewComments={reviewComments}
               />
             ) : null}

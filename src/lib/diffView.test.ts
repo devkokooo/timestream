@@ -3,9 +3,11 @@ import {
   actionLabel,
   fileAction,
   fileDisplayPath,
+  hunkKey,
+  hunkLineCounts,
   pairHunkLines,
 } from "./diffView";
-import type { DiffLine } from "./types";
+import type { DiffHunk, DiffLine } from "./types";
 
 function line(
   kind: DiffLine["kind"],
@@ -86,5 +88,32 @@ describe("pairHunkLines", () => {
     expect(rows[0].right).toEqual({ no: 3, text: "fresh", kind: "addition" });
     expect(rows[1].left).toEqual({ no: 4, text: "also", kind: "deletion" });
     expect(rows[1].right).toBeNull();
+  });
+});
+
+describe("hunkKey", () => {
+  it("identifies a hunk by range and header, not by walk order", () => {
+    const hunk = {
+      oldStart: 10,
+      newStart: 12,
+      header: "@@ -10,4 +12,6 @@ fn load()",
+    };
+    expect(hunkKey(hunk)).toBe("10:12:@@ -10,4 +12,6 @@ fn load()");
+    expect(hunkKey(hunk)).toBe(hunkKey({ ...hunk }));
+  });
+});
+
+describe("hunkLineCounts", () => {
+  it("counts additions and deletions, ignoring context", () => {
+    const hunk: Pick<DiffHunk, "lines"> = {
+      lines: [
+        line("context", "keep", 1, 1),
+        line("deletion", "old", 2, null),
+        line("deletion", "gone", 3, null),
+        line("addition", "new", null, 2),
+        line("meta", "\\ No newline", null, null),
+      ],
+    };
+    expect(hunkLineCounts(hunk)).toEqual({ added: 1, deleted: 2 });
   });
 });

@@ -28,7 +28,15 @@
 
 /* Diff viewer dense layout + token colors */
 .diff-body.tva-scroll > .tva-scroll-viewport {
-  padding: 8px 0 16px;
+  padding: 0 0 16px;
+}
+
+.diff-hunk-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  /* Cover the strip above a stuck bar so hunk lines cannot paint through it. */
+  box-shadow: 0 -16px 0 2px #16120e;
 }
 
 .diff-inline-frame,
