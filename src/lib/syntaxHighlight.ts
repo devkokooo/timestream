@@ -60,34 +60,38 @@ export function tokenClassName(fontStyle: number | undefined): string | undefine
   return parts.length > 0 ? parts.join(" ") : undefined;
 }
 
-/** Tokenize `texts[start..end)` and cache by index. Headers / empty strings skip Shiki. */
+export type LineTextAt = (index: number) => string;
+
+/** Tokenize visible lines and cache by index. Headers / empty strings skip Shiki. */
 export function useHighlightedRange(
-  texts: string[],
+  at: LineTextAt,
+  length: number,
   lang: string | null,
   start: number,
   end: number,
+  resetKey: unknown,
 ): Array<ThemedToken[] | undefined> {
   const cacheRef = useRef<Array<ThemedToken[] | undefined>>([]);
-  const textsRef = useRef(texts);
-  textsRef.current = texts;
+  const keyRef = useRef(resetKey);
+  keyRef.current = resetKey;
   const [, bump] = useState(0);
 
   useEffect(() => {
-    cacheRef.current = new Array(texts.length);
+    cacheRef.current = new Array(length);
     bump((n) => n + 1);
-  }, [texts, lang]);
+  }, [length, lang, resetKey]);
 
   useEffect(() => {
     if (!isHighlightableLanguage(lang)) return;
 
     const cache = cacheRef.current;
     const lo = Math.max(0, start);
-    const hi = Math.min(texts.length, Math.max(lo, end));
+    const hi = Math.min(length, Math.max(lo, end));
     const missing: number[] = [];
     let filledEmpty = false;
     for (let i = lo; i < hi; i++) {
       if (cache[i] !== undefined) continue;
-      if (!texts[i]) {
+      if (!at(i)) {
         cache[i] = [];
         filledEmpty = true;
         continue;
@@ -99,11 +103,11 @@ export function useHighlightedRange(
 
     let cancelled = false;
     void highlightLines(
-      missing.map((i) => texts[i]),
+      missing.map((i) => at(i)),
       lang,
     )
       .then((rows) => {
-        if (cancelled || textsRef.current !== texts) return;
+        if (cancelled || keyRef.current !== resetKey) return;
         if (!rows) {
           missing.forEach((index) => {
             cacheRef.current[index] = [];
@@ -116,7 +120,7 @@ export function useHighlightedRange(
         bump((n) => n + 1);
       })
       .catch(() => {
-        if (cancelled || textsRef.current !== texts) return;
+        if (cancelled || keyRef.current !== resetKey) return;
         missing.forEach((index) => {
           cacheRef.current[index] = [];
         });
@@ -126,7 +130,7 @@ export function useHighlightedRange(
     return () => {
       cancelled = true;
     };
-  }, [texts, lang, start, end]);
+  }, [at, end, lang, length, resetKey, start]);
 
   return cacheRef.current;
 }

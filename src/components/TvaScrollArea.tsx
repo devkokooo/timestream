@@ -1,6 +1,6 @@
 import {
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -24,6 +24,9 @@ interface Props {
   /** Expose the scrolling viewport for virtualizers. */
   viewportRef?: Ref<HTMLDivElement | null>;
   onScroll?: () => void;
+  /** Virtual lists: true content extent when absolutely positioned rows shrink scrollHeight. */
+  contentWidth?: number;
+  contentHeight?: number;
 }
 
 interface Metrics {
@@ -60,41 +63,48 @@ export function TvaScrollArea({
   viewportClassName = "",
   viewportRef,
   onScroll,
+  contentWidth,
+  contentHeight,
 }: Props) {
   const innerRef = useRef<HTMLDivElement>(null);
+  const viewportRefBox = useRef(viewportRef);
+  viewportRefBox.current = viewportRef;
+  const contentW = contentWidth ?? 0;
+  const contentH = contentHeight ?? 0;
   const [metrics, setMetrics] = useState<Metrics>(EMPTY);
 
-  const setViewportEl = useCallback(
-    (node: HTMLDivElement | null) => {
-      innerRef.current = node;
-      assignRef(viewportRef, node);
-    },
-    [viewportRef],
-  );
+  const setViewportEl = useCallback((node: HTMLDivElement | null) => {
+    innerRef.current = node;
+    assignRef(viewportRefBox.current, node);
+  }, []);
 
   const measure = useCallback(() => {
     const el = innerRef.current;
     if (!el) return;
-    setMetrics({
+    const next: Metrics = {
       clientW: el.clientWidth,
       clientH: el.clientHeight,
-      scrollW: el.scrollWidth,
-      scrollH: el.scrollHeight,
+      scrollW: Math.max(el.scrollWidth, contentW),
+      scrollH: Math.max(el.scrollHeight, contentH),
       scrollL: el.scrollLeft,
       scrollT: el.scrollTop,
-    });
-  }, []);
+    };
+    setMetrics((prev) => (metricsEqual(prev, next) ? prev : next));
+  }, [contentH, contentW]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    measure();
     const el = innerRef.current;
     if (!el) return;
-    measure();
-    const ro = new ResizeObserver(() => measure());
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     let child: Element | null = null;
     const syncChild = () => {
       const next = el.firstElementChild;
-      if (next === child) return;
+      if (next === child) {
+        measure();
+        return;
+      }
       if (child) ro.unobserve(child);
       child = next;
       if (child) ro.observe(child);
@@ -122,18 +132,12 @@ export function TvaScrollArea({
   const rail = 10;
   const yTrack = Math.max(metrics.clientH, 0);
   const xTrack = Math.max(metrics.clientW, 0);
-  const yThumbH = showY
-    ? Math.max((metrics.clientH / metrics.scrollH) * yTrack, 28)
-    : 0;
-  const xThumbW = showX
-    ? Math.max((metrics.clientW / metrics.scrollW) * xTrack, 28)
-    : 0;
+  const yThumbH = showY ? Math.max((metrics.clientH / metrics.scrollH) * yTrack, 28) : 0;
+  const xThumbW = showX ? Math.max((metrics.clientW / metrics.scrollW) * xTrack, 28) : 0;
   const yMax = Math.max(metrics.scrollH - metrics.clientH, 0);
   const xMax = Math.max(metrics.scrollW - metrics.clientW, 0);
-  const yThumbTop =
-    yMax > 0 ? (metrics.scrollT / yMax) * Math.max(yTrack - yThumbH, 0) : 0;
-  const xThumbLeft =
-    xMax > 0 ? (metrics.scrollL / xMax) * Math.max(xTrack - xThumbW, 0) : 0;
+  const yThumbTop = yMax > 0 ? (metrics.scrollT / yMax) * Math.max(yTrack - yThumbH, 0) : 0;
+  const xThumbLeft = xMax > 0 ? (metrics.scrollL / xMax) * Math.max(xTrack - xThumbW, 0) : 0;
 
   function scrollToY(next: number) {
     const el = innerRef.current;
@@ -219,20 +223,10 @@ export function TvaScrollArea({
 
   return (
     <div
-      className={[
-        "tva-scroll",
-        fill ? "fill" : "",
-        showX ? "has-x" : "",
-        showY ? "has-y" : "",
-        className,
-      ]
+      className={["tva-scroll", fill ? "fill" : "", showX ? "has-x" : "", showY ? "has-y" : "", className]
         .filter(Boolean)
         .join(" ")}
-      style={
-        {
-          "--tva-sb": `${rail}px`,
-        } as CSSProperties
-      }
+      style={{ "--tva-sb": `${rail}px` } as CSSProperties}
     >
       <div
         ref={setViewportEl}
@@ -257,6 +251,17 @@ export function TvaScrollArea({
       ) : null}
       {showX && showY ? <div className="tva-sb-corner" aria-hidden /> : null}
     </div>
+  );
+}
+
+function metricsEqual(a: Metrics, b: Metrics): boolean {
+  return (
+    a.clientW === b.clientW &&
+    a.clientH === b.clientH &&
+    a.scrollW === b.scrollW &&
+    a.scrollH === b.scrollH &&
+    a.scrollL === b.scrollL &&
+    a.scrollT === b.scrollT
   );
 }
 

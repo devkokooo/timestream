@@ -213,38 +213,87 @@ export interface SplitHeaderOverlay {
   sticky: boolean;
 }
 
+export interface HunkStart {
+  key: string;
+  hunkIndex: number;
+  y: number;
+}
+
+export function hunkHeaderStarts(rows: DiffViewRow[]): HunkStart[] {
+  const starts: HunkStart[] = [];
+  let y = 0;
+  for (const row of rows) {
+    if (row.type === "header") starts.push({ key: row.key, hunkIndex: row.hunkIndex, y });
+    y += estimateDiffRowSize(row);
+  }
+  return starts;
+}
+
+export function diffRowText(row: DiffViewRow | undefined, side: "left" | "right"): string {
+  if (!row) return "";
+  if (row.type === "inline") return side === "left" ? row.line.text : "";
+  if (row.type === "split") return (side === "left" ? row.left?.text : row.right?.text) ?? "";
+  return "";
+}
+
 /** Positions one connected hunk header over split panes, sticky while its lines are in view. */
 export function splitHeaderOverlay(
   rows: DiffViewRow[],
   scrollTop: number,
   viewportH: number,
 ): SplitHeaderOverlay[] {
-  const starts: Array<{ key: string; hunkIndex: number; y: number }> = [];
-  let y = 0;
-  for (const row of rows) {
-    if (row.type === "header") starts.push({ key: row.key, hunkIndex: row.hunkIndex, y });
-    y += estimateDiffRowSize(row);
-  }
+  return overlayHunkHeaders(hunkHeaderStarts(rows), scrollTop, viewportH);
+}
 
+function lastAtOrBefore(starts: HunkStart[], y: number): number {
+  let lo = 0;
+  let hi = starts.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (starts[mid].y <= y) {
+      found = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return found;
+}
+
+function firstAtOrAfter(starts: HunkStart[], y: number): number {
+  let lo = 0;
+  let hi = starts.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (starts[mid].y < y) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** Visible + sticky headers from precomputed starts (binary search, not a full walk). */
+export function overlayHunkHeaders(
+  starts: HunkStart[],
+  scrollTop: number,
+  viewportH: number,
+): SplitHeaderOverlay[] {
+  if (starts.length === 0) return [];
   const viewH = viewportH || 1;
   const out: SplitHeaderOverlay[] = [];
-  let sticky: { key: string; hunkIndex: number; y: number; nextY: number } | null = null;
-
-  for (let i = 0; i < starts.length; i++) {
+  const from = firstAtOrAfter(starts, scrollTop - DIFF_HEADER_HEIGHT + 0.01);
+  const maxY = scrollTop + viewH;
+  for (let i = from; i < starts.length && starts[i].y < maxY; i++) {
     const cur = starts[i];
-    const nextY = i + 1 < starts.length ? starts[i + 1].y : Number.POSITIVE_INFINITY;
-    if (cur.y <= scrollTop && nextY > scrollTop) {
-      sticky = { ...cur, nextY };
-    }
-    const top = cur.y - scrollTop;
-    if (top < viewH && top + DIFF_HEADER_HEIGHT > 0) {
-      out.push({ key: cur.key, hunkIndex: cur.hunkIndex, top, sticky: false });
-    }
+    out.push({ key: cur.key, hunkIndex: cur.hunkIndex, top: cur.y - scrollTop, sticky: false });
   }
 
-  if (sticky) {
+  const stickyIndex = lastAtOrBefore(starts, scrollTop);
+  if (stickyIndex >= 0) {
+    const sticky = starts[stickyIndex];
+    const nextY = stickyIndex + 1 < starts.length ? starts[stickyIndex + 1].y : Number.POSITIVE_INFINITY;
     const natural = sticky.y - scrollTop;
-    const pushed = sticky.nextY - scrollTop - DIFF_HEADER_HEIGHT;
+    const pushed = nextY - scrollTop - DIFF_HEADER_HEIGHT;
     const top = Math.min(Math.max(natural, 0), pushed);
     const existing = out.findIndex((h) => h.key === sticky.key);
     const next: SplitHeaderOverlay = {
