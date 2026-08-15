@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnomalyDock } from "./components/AnomalyDock";
 import { BureauHeader } from "./components/BureauHeader";
 import { CaseFile } from "./components/CaseFile";
@@ -40,10 +40,19 @@ import type {
 const appShell =
   "flex h-full flex-col bg-[radial-gradient(1200px_500px_at_50%_-10%,rgba(232,93,4,0.16),transparent_55%),linear-gradient(180deg,#1c1814_0%,#120f0c_100%)]";
 
+/** Background chronomonitor refresh while the archive is open. */
+const RESCAN_MS = 2500;
+
 type DiffTarget =
   | { kind: "commit"; path: string }
   | { kind: "staged"; path: string }
   | { kind: "unstaged"; path: string };
+
+type LoadOptions = {
+  keepSelection?: boolean;
+  /** Refresh without the busy chrome (used by automatic rescans). */
+  quiet?: boolean;
+};
 
 function statusFile(
   status: StatusPayload | null,
@@ -62,6 +71,24 @@ function targetsEqual(a: DiffTarget | null, b: DiffTarget | null): boolean {
   return a.kind === b.kind && a.path === b.path;
 }
 
+function sameJson<T>(a: T, b: T): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function sameRepo(a: RepoSummary | null, b: RepoSummary): boolean {
+  return (
+    !!a &&
+    a.path === b.path &&
+    a.name === b.name &&
+    a.head === b.head &&
+    a.branch === b.branch
+  );
+}
+
+function keepIfSame<T>(prev: T, next: T): T {
+  return sameJson(prev, next) ? prev : next;
+}
+
 export default function App() {
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
   const [repo, setRepo] = useState<RepoSummary | null>(null);
@@ -78,20 +105,30 @@ export default function App() {
   const [diffError, setDiffError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const repoPathRef = useRef<string | null>(null);
+  const diffTargetRef = useRef<DiffTarget | null>(null);
+  const loadedDiffKeyRef = useRef<string | null>(null);
+  busyRef.current = busy;
+  repoPathRef.current = repo?.path ?? null;
+  diffTargetRef.current = diffTarget;
 
-  const loadAll = useCallback(async (path: string, keepSelection = false) => {
-    setBusy(true);
-    setError(null);
+  const loadAll = useCallback(async (path: string, options: LoadOptions = {}) => {
+    const { keepSelection = false, quiet = false } = options;
+    if (!quiet) {
+      setBusy(true);
+      setError(null);
+    }
     try {
       const summary = await openRepository(path);
       const [nextTimeline, nextStatus] = await Promise.all([
         getTimeline(path),
         getStatus(path),
       ]);
-      setRepo(summary);
-      setTimeline(nextTimeline);
-      setStatus(nextStatus);
-      setRecent(rememberRepo(summary.path));
+      setRepo((prev) => (sameRepo(prev, summary) ? prev! : summary));
+      setTimeline((prev) => (prev && sameJson(prev, nextTimeline) ? prev : nextTimeline));
+      setStatus((prev) => (prev && sameJson(prev, nextStatus) ? prev : nextStatus));
+      if (!quiet) setRecent(rememberRepo(summary.path));
       setSelectedId((current) => {
         if (keepSelection && current && nextTimeline.nodes.some((n) => n.id === current)) {
           return current;
@@ -99,11 +136,72 @@ export default function App() {
         return nextTimeline.head ?? nextTimeline.nodes.at(-1)?.id ?? null;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!quiet) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setBusy(false);
+      if (!quiet) setBusy(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!repo) return;
+    const path = repo.path;
+
+    let cancelled = false;
+    let inFlight = false;
+    let pending = false;
+
+    const refreshOpenWorktreeDiff = async () => {
+      const target = diffTargetRef.current;
+      if (!target || target.kind === "commit") return;
+      try {
+        const next = await getWorktreeDiff(path, target.path, target.kind === "staged");
+        if (cancelled) return;
+        if (!targetsEqual(diffTargetRef.current, target)) return;
+        setDiff((prev) => (prev && sameJson(prev, next) ? prev : next));
+        setDiffError(null);
+      } catch {
+        // Keep the open pane; the next successful scan will catch up.
+      }
+    };
+
+    const rescan = async () => {
+      if (cancelled || busyRef.current) return;
+      if (inFlight) {
+        pending = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        await loadAll(path, { keepSelection: true, quiet: true });
+        if (!cancelled) await refreshOpenWorktreeDiff();
+      } finally {
+        inFlight = false;
+        if (pending && !cancelled) {
+          pending = false;
+          void rescan();
+        }
+      }
+    };
+
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void rescan();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void rescan();
+    }, RESCAN_MS);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.clearInterval(timer);
+    };
+  }, [repo?.path, loadAll]);
 
   useEffect(() => {
     if (!repo || !selectedId) {
@@ -114,7 +212,7 @@ export default function App() {
     setDetail((current) => (current?.id === selectedId ? current : null));
     getCommit(repo.path, selectedId)
       .then((next) => {
-        if (!cancelled) setDetail(next);
+        if (!cancelled) setDetail((prev) => (prev ? keepIfSame(prev, next) : next));
       })
       .catch(() => {
         if (!cancelled) setDetail(null);
@@ -122,7 +220,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [repo, selectedId]);
+  }, [repo?.path, selectedId]);
 
   useEffect(() => {
     if (diffTarget) {
@@ -150,34 +248,47 @@ export default function App() {
     }
   }, [status, diffTarget]);
 
+  const worktreeDiffKey =
+    diffTarget && diffTarget.kind !== "commit" && statusFile(status, diffTarget)
+      ? `${diffTarget.kind}:${diffTarget.path}`
+      : null;
+  const commitDiffKey =
+    diffTarget?.kind === "commit" &&
+    detail &&
+    detail.id === selectedId &&
+    detail.files.some((file) => file.path === diffTarget.path)
+      ? `commit:${selectedId}:${diffTarget.path}`
+      : null;
+  const diffKey = worktreeDiffKey ?? commitDiffKey;
+
   useEffect(() => {
-    if (!diffTarget) {
+    if (!diffTarget || !repoPathRef.current) {
+      loadedDiffKeyRef.current = null;
       setDiff(null);
       setDiffError(null);
       return;
     }
-    if (!repo) return;
+    if (!diffKey) return;
+
+    const path = repoPathRef.current;
+    const target = diffTarget;
+    const switched = loadedDiffKeyRef.current !== diffKey;
+    if (switched) {
+      loadedDiffKeyRef.current = diffKey;
+      setDiff(null);
+      setDiffError(null);
+    }
 
     let cancelled = false;
-    setDiff(null);
-    setDiffError(null);
-
     const request =
-      diffTarget.kind === "commit"
-        ? detail &&
-          detail.id === selectedId &&
-          detail.files.some((file) => file.path === diffTarget.path)
-          ? getFileDiff(repo.path, selectedId!, diffTarget.path)
-          : null
-        : statusFile(status, diffTarget)
-          ? getWorktreeDiff(repo.path, diffTarget.path, diffTarget.kind === "staged")
-          : null;
-
-    if (!request) return;
+      target.kind === "commit"
+        ? getFileDiff(path, selectedId!, target.path)
+        : getWorktreeDiff(path, target.path, target.kind === "staged");
 
     request
       .then((next) => {
-        if (!cancelled) setDiff(next);
+        if (cancelled) return;
+        setDiff((prev) => (prev && sameJson(prev, next) ? prev : next));
       })
       .catch((err) => {
         if (!cancelled) {
@@ -188,7 +299,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [repo, selectedId, diffTarget, detail, status]);
+  }, [diffKey, diffTarget, selectedId]);
 
   const selectedNode =
     timeline?.nodes.find((n) => n.id === selectedId) ?? null;
@@ -255,7 +366,7 @@ export default function App() {
       <BureauHeader
         repo={repo}
         onOpen={browse}
-        onReload={() => loadAll(repo.path, true)}
+        onReload={() => loadAll(repo.path, { keepSelection: true })}
       />
       {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
       <div
@@ -338,7 +449,7 @@ export default function App() {
           onUnstage={async (rel) => setStatus(await unstageFile(repo.path, rel))}
           onCommit={async (message) => {
             await fileCommit(repo.path, message);
-            await loadAll(repo.path, true);
+            await loadAll(repo.path, { keepSelection: true });
           }}
         />
       </div>
