@@ -1,0 +1,148 @@
+/** Extensions that are not Shiki language ids or aliases. */
+const EXTENSION_LANGS: Record<string, string> = {
+  h: "c",
+  hpp: "cpp",
+  hh: "cpp",
+  hxx: "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  htm: "html",
+  pyw: "python",
+  pyi: "python",
+  svg: "xml",
+  xsd: "xml",
+  xslt: "xsl",
+  markdown: "markdown",
+  mkd: "markdown",
+  gradle: "groovy",
+  vimrc: "viml",
+  gvimrc: "viml",
+  sty: "latex",
+  ltx: "latex",
+  frag: "glsl",
+  vert: "glsl",
+  geom: "glsl",
+  tesc: "glsl",
+  tese: "glsl",
+  comp: "glsl",
+  s: "asm",
+  mm: "objective-cpp",
+  m: "objective-c",
+  for: "fortran-free-form",
+  rkt: "racket",
+  scm: "scheme",
+  ss: "scheme",
+  lisp: "common-lisp",
+  el: "emacs-lisp",
+  cl: "common-lisp",
+  fsx: "fsharp",
+  fsi: "fsharp",
+  vh: "verilog",
+  svh: "system-verilog",
+  phtml: "php",
+  sol: "solidity",
+  pl: "perl",
+  pm: "perl",
+  ex: "elixir",
+  exs: "elixir",
+  njk: "jinja",
+  jinja2: "jinja",
+  j2: "jinja",
+  mustache: "handlebars",
+  cson: "coffee",
+  cjsx: "coffee",
+  patch: "diff",
+  props: "xml",
+  targets: "xml",
+  resx: "xml",
+  csproj: "xml",
+  fsproj: "xml",
+  vbproj: "xml",
+  sln: "ini",
+  gitignore: "properties",
+  dockerignore: "properties",
+  eslintignore: "properties",
+  prettierignore: "properties",
+  npmignore: "properties",
+  gitattributes: "properties",
+  editorconfig: "ini",
+  gitconfig: "ini",
+  npmrc: "ini",
+  babelrc: "json",
+  eslintrc: "json",
+  prettierrc: "json",
+  stylelintrc: "json",
+  zshrc: "zsh",
+  zshenv: "zsh",
+  zprofile: "zsh",
+  bashrc: "bash",
+  bash_profile: "bash",
+};
+
+const FILENAME_LANGS: Record<string, string> = {
+  dockerfile: "docker",
+  containerfile: "docker",
+  makefile: "make",
+  gnumakefile: "make",
+  "cmakelists.txt": "cmake",
+  gemfile: "ruby",
+  rakefile: "ruby",
+  brewfile: "ruby",
+  podfile: "ruby",
+  vagrantfile: "ruby",
+  guardfile: "ruby",
+  capfile: "ruby",
+  berksfile: "ruby",
+  appfile: "ruby",
+  fastfile: "ruby",
+  matchfile: "ruby",
+  pluginfile: "ruby",
+  snapfile: "ruby",
+  thorfile: "ruby",
+  jenkinsfile: "groovy",
+  justfile: "just",
+  "go.mod": "go",
+  "go.sum": "go",
+  "cargo.toml": "toml",
+  "cargo.lock": "toml",
+  "pyproject.toml": "toml",
+  "poetry.lock": "toml",
+  pipfile: "toml",
+  "mix.exs": "elixir",
+  "mix.lock": "elixir",
+  "build.gradle": "groovy",
+  "settings.gradle": "groovy",
+  "build.gradle.kts": "kotlin",
+  "settings.gradle.kts": "kotlin",
+  "tsconfig.json": "jsonc",
+  "jsconfig.json": "jsonc",
+  ".env": "dotenv",
+  ".env.local": "dotenv",
+  ".env.development": "dotenv",
+  ".env.production": "dotenv",
+  ".env.test": "dotenv",
+  ".env.example": "dotenv",
+  ".env.sample": "dotenv",
+};
+
+export function languageFromPath(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/");
+  const base = normalized.split("/").pop() ?? normalized;
+  const lower = base.toLowerCase();
+
+  const named = FILENAME_LANGS[lower];
+  if (named) return named;
+
+  if (lower.endsWith(".d.ts") || lower.endsWith(".d.mts") || lower.endsWith(".d.cts")) {
+    return "typescript";
+  }
+
+  const dot = lower.lastIndexOf(".");
+  if (dot <= 0 || dot === lower.length - 1) {
+    const bare = lower.startsWith(".") ? lower.slice(1) : lower;
+    return EXTENSION_LANGS[bare] ?? null;
+  }
+
+  const ext = lower.slice(dot + 1);
+  return EXTENSION_LANGS[ext] ?? ext;
+}

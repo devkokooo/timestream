@@ -876,6 +876,14 @@ button {
   color: var(--tva-paper-dim);
 }
 
+.diff-tok-italic {
+  font-style: italic;
+}
+
+.diff-tok-bold {
+  font-weight: 600;
+}
+
 .diff-line.addition {
   background: rgba(143, 154, 98, 0.16);
 }

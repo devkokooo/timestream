@@ -1,5 +1,8 @@
+import { useMemo } from "react";
 import { actionLabel, fileAction, fileDisplayPath, pairHunkLines } from "../lib/diffView";
 import type { SplitCell as SplitCellModel } from "../lib/diffView";
+import { tokenClassName, useHighlightedLines, type ThemedToken } from "../lib/syntaxHighlight";
+import { languageFromPath } from "../lib/syntaxLang";
 import type { DiffHunk, DiffLine, DiffMode, FileChange, FileDiff } from "../lib/types";
 import { TvaScrollArea } from "./TvaScrollArea";
 
@@ -20,6 +23,7 @@ export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) 
     : diff
       ? fileDisplayPath(diff)
       : "";
+  const lang = languageFromPath(file?.path ?? diff?.path ?? "");
 
   return (
     <section className="diff-viewer">
@@ -63,9 +67,9 @@ export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) 
         {diff && !diff.binary
           ? diff.hunks.map((hunk, index) =>
               mode === "split" ? (
-                <SplitHunk key={`${hunk.header}-${index}`} hunk={hunk} />
+                <SplitHunk key={`${hunk.header}-${index}`} hunk={hunk} lang={lang} />
               ) : (
-                <InlineHunk key={`${hunk.header}-${index}`} hunk={hunk} />
+                <InlineHunk key={`${hunk.header}-${index}`} hunk={hunk} lang={lang} />
               ),
             )
           : null}
@@ -74,7 +78,10 @@ export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) 
   );
 }
 
-function InlineHunk({ hunk }: { hunk: DiffHunk }) {
+function InlineHunk({ hunk, lang }: { hunk: DiffHunk; lang: string | null }) {
+  const texts = useMemo(() => hunk.lines.map((line) => line.text), [hunk]);
+  const highlighted = useHighlightedLines(texts, lang);
+
   return (
     <div className="diff-hunk">
       <div className="diff-hunk-head">{hunk.header}</div>
@@ -86,7 +93,7 @@ function InlineHunk({ hunk }: { hunk: DiffHunk }) {
               className={`diff-line ${line.kind}`}
             >
               <GutterRow line={line} />
-              <div className="diff-code-row">{line.text}</div>
+              <CodeRow text={line.text} tokens={highlighted?.[index]} />
             </div>
           ))}
         </div>
@@ -106,14 +113,19 @@ function GutterRow({ line }: { line: DiffLine }) {
   );
 }
 
-function SplitHunk({ hunk }: { hunk: DiffHunk }) {
-  const rows = pairHunkLines(hunk.lines);
+function SplitHunk({ hunk, lang }: { hunk: DiffHunk; lang: string | null }) {
+  const rows = useMemo(() => pairHunkLines(hunk.lines), [hunk]);
+  const leftTexts = useMemo(() => rows.map((row) => row.left?.text ?? ""), [rows]);
+  const rightTexts = useMemo(() => rows.map((row) => row.right?.text ?? ""), [rows]);
+  const leftTokens = useHighlightedLines(leftTexts, lang);
+  const rightTokens = useHighlightedLines(rightTexts, lang);
+
   return (
     <div className="diff-hunk">
       <div className="diff-hunk-head">{hunk.header}</div>
       <div className="diff-split-frame">
-        <SplitSide side="old" cells={rows.map((row) => row.left)} />
-        <SplitSide side="new" cells={rows.map((row) => row.right)} />
+        <SplitSide side="old" cells={rows.map((row) => row.left)} tokens={leftTokens} />
+        <SplitSide side="new" cells={rows.map((row) => row.right)} tokens={rightTokens} />
       </div>
     </div>
   );
@@ -122,9 +134,11 @@ function SplitHunk({ hunk }: { hunk: DiffHunk }) {
 function SplitSide({
   side,
   cells,
+  tokens,
 }: {
   side: "old" | "new";
   cells: Array<SplitCellModel | null>;
+  tokens: ThemedToken[][] | null;
 }) {
   return (
     <div className={`diff-side ${side}`}>
@@ -138,11 +152,29 @@ function SplitSide({
               <div className="diff-gutter-row" aria-hidden>
                 <span className="diff-ln">{cell?.no ?? ""}</span>
               </div>
-              <div className="diff-code-row">{cell?.text ?? ""}</div>
+              <CodeRow text={cell?.text ?? ""} tokens={tokens?.[index]} />
             </div>
           ))}
         </div>
       </TvaScrollArea>
+    </div>
+  );
+}
+
+function CodeRow({ text, tokens }: { text: string; tokens?: ThemedToken[] }) {
+  return (
+    <div className="diff-code-row">
+      {tokens && tokens.length > 0
+        ? tokens.map((token, index) => (
+            <span
+              key={index}
+              className={tokenClassName(token.fontStyle)}
+              style={token.color ? { color: token.color } : undefined}
+            >
+              {token.content}
+            </span>
+          ))
+        : text}
     </div>
   );
 }
