@@ -7,7 +7,7 @@ import {
 } from "react";
 import { composeCommitMessage } from "../lib/commitMessage";
 import { cn } from "../lib/cn";
-import { actionLabel, fileAction, fileDisplayPath } from "../lib/diffView";
+import { actionMark, actionMarkTitle, actionTone, fileDisplayName, fileDisplayPath } from "../lib/diffView";
 import {
   actionColor,
   btn,
@@ -224,27 +224,38 @@ function Column({
         {!loading && items.length === 0 ? <div className={emptyText}>{empty}</div> : null}
         {!loading
           ? items.map((item) => {
-              const kind = fileAction(item.status);
+              const tone = actionTone(item.status);
+              const mark = actionMark(item.status);
+              const markTitle = actionMarkTitle(item.status);
               const selected = selectedPath === item.path;
               return (
                 <div
                   key={`${action}-${item.path}`}
                   className={cn(
-                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 px-2 py-2 font-mono text-xs text-tva-paper min-h-10 group",
-                    actionColor[kind],
+                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 px-2 py-2 font-mono text-xs min-h-10 group",
+                    actionColor[tone],
                     selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
                   )}
                 >
                   <button
                     type="button"
+                    title={fileDisplayPath(item)}
+                    aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
                     className="min-w-0 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
                     onClick={() => onOpen(side, item.path)}
                   >
                     <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                      {fileDisplayPath(item)}
+                      {fileDisplayName(item)}
                     </span>
+                    {selected ? (
+                      <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
+                        {fileDisplayPath(item)}
+                      </span>
+                    ) : null}
                   </button>
-                  <span className="shrink-0 text-[10px] tracking-[0.12em]">{actionLabel(kind)}</span>
+                  <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
+                    {mark}
+                  </span>
                   <button
                     type="button"
                     className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright"
