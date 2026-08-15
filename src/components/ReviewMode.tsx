@@ -137,7 +137,7 @@ export function ReviewMode({
         <label className="flex flex-col gap-1.5">
           <span className={fieldLabel}>Subject</span>
           <input
-            className={cn(fieldInput, "text-[15px]")}
+            className={fieldInput}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Subject of this filing"

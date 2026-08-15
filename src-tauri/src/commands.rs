@@ -17,7 +17,7 @@ use crate::ssh::{self, SshAgentStatus, SshKeyInfo};
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 fn config_dir(app: &AppHandle) -> Result<PathBuf> {
     let dir = app
@@ -271,6 +271,10 @@ pub fn pull_ff_only(app: AppHandle, args: RemoteAuthArgs) -> Result<AheadBehind>
     remotes::pull_ff_only(&path, &remote, &auth)
 }
 
+fn emit_clone_log(app: &AppHandle, line: &str) {
+    let _ = app.emit("clone-log", line);
+}
+
 #[tauri::command]
 pub fn clone_repository(
     app: AppHandle,
@@ -278,9 +282,17 @@ pub fn clone_repository(
     dest: String,
     key_path: Option<String>,
     passphrase: Option<String>,
+    remember_key: Option<bool>,
+    remember_default: Option<bool>,
+    remember_passphrase: Option<bool>,
 ) -> Result<RepoSummary> {
     let dest_path = PathBuf::from(&dest);
     let parsed = remotes::parse_remote_url(&url);
+    emit_clone_log(&app, &format!("Cloning into '{}'...", dest_path.display()));
+    if parsed.transport == "ssh" {
+        let host = parsed.host.as_deref().unwrap_or("github.com");
+        emit_clone_log(&app, &format!("Starting SSH session to {host}..."));
+    }
     let dummy = RemoteInfo {
         name: "origin".into(),
         url: url.clone(),
@@ -290,14 +302,39 @@ pub fn clone_repository(
         name_on_host: parsed.name.clone(),
     };
     let settings = load_app_settings(&app)?;
-    let auth = remotes::auth_for(
+    let auth = match remotes::auth_for(
         &settings,
         &dest_path,
         &dummy,
         key_path.as_deref(),
         passphrase.as_deref(),
+    ) {
+        Ok(auth) => auth,
+        Err(err) => {
+            emit_clone_log(&app, &format!("error: {err}"));
+            return Err(err);
+        }
+    };
+    if let Err(err) = remotes::clone_repository(&url, &dest_path, &auth, |line| {
+        emit_clone_log(&app, line);
+    }) {
+        emit_clone_log(&app, &format!("error: {err}"));
+        return Err(err);
+    }
+    emit_clone_log(&app, "Clone complete.");
+    apply_remember(
+        &app,
+        &RemoteAuthArgs {
+            path: dest.clone(),
+            remote: Some("origin".into()),
+            key_path,
+            passphrase,
+            remember_key,
+            remember_default,
+            remember_passphrase,
+        },
+        "origin",
     )?;
-    remotes::clone_repository(&url, &dest_path, &auth)?;
     open_repo(&dest_path)
 }
 

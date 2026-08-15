@@ -5,7 +5,9 @@ use git2::{
     AutotagOption, Cred, CredentialType, FetchOptions, PushOptions, RemoteCallbacks, Repository,
 };
 use serde::{Deserialize, Serialize};
+use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -191,6 +193,9 @@ pub fn auth_for(
         let key = key_override
             .map(|s| s.to_string())
             .or_else(|| settings.resolve_ssh_key(&repo_path.to_string_lossy(), &remote.name));
+        if settings.ssh.agent_autostart {
+            let _ = crate::ssh::ensure_agent();
+        }
         let Some(key) = key else {
             return Err(AppError::msg("SSH_IDENTITY_REQUIRED"));
         };
@@ -198,12 +203,14 @@ pub fn auth_for(
             Some(p) if !p.is_empty() => Some(p.to_string()),
             _ => auth::load_passphrase(&key).ok().flatten(),
         };
-        return Ok(GitAuth {
+        let auth = GitAuth {
             token: None,
-            ssh_key: Some(PathBuf::from(key)),
+            ssh_key: Some(PathBuf::from(&key)),
             passphrase: pass,
             use_agent: true,
-        });
+        };
+        prepare_ssh(&auth)?;
+        return Ok(auth);
     }
     Ok(GitAuth {
         token: auth::load_token()?,
@@ -211,6 +218,23 @@ pub fn auth_for(
         passphrase: None,
         use_agent: false,
     })
+}
+
+fn prepare_ssh(auth: &GitAuth) -> Result<()> {
+    crate::ssh_exec::ensure_registered();
+    if let Some(key) = &auth.ssh_key {
+        if let Err(err) = crate::ssh::add_key(&key.to_string_lossy(), auth.passphrase.as_deref()) {
+            if err.to_string().contains("SSH_PASSPHRASE_REQUIRED") {
+                return Err(err);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn with_ssh<T>(auth: &GitAuth, body: impl FnOnce() -> Result<T>) -> Result<T> {
+    let key = auth.ssh_key.clone();
+    crate::ssh_exec::with_identity(key.as_deref(), body)
 }
 
 fn make_callbacks(auth: &GitAuth) -> RemoteCallbacks<'_> {
@@ -262,12 +286,14 @@ pub fn fetch(path: &Path, remote_name: &str, auth: &GitAuth) -> Result<AheadBehi
 }
 
 fn fetch_repo(repo: &Repository, remote_name: &str, auth: &GitAuth) -> Result<()> {
-    let mut remote = repo.find_remote(remote_name)?;
-    let mut opts = FetchOptions::new();
-    opts.remote_callbacks(make_callbacks(auth));
-    opts.download_tags(AutotagOption::Auto);
-    remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
-    Ok(())
+    with_ssh(auth, || {
+        let mut remote = repo.find_remote(remote_name)?;
+        let mut opts = FetchOptions::new();
+        opts.remote_callbacks(make_callbacks(auth));
+        opts.download_tags(AutotagOption::Auto);
+        remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
+        Ok(())
+    })
 }
 
 pub fn fetch_refspec(
@@ -277,11 +303,13 @@ pub fn fetch_refspec(
     auth: &GitAuth,
 ) -> Result<()> {
     let repo = Repository::discover(path)?;
-    let mut remote = repo.find_remote(remote_name)?;
-    let mut opts = FetchOptions::new();
-    opts.remote_callbacks(make_callbacks(auth));
-    remote.fetch(&[refspec], Some(&mut opts), None)?;
-    Ok(())
+    with_ssh(auth, || {
+        let mut remote = repo.find_remote(remote_name)?;
+        let mut opts = FetchOptions::new();
+        opts.remote_callbacks(make_callbacks(auth));
+        remote.fetch(&[refspec], Some(&mut opts), None)?;
+        Ok(())
+    })
 }
 
 pub fn push_branch(
@@ -315,10 +343,13 @@ pub fn push_branch(
             }
         }
     }
-    let mut remote = repo.find_remote(remote_name)?;
-    let mut opts = PushOptions::new();
-    opts.remote_callbacks(make_callbacks(auth));
-    remote.push(&[&format!("{local_ref}:{local_ref}")], Some(&mut opts))?;
+    with_ssh(auth, || {
+        let mut remote = repo.find_remote(remote_name)?;
+        let mut opts = PushOptions::new();
+        opts.remote_callbacks(make_callbacks(auth));
+        remote.push(&[&format!("{local_ref}:{local_ref}")], Some(&mut opts))?;
+        Ok(())
+    })?;
     // set upstream if missing
     if let Ok(mut local) = repo.find_branch(&branch_name, git2::BranchType::Local) {
         if local.upstream().is_err() {
@@ -330,22 +361,26 @@ pub fn push_branch(
 
 pub fn push_tag(path: &Path, remote_name: &str, tag: &str, auth: &GitAuth) -> Result<()> {
     let repo = Repository::discover(path)?;
-    let mut remote = repo.find_remote(remote_name)?;
-    let spec = format!("refs/tags/{tag}:refs/tags/{tag}");
-    let mut opts = PushOptions::new();
-    opts.remote_callbacks(make_callbacks(auth));
-    remote.push(&[&spec], Some(&mut opts))?;
-    Ok(())
+    with_ssh(auth, || {
+        let mut remote = repo.find_remote(remote_name)?;
+        let spec = format!("refs/tags/{tag}:refs/tags/{tag}");
+        let mut opts = PushOptions::new();
+        opts.remote_callbacks(make_callbacks(auth));
+        remote.push(&[&spec], Some(&mut opts))?;
+        Ok(())
+    })
 }
 
 pub fn delete_remote_tag(path: &Path, remote_name: &str, tag: &str, auth: &GitAuth) -> Result<()> {
     let repo = Repository::discover(path)?;
-    let mut remote = repo.find_remote(remote_name)?;
-    let spec = format!(":refs/tags/{tag}");
-    let mut opts = PushOptions::new();
-    opts.remote_callbacks(make_callbacks(auth));
-    remote.push(&[&spec], Some(&mut opts))?;
-    Ok(())
+    with_ssh(auth, || {
+        let mut remote = repo.find_remote(remote_name)?;
+        let spec = format!(":refs/tags/{tag}");
+        let mut opts = PushOptions::new();
+        opts.remote_callbacks(make_callbacks(auth));
+        remote.push(&[&spec], Some(&mut opts))?;
+        Ok(())
+    })
 }
 
 pub fn pull_ff_only(path: &Path, remote_name: &str, auth: &GitAuth) -> Result<AheadBehind> {
@@ -389,17 +424,138 @@ pub fn pull_ff_only(path: &Path, remote_name: &str, auth: &GitAuth) -> Result<Ah
     ahead_behind_repo(&repo)
 }
 
+pub(crate) fn split_progress_text(raw: &str) -> Vec<String> {
+    raw.split(|c| c == '\r' || c == '\n')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+pub(crate) fn format_transfer_progress(
+    received: usize,
+    total: usize,
+    bytes: usize,
+    last_pct: &Cell<i32>,
+) -> Option<String> {
+    if total == 0 {
+        return None;
+    }
+    let pct = ((received * 100) / total) as i32;
+    if pct == last_pct.get() && received < total {
+        return None;
+    }
+    last_pct.set(pct);
+    let kib = bytes as f64 / 1024.0;
+    Some(format!(
+        "Receiving objects: {pct:3}% ({received}/{total}), {kib:.2} KiB"
+    ))
+}
+
+pub(crate) fn format_delta_progress(
+    indexed: usize,
+    total: usize,
+    last_pct: &Cell<i32>,
+) -> Option<String> {
+    if total == 0 {
+        return None;
+    }
+    let pct = ((indexed * 100) / total) as i32;
+    if pct == last_pct.get() && indexed < total {
+        return None;
+    }
+    last_pct.set(pct);
+    Some(format!("Resolving deltas: {pct:3}% ({indexed}/{total})"))
+}
+
+pub(crate) fn format_checkout_progress(
+    path: Option<&Path>,
+    current: usize,
+    total: usize,
+    last_pct: &Cell<i32>,
+) -> Option<String> {
+    if total == 0 {
+        return None;
+    }
+    let pct = ((current * 100) / total) as i32;
+    if pct == last_pct.get() && current < total {
+        return None;
+    }
+    last_pct.set(pct);
+    let name = path
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if name.is_empty() {
+        Some(format!("Checking out files: {pct:3}% ({current}/{total})"))
+    } else {
+        Some(format!(
+            "Checking out files: {pct:3}% ({current}/{total}) {name}"
+        ))
+    }
+}
+
 pub fn clone_repository(
     url: &str,
     dest: &Path,
     auth: &GitAuth,
+    log: impl FnMut(&str),
 ) -> Result<PathBuf> {
-    let mut builder = git2::build::RepoBuilder::new();
-    let mut fetch = FetchOptions::new();
-    fetch.remote_callbacks(make_callbacks(auth));
-    builder.fetch_options(fetch);
-    builder.clone(url, dest)?;
-    Ok(dest.to_path_buf())
+    let existed = dest.exists();
+    let log = Rc::new(RefCell::new(log));
+    let result = with_ssh(auth, || {
+        let mut cbs = make_callbacks(auth);
+        let last_obj = Cell::new(-1);
+        let last_delta = Cell::new(-1);
+        let transfer_log = Rc::clone(&log);
+        cbs.transfer_progress(move |stats| {
+            if let Some(line) = format_transfer_progress(
+                stats.received_objects(),
+                stats.total_objects(),
+                stats.received_bytes(),
+                &last_obj,
+            ) {
+                (*transfer_log.borrow_mut())(&line);
+            }
+            if stats.total_objects() > 0 && stats.received_objects() == stats.total_objects() {
+                if let Some(line) =
+                    format_delta_progress(stats.indexed_deltas(), stats.total_deltas(), &last_delta)
+                {
+                    (*transfer_log.borrow_mut())(&line);
+                }
+            }
+            true
+        });
+        let sideband_log = Rc::clone(&log);
+        cbs.sideband_progress(move |data| {
+            let text = String::from_utf8_lossy(data);
+            for line in split_progress_text(&text) {
+                (*sideband_log.borrow_mut())(&line);
+            }
+            true
+        });
+
+        let mut checkout = git2::build::CheckoutBuilder::new();
+        let last_co = Cell::new(-1);
+        let checkout_log = Rc::clone(&log);
+        checkout.progress(move |path, current, total| {
+            if let Some(line) = format_checkout_progress(path, current, total, &last_co) {
+                (*checkout_log.borrow_mut())(&line);
+            }
+        });
+
+        let mut builder = git2::build::RepoBuilder::new();
+        let mut fetch = FetchOptions::new();
+        fetch.remote_callbacks(cbs);
+        builder.fetch_options(fetch);
+        builder.with_checkout(checkout);
+        builder.clone(url, dest)?;
+        Ok(dest.to_path_buf())
+    });
+    if result.is_err() && !existed {
+        let _ = std::fs::remove_dir_all(dest);
+    }
+    result
 }
 
 #[allow(dead_code)]
@@ -414,6 +570,7 @@ pub fn github_clone_url(owner: &str, name: &str, protocol: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     #[test]
     fn parses_ssh_scp_syntax() {
@@ -438,6 +595,28 @@ mod tests {
         assert_eq!(p.transport, "ssh");
         assert_eq!(p.host.as_deref(), Some("github.com"));
         assert_eq!(p.name.as_deref(), Some("timestream"));
+    }
+
+    #[test]
+    fn splits_cr_and_lf_sideband() {
+        assert_eq!(
+            split_progress_text("remote: Counting objects: 10\rremote: Counting objects: 20\n"),
+            vec![
+                "remote: Counting objects: 10",
+                "remote: Counting objects: 20"
+            ]
+        );
+    }
+
+    #[test]
+    fn transfer_progress_throttles_same_percent() {
+        let last = Cell::new(-1);
+        let first = format_transfer_progress(10, 100, 1024, &last).unwrap();
+        assert!(first.contains("10%"));
+        assert!(format_transfer_progress(10, 100, 2048, &last).is_none());
+        let next = format_transfer_progress(11, 100, 2048, &last).unwrap();
+        assert!(next.contains("11%"));
+        assert!(next.contains("2.00 KiB"));
     }
 
     #[test]

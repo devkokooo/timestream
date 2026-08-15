@@ -7,6 +7,7 @@ mod graph;
 mod remotes;
 mod settings;
 mod ssh;
+mod ssh_exec;
 
 use commands::*;
 

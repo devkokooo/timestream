@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AheadBehind,
@@ -182,15 +183,21 @@ export function pullFfOnly(args: RemoteAuthArgs): Promise<AheadBehind> {
 export function cloneRepository(
   url: string,
   dest: string,
-  keyPath?: string,
-  passphrase?: string,
+  auth?: Pick<RemoteAuthArgs, "keyPath" | "passphrase" | "rememberKey" | "rememberDefault" | "rememberPassphrase">,
 ): Promise<RepoSummary> {
   return invoke("clone_repository", {
     url,
     dest,
-    keyPath: keyPath ?? null,
-    passphrase: passphrase ?? null,
+    keyPath: auth?.keyPath ?? null,
+    passphrase: auth?.passphrase ?? null,
+    rememberKey: auth?.rememberKey ?? null,
+    rememberDefault: auth?.rememberDefault ?? null,
+    rememberPassphrase: auth?.rememberPassphrase ?? null,
   });
+}
+
+export function onCloneLog(handler: (line: string) => void): Promise<() => void> {
+  return listen<string>("clone-log", (event) => handler(event.payload));
 }
 
 export function pushTag(args: RemoteAuthArgs, tag: string): Promise<void> {

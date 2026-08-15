@@ -34,6 +34,7 @@ import {
   isDivergedError,
   isPassphraseError,
   isSshIdentityError,
+  onCloneLog,
   openRepository,
   pickCloneDestination,
   pickRepository,
@@ -48,6 +49,7 @@ import {
   unstageFile,
 } from "./lib/api";
 import { cn } from "./lib/cn";
+import { appendCloneLog } from "./lib/cloneLog";
 import {
   loadRecentRepos,
   rememberRepo,
@@ -153,6 +155,10 @@ function errMessage(err: unknown): string {
 }
 
 function cloneUrl(input: string, protocol: string): string {
+  const githubHttps = input.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (protocol === "ssh" && githubHttps) {
+    return `git@github.com:${githubHttps[1]}/${githubHttps[2].replace(/\.git$/i, "")}.git`;
+  }
   if (input.includes("://") || input.startsWith("git@")) return input;
   const [owner, name] = input.split("/");
   if (owner && name) {
@@ -191,10 +197,13 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [cloneLog, setCloneLog] = useState<string[]>([]);
+  const [cloning, setCloning] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [variantRailOpen, setVariantRailOpen] = useState(true);
   const [docketOpen, setDocketOpen] = useState(true);
   const pendingRemote = useRef<((args: RemoteAuthArgs) => Promise<unknown>) | null>(null);
+  const pendingClone = useRef<{ url: string; dest: string } | null>(null);
   const busyRef = useRef(false);
   const repoPathRef = useRef<string | null>(null);
   const diffTargetRef = useRef<DiffTarget | null>(null);
@@ -247,6 +256,16 @@ export default function App() {
     void githubWhoami()
       .then(setUser)
       .catch(() => setUser(null));
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void onCloneLog((line) => {
+      setCloneLog((lines) => appendCloneLog(lines, line));
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, []);
 
   useEffect(() => {
@@ -557,6 +576,29 @@ export default function App() {
     setDocketTab("case");
   }
 
+  async function runClone(
+    url: string,
+    dest: string,
+    auth?: Pick<RemoteAuthArgs, "keyPath" | "passphrase" | "rememberKey" | "rememberDefault" | "rememberPassphrase">,
+  ) {
+    setError(null);
+    setCloning(true);
+    try {
+      const summary = await cloneRepository(url, dest, auth);
+      await loadAll(summary.path);
+    } catch (err) {
+      if (isSshIdentityError(err) || isPassphraseError(err)) {
+        pendingClone.current = { url, dest };
+        pendingRemote.current = null;
+        setIdentityOpen(true);
+        return;
+      }
+      setError(errMessage(err));
+    } finally {
+      setCloning(false);
+    }
+  }
+
   async function runRemote(op: (args: RemoteAuthArgs) => Promise<unknown>, extra?: Partial<RemoteAuthArgs>) {
     if (!repo) return;
     const args: RemoteAuthArgs = { path: repo.path, remote: "origin", ...extra };
@@ -649,7 +691,11 @@ export default function App() {
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSignedIn={setUser} />
       <IdentityPicker
         open={identityOpen}
-        onClose={() => setIdentityOpen(false)}
+        onClose={() => {
+          pendingClone.current = null;
+          pendingRemote.current = null;
+          setIdentityOpen(false);
+        }}
         onChoose={async (choice: IdentityChoice) => {
           setIdentityOpen(false);
           if (choice.keyPath) {
@@ -657,18 +703,25 @@ export default function App() {
               await sshAgentEnsure();
               await sshAddKey(choice.keyPath, choice.passphrase);
             } catch {
-              /* libgit2 can still use the key file */
+              /* OpenSSH can still use the key file via -i */
             }
           }
-          const op = pendingRemote.current ?? pushBranch;
-          pendingRemote.current = null;
-          await runRemote(op, {
+          const auth = {
             keyPath: choice.keyPath,
             passphrase: choice.passphrase,
             rememberKey: choice.rememberKey,
             rememberDefault: choice.rememberDefault,
             rememberPassphrase: choice.rememberPassphrase,
-          });
+          };
+          const clone = pendingClone.current;
+          pendingClone.current = null;
+          if (clone) {
+            await runClone(clone.url, clone.dest, auth);
+            return;
+          }
+          const op = pendingRemote.current ?? pushBranch;
+          pendingRemote.current = null;
+          await runRemote(op, auth);
         }}
       />
     </>
@@ -704,13 +757,9 @@ export default function App() {
               const url = cloneUrl(input, settings.github.cloneProtocol);
               const name = url.split("/").pop()?.replace(/\.git$/, "") ?? "repo";
               const dest = `${destRoot.replace(/[/\\]+$/, "")}/${name}`;
-              const summary = await cloneRepository(url, dest);
-              await loadAll(summary.path);
+              setCloneLog([]);
+              await runClone(url, dest);
             } catch (err) {
-              if (isSshIdentityError(err) || isPassphraseError(err)) {
-                setIdentityOpen(true);
-                return;
-              }
               setError(errMessage(err));
             }
           }}
@@ -719,6 +768,8 @@ export default function App() {
           onSettings={() => setSettingsOpen(true)}
           user={user}
           error={error}
+          cloneLog={cloneLog}
+          cloning={cloning}
         />
         {overlays}
       </div>

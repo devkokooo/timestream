@@ -81,7 +81,7 @@ pub fn key_info(private: &Path, public: &Path) -> Option<SshKeyInfo> {
     })
 }
 
-fn hidden_command(program: impl AsRef<OsStr>) -> Command {
+pub(crate) fn hidden_command(program: impl AsRef<OsStr>) -> Command {
     let mut cmd = Command::new(program);
     #[cfg(windows)]
     {
@@ -91,10 +91,19 @@ fn hidden_command(program: impl AsRef<OsStr>) -> Command {
     cmd
 }
 
+pub(crate) fn ssh_command() -> Command {
+    openssh_command("ssh")
+}
+
 fn ssh_add_command() -> Command {
+    openssh_command("ssh-add")
+}
+
+fn openssh_command(tool: &str) -> Command {
     #[cfg(windows)]
     {
-        if let Some(path) = windows_openssh_bin("ssh-add.exe") {
+        let exe = format!("{tool}.exe");
+        if let Some(path) = windows_openssh_bin(&exe) {
             let mut cmd = hidden_command(path);
             // Windows OpenSSH uses \\.\pipe\openssh-ssh-agent. Git for Windows often
             // leaves a stale cygwin SSH_AUTH_SOCK that the real ssh-add will chase.
@@ -102,10 +111,10 @@ fn ssh_add_command() -> Command {
             cmd.env_remove("SSH_AGENT_PID");
             return cmd;
         }
-        return hidden_command("ssh-add.exe");
+        return hidden_command(exe);
     }
     #[cfg(not(windows))]
-    hidden_command("ssh-add")
+    hidden_command(tool)
 }
 
 #[cfg(windows)]
