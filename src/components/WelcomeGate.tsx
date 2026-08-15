@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { cn } from "../lib/cn";
-import { btnPrimary, errorText, eyebrow } from "../lib/ui";
+import { btn, btnPrimary, errorText, eyebrow, fieldInput } from "../lib/ui";
+import type { GithubUser, RepoSearchHit } from "../lib/types";
 import type { RecentRepo } from "../lib/recentRepos";
+import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
 
 interface Props {
@@ -8,6 +11,11 @@ interface Props {
   onOpenRecent: (path: string) => void;
   onRemoveRecent: (path: string) => void;
   onBrowse: () => void;
+  onClone: (url: string) => void;
+  onSearchRepos: (query: string) => Promise<RepoSearchHit[]>;
+  onSignIn: () => void;
+  onSettings: () => void;
+  user: GithubUser | null;
   error: string | null;
 }
 
@@ -24,6 +32,11 @@ export function WelcomeGate({
   onOpenRecent,
   onRemoveRecent,
   onBrowse,
+  onClone,
+  onSearchRepos,
+  onSignIn,
+  onSettings,
+  user,
   error,
 }: Props) {
   return (
@@ -56,6 +69,13 @@ export function WelcomeGate({
 
           <button type="button" className={cn(btnPrimary, "w-full px-3.5 py-2.5")} onClick={onBrowse}>
             Open project
+          </button>
+          <CloneBox onClone={onClone} onSearchRepos={onSearchRepos} signedIn={Boolean(user)} />
+          <button type="button" className={cn(btn, "w-full")} onClick={onSignIn}>
+            <TvaTerm flavor="Clearance" noun={user ? `@${user.login}` : "Sign in with GitHub"} />
+          </button>
+          <button type="button" className={cn(btn, "w-full")} onClick={onSettings}>
+            <TvaTerm flavor="Bureau settings" noun="Settings" />
           </button>
 
           {error ? <div className={errorText}>{error}</div> : null}
@@ -105,6 +125,55 @@ export function WelcomeGate({
           )}
         </section>
       </div>
+    </div>
+  );
+}
+
+function CloneBox({
+  onClone,
+  onSearchRepos,
+  signedIn,
+}: {
+  onClone: (url: string) => void;
+  onSearchRepos: (query: string) => Promise<RepoSearchHit[]>;
+  signedIn: boolean;
+}) {
+  const [url, setUrl] = useState("");
+  const [hits, setHits] = useState<RepoSearchHit[]>([]);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button type="button" className={cn(btn, "w-full")} disabled>
+        <TvaTerm flavor="Clone from HQ" noun="Clone a GitHub repository" />
+      </button>
+      <input
+        className={fieldInput}
+        placeholder="owner/name or git URL"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onBlur={() => {
+          if (signedIn && url && !url.includes("://") && !url.includes("@")) {
+            void onSearchRepos(url).then(setHits).catch(() => setHits([]));
+          }
+        }}
+      />
+      <button
+        type="button"
+        className={btn}
+        disabled={!url.trim()}
+        onClick={() => onClone(url.trim())}
+      >
+        Clone
+      </button>
+      {hits.map((hit) => (
+        <button
+          key={hit.fullName}
+          type="button"
+          className="border-0 bg-transparent px-1 py-1 text-left text-[11px] text-tva-gold"
+          onClick={() => onClone(hit.cloneUrl)}
+        >
+          {hit.fullName}
+        </button>
+      ))}
     </div>
   );
 }

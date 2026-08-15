@@ -7,6 +7,7 @@ pub enum RefKind {
     Branch,
     Tag,
     Head,
+    Remote,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -70,6 +71,7 @@ pub struct VariantDossier {
     pub diverge_row: Option<u32>,
     pub commits_apart: u32,
     pub threat: ThreatLevel,
+    pub is_upstream: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -301,7 +303,7 @@ fn assign_lanes(
         }
     }
     for r in refs {
-        if matches!(r.kind, RefKind::Branch | RefKind::Tag)
+        if matches!(r.kind, RefKind::Branch | RefKind::Tag | RefKind::Remote)
             && by_id.contains_key(&r.target)
             && seen.insert(r.target.clone())
         {
@@ -478,11 +480,46 @@ fn build_dossiers(
             } else {
                 threat_for(exclusive, commits_apart)
             },
+            is_upstream: false,
+        });
+    }
+    let local_names: HashSet<String> = refs
+        .iter()
+        .filter(|r| r.kind == RefKind::Branch)
+        .map(|r| r.name.clone())
+        .collect();
+    for r in refs.iter().filter(|r| r.kind == RefKind::Remote) {
+        if !by_id.contains_key(&r.target) {
+            continue;
+        }
+        let short = r.name.rsplit('/').next().unwrap_or(r.name.as_str());
+        if local_names.contains(short) {
+            continue;
+        }
+        let variant_anc = ancestors(&r.target, by_id);
+        let exclusive = variant_anc.difference(&sacred_anc).count() as u32;
+        let sacred_only = sacred_anc.difference(&variant_anc).count() as u32;
+        let commits_apart = exclusive + sacred_only;
+        let diverge_row = variant_anc
+            .intersection(&sacred_anc)
+            .filter_map(|id| row_of.get(id).copied())
+            .max();
+        dossiers.push(VariantDossier {
+            name: r.name.clone(),
+            tip: r.target.clone(),
+            is_sacred: false,
+            is_head: false,
+            exclusive_commits: exclusive,
+            diverge_row,
+            commits_apart,
+            threat: threat_for(exclusive, commits_apart),
+            is_upstream: true,
         });
     }
     dossiers.sort_by(|a, b| {
         b.is_sacred
             .cmp(&a.is_sacred)
+            .then(a.is_upstream.cmp(&b.is_upstream))
             .then(a.name.cmp(&b.name))
     });
     dossiers
@@ -508,6 +545,14 @@ pub mod tests {
             name: name.into(),
             target: target.into(),
             kind: RefKind::Branch,
+        }
+    }
+
+    pub fn remote_ref(name: &str, target: &str) -> RawRef {
+        RawRef {
+            name: name.into(),
+            target: target.into(),
+            kind: RefKind::Remote,
         }
     }
 
@@ -756,5 +801,42 @@ pub mod tests {
         );
         assert_invariants(&tl);
         assert!(node(&tl, "parent").row < node(&tl, "child").row);
+    }
+
+    #[test]
+    fn remote_only_tip_gets_upstream_dossier() {
+        let tl = layout_timeline(
+            vec![
+                c("a", &[], 1, "root"),
+                c("b", &["a"], 2, "sacred"),
+                c("c", &["a"], 3, "upstream only"),
+            ],
+            vec![branch("main", "b"), remote_ref("origin/feature", "c")],
+            Some("b".into()),
+            Some("main".into()),
+        );
+        assert_invariants(&tl);
+        let up = tl
+            .dossiers
+            .iter()
+            .find(|d| d.name == "origin/feature")
+            .expect("upstream dossier");
+        assert!(up.is_upstream);
+        assert_ne!(node(&tl, "c").column, 0);
+        assert!(node(&tl, "c").refs.iter().any(|r| r.kind == RefKind::Remote));
+    }
+
+    #[test]
+    fn remote_tracking_of_local_branch_does_not_duplicate_dossier() {
+        let tl = layout_timeline(
+            vec![c("a", &[], 1, "root"), c("b", &["a"], 2, "tip")],
+            vec![branch("main", "b"), remote_ref("origin/main", "b")],
+            Some("b".into()),
+            Some("main".into()),
+        );
+        assert_invariants(&tl);
+        assert_eq!(tl.dossiers.iter().filter(|d| d.name.contains("main")).count(), 1);
+        assert!(!tl.dossiers.iter().any(|d| d.is_upstream));
+        assert!(node(&tl, "b").refs.iter().any(|r| r.kind == RefKind::Remote));
     }
 }

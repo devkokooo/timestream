@@ -8,9 +8,11 @@ interface Props {
   timeline: Timeline;
   onCheckout: (name: string) => void;
   busy: boolean;
+  prByBranch?: Record<string, number>;
+  aheadBehind?: { ahead: number; behind: number } | null;
 }
 
-export function VariantRail({ timeline, onCheckout, busy }: Props) {
+export function VariantRail({ timeline, onCheckout, busy, prByBranch, aheadBehind }: Props) {
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713] p-0">
       <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-3 py-3.5 pb-5">
@@ -21,6 +23,8 @@ export function VariantRail({ timeline, onCheckout, busy }: Props) {
             dossier={d}
             onCheckout={onCheckout}
             busy={busy}
+            prNumber={prByBranch?.[d.name]}
+            sync={d.isHead ? aheadBehind : null}
           />
         ))}
       </TvaScrollArea>
@@ -32,10 +36,14 @@ function DossierCard({
   dossier,
   onCheckout,
   busy,
+  prNumber,
+  sync,
 }: {
   dossier: VariantDossier;
   onCheckout: (name: string) => void;
   busy: boolean;
+  prNumber?: number;
+  sync?: { ahead: number; behind: number } | null;
 }) {
   return (
     <button
@@ -54,10 +62,21 @@ function DossierCard({
         <span>{dossier.name}</span>
         {dossier.isSacred ? (
           <span className={cn(stamp, stampGold)}>SACRED</span>
+        ) : dossier.isUpstream ? (
+          <span className={stamp} title="Remote-tracking branch">
+            UPSTREAM
+          </span>
         ) : (
           <span className={stamp}>VARIANT</span>
         )}
       </div>
+      {prNumber ? (
+        <div className="mt-1">
+          <span className={stamp} title="Open pull request">
+            REQUEST #{prNumber}
+          </span>
+        </div>
+      ) : null}
       <div
         className={cn(
           "mt-1.5 text-[10px] tracking-[0.12em] text-tva-muted",
@@ -68,6 +87,7 @@ function DossierCard({
         {dossier.isSacred
           ? "PRIMARY SEQUENCE"
           : `${threatCopy(dossier.threat)} · ${dossier.exclusiveCommits} exclusive · ${dossier.commitsApart} apart`}
+        {sync ? ` · ↑${sync.ahead} ↓${sync.behind}` : ""}
       </div>
     </button>
   );

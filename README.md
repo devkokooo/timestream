@@ -16,6 +16,19 @@ bun run tauri dev
 
 Requires Bun, Rust, and Windows C++ build tools (or the platform equivalent).
 
+## GitHub personal access token
+
+Sign-in stores the token in the OS keychain (never in `settings.toml`). A classic PAT covers every Timestream GitHub feature.
+
+1. Open [GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens/new?description=Timestream&scopes=repo,workflow,read:org).
+2. Name it `Timestream`, set an expiry, and enable **only** these scopes:
+   - **`repo`** (read and write) — HTTPS clone / fetch / push, pull requests, reviews, issues, comments, releases, check runs, notification inbox
+   - **`workflow`** (read and write) — push workflow files; rerun Actions jobs
+   - **`read:org`** (read) — search organization repositories
+3. Generate the token, copy it, and paste it into Timestream’s sign-in dialog.
+
+Fine-grained tokens work for clone, PRs, issues, releases, and Actions if you grant **Read and write** on Contents, Pull requests, Issues, Actions, and Workflows (Metadata read is automatic; Members read if you need org repos). GitHub’s Checks API and some notification endpoints still require a classic token, so prefer classic unless you are restricting the token to specific repositories.
+
 ## Test
 
 ```

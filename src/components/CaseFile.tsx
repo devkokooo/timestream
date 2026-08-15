@@ -17,9 +17,10 @@ interface Props {
   selectedPath: string | null;
   onOpenFile: (path: string) => void;
   onSelectCommit: (id: string) => void;
+  checks?: string;
 }
 
-export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommit }: Props) {
+export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommit, checks }: Props) {
   if (!node) {
     return (
       <aside className="flex min-h-0 flex-col overflow-hidden border-l border-tva-gold/16 bg-[#1b1713] p-0">
@@ -69,6 +70,11 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommi
               <p className="m-0">
                 {new Date((detail && !loading ? detail.timestamp : node.timestamp) * 1000).toUTCString()}
               </p>
+              {checks ? (
+                <p className="m-0" title="GitHub Checks">
+                  Integrity · Checks: {checks}
+                </p>
+              ) : null}
               <p className="m-0">
                 parents{" "}
                 {parents.length === 0

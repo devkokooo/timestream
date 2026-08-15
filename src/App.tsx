@@ -1,20 +1,47 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnomalyDock } from "./components/AnomalyDock";
+import { AuthDialog } from "./components/AuthDialog";
 import { BureauHeader } from "./components/BureauHeader";
-import { CaseFile } from "./components/CaseFile";
+import { CommandPalette, type PaletteCommand } from "./components/CommandPalette";
 import { DiffViewer } from "./components/DiffViewer";
+import { Docket } from "./components/Docket";
+import { IdentityPicker, type IdentityChoice } from "./components/IdentityPicker";
 import { SacredTimeline } from "./components/SacredTimeline";
+import { SettingsPage } from "./components/SettingsPage";
 import { VariantRail } from "./components/VariantRail";
 import { WelcomeGate } from "./components/WelcomeGate";
 import {
+  aheadBehind,
+  checkoutPullRequest,
+  cloneRepository,
+  createLocalTag,
+  fetchRemote,
   fileCommit,
   getCommit,
   getFileDiff,
+  getSettings,
   getStatus,
   getTimeline,
   getWorktreeDiff,
+  githubListNotifications,
+  githubListPulls,
+  githubListReviewComments,
+  githubOrigin,
+  githubSearchRepos,
+  githubWhoami,
+  githubLogout,
+  isDivergedError,
+  isPassphraseError,
+  isSshIdentityError,
   openRepository,
+  pickCloneDestination,
   pickRepository,
+  pullFfOnly,
+  pushBranch,
+  pushTag,
+  setSettings,
+  sshAddKey,
+  sshAgentEnsure,
   stageFile,
   switchBranch,
   unstageFile,
@@ -26,13 +53,24 @@ import {
   removeRecentRepo,
   type RecentRepo,
 } from "./lib/recentRepos";
+import { defaultSettings } from "./lib/settingsRegistry";
+import type { SettingDef } from "./lib/settingsRegistry";
 import { errorText } from "./lib/ui";
 import type {
+  AheadBehind,
+  AppSettings,
   CommitDetail,
   DiffMode,
+  DocketTab,
   FileChange,
   FileDiff,
+  GithubUser,
+  NotificationItem,
+  PullRequestSummary,
+  RemoteAuthArgs,
+  RemoteInfo,
   RepoSummary,
+  ReviewComment,
   StatusPayload,
   Timeline,
 } from "./lib/types";
@@ -40,7 +78,6 @@ import type {
 const appShell =
   "flex h-full flex-col bg-[radial-gradient(1200px_500px_at_50%_-10%,rgba(232,93,4,0.16),transparent_55%),linear-gradient(180deg,#1c1814_0%,#120f0c_100%)]";
 
-/** Background chronomonitor refresh while the archive is open. */
 const RESCAN_MS = 2500;
 
 type DiffTarget =
@@ -50,7 +87,6 @@ type DiffTarget =
 
 type LoadOptions = {
   keepSelection?: boolean;
-  /** Refresh without the busy chrome (used by automatic rescans). */
   quiet?: boolean;
 };
 
@@ -89,6 +125,21 @@ function keepIfSame<T>(prev: T, next: T): T {
   return sameJson(prev, next) ? prev : next;
 }
 
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function cloneUrl(input: string, protocol: string): string {
+  if (input.includes("://") || input.startsWith("git@")) return input;
+  const [owner, name] = input.split("/");
+  if (owner && name) {
+    return protocol === "ssh"
+      ? `git@github.com:${owner}/${name}.git`
+      : `https://github.com/${owner}/${name}.git`;
+  }
+  return input;
+}
+
 export default function App() {
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
   const [repo, setRepo] = useState<RepoSummary | null>(null);
@@ -105,6 +156,20 @@ export default function App() {
   const [diffError, setDiffError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [settings, setSettingsState] = useState<AppSettings>(defaultSettings);
+  const [user, setUser] = useState<GithubUser | null>(null);
+  const [origin, setOrigin] = useState<RemoteInfo | null>(null);
+  const [sync, setSync] = useState<AheadBehind | null>(null);
+  const [prs, setPrs] = useState<PullRequestSummary[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
+  const [docketTab, setDocketTab] = useState<DocketTab>("case");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsFocus, setSettingsFocus] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
+  const pendingRemote = useRef<((args: RemoteAuthArgs) => Promise<unknown>) | null>(null);
   const busyRef = useRef(false);
   const repoPathRef = useRef<string | null>(null);
   const diffTargetRef = useRef<DiffTarget | null>(null);
@@ -121,13 +186,17 @@ export default function App() {
     }
     try {
       const summary = await openRepository(path);
-      const [nextTimeline, nextStatus] = await Promise.all([
+      const [nextTimeline, nextStatus, nextOrigin, nextSync] = await Promise.all([
         getTimeline(path),
         getStatus(path),
+        githubOrigin(path).catch(() => null),
+        aheadBehind(path).catch(() => null),
       ]);
       setRepo((prev) => (sameRepo(prev, summary) ? prev! : summary));
       setTimeline((prev) => (prev && sameJson(prev, nextTimeline) ? prev : nextTimeline));
       setStatus((prev) => (prev && sameJson(prev, nextStatus) ? prev : nextStatus));
+      setOrigin(nextOrigin);
+      setSync(nextSync);
       if (!quiet) setRecent(rememberRepo(summary.path));
       setSelectedId((current) => {
         if (keepSelection && current && nextTimeline.nodes.some((n) => n.id === current)) {
@@ -136,18 +205,51 @@ export default function App() {
         return nextTimeline.head ?? nextTimeline.nodes.at(-1)?.id ?? null;
       });
     } catch (err) {
-      if (!quiet) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
+      if (!quiet) setError(errMessage(err));
     } finally {
       if (!quiet) setBusy(false);
     }
   }, []);
 
   useEffect(() => {
+    void getSettings()
+      .then(setSettingsState)
+      .catch(() => {});
+    void githubWhoami()
+      .then(setUser)
+      .catch(() => setUser(null));
+  }, []);
+
+  useEffect(() => {
+    if (!origin?.owner || !origin.nameOnHost || !user) {
+      setPrs([]);
+      return;
+    }
+    void githubListPulls(origin.owner, origin.nameOnHost, "open")
+      .then(setPrs)
+      .catch(() => setPrs([]));
+    void githubListNotifications()
+      .then(setNotifications)
+      .catch(() => setNotifications([]));
+  }, [origin?.owner, origin?.nameOnHost, user?.login]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (e.key === "Escape") {
+        setPaletteOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
     if (!repo) return;
     const path = repo.path;
-
     let cancelled = false;
     let inFlight = false;
     let pending = false;
@@ -162,7 +264,7 @@ export default function App() {
         setDiff((prev) => (prev && sameJson(prev, next) ? prev : next));
         setDiffError(null);
       } catch {
-        // Keep the open pane; the next successful scan will catch up.
+        /* keep pane */
       }
     };
 
@@ -188,13 +290,11 @@ export default function App() {
     const onFocus = () => {
       if (document.visibilityState === "visible") void rescan();
     };
-
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void rescan();
     }, RESCAN_MS);
-
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
@@ -232,8 +332,7 @@ export default function App() {
   useEffect(() => {
     if (!diffTarget || diffTarget.kind !== "commit") return;
     if (!detail || detail.id !== selectedId) return;
-    const stillThere = detail.files.some((file) => file.path === diffTarget.path);
-    if (!stillThere) {
+    if (!detail.files.some((file) => file.path === diffTarget.path)) {
       setDiffOpen(false);
       setDiffTarget(null);
     }
@@ -269,7 +368,6 @@ export default function App() {
       return;
     }
     if (!diffKey) return;
-
     const path = repoPathRef.current;
     const target = diffTarget;
     const switched = loadedDiffKeyRef.current !== diffKey;
@@ -278,13 +376,11 @@ export default function App() {
       setDiff(null);
       setDiffError(null);
     }
-
     let cancelled = false;
     const request =
       target.kind === "commit"
         ? getFileDiff(path, selectedId!, target.path)
         : getWorktreeDiff(path, target.path, target.kind === "staged");
-
     request
       .then((next) => {
         if (cancelled) return;
@@ -293,7 +389,7 @@ export default function App() {
       .catch((err) => {
         if (!cancelled) {
           setDiff(null);
-          setDiffError(err instanceof Error ? err.message : String(err));
+          setDiffError(errMessage(err));
         }
       });
     return () => {
@@ -301,8 +397,7 @@ export default function App() {
     };
   }, [diffKey, diffTarget, selectedId]);
 
-  const selectedNode =
-    timeline?.nodes.find((n) => n.id === selectedId) ?? null;
+  const selectedNode = timeline?.nodes.find((n) => n.id === selectedId) ?? null;
   const activeTarget = diffTarget ?? diffMountTarget;
   const selectedFile =
     activeTarget?.kind === "commit"
@@ -314,6 +409,17 @@ export default function App() {
     (diff.path === activeTarget.path || diff.oldPath === activeTarget.path)
       ? diff
       : null;
+
+  const prByBranch = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const pr of prs) map[pr.headRef] = pr.number;
+    return map;
+  }, [prs]);
+  const prHeadShas = useMemo(() => new Set(prs.map((p) => p.headSha)), [prs]);
+  const failingShas = useMemo(
+    () => new Set(prs.filter((p) => p.ciStatus === "failure").map((p) => p.headSha)),
+    [prs],
+  );
 
   function openDiff(target: DiffTarget) {
     if (targetsEqual(diffTarget, target)) {
@@ -339,13 +445,118 @@ export default function App() {
   async function browse() {
     try {
       const picked = await pickRepository();
-      if (picked) {
-        await loadAll(picked);
-      }
+      if (picked) await loadAll(picked);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errMessage(err));
     }
   }
+
+  async function runRemote(op: (args: RemoteAuthArgs) => Promise<unknown>, extra?: Partial<RemoteAuthArgs>) {
+    if (!repo) return;
+    const args: RemoteAuthArgs = { path: repo.path, remote: "origin", ...extra };
+    try {
+      setBusy(true);
+      await op(args);
+      await loadAll(repo.path, { keepSelection: true });
+    } catch (err) {
+      if (isSshIdentityError(err) || isPassphraseError(err)) {
+        pendingRemote.current = op;
+        setIdentityOpen(true);
+        return;
+      }
+      if (isDivergedError(err)) {
+        setError(
+          "Variant diverged — local branch and origin have diverged; pull would not fast-forward.",
+        );
+        return;
+      }
+      setError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const commands: PaletteCommand[] = [
+    { id: "palette", title: "Show command palette", hint: "Ctrl+Shift+P", run: () => setPaletteOpen(true) },
+    { id: "settings", title: "Open settings", hint: "Bureau settings", run: () => setSettingsOpen(true) },
+    { id: "signin", title: "Sign in with GitHub", hint: "Clearance", run: () => setAuthOpen(true) },
+    { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => setUser(null)) },
+    { id: "open", title: "Open archive", run: () => void browse() },
+    { id: "rescan", title: "Rescan", run: () => repo && void loadAll(repo.path, { keepSelection: true }) },
+    { id: "fetch", title: "Fetch from origin", hint: "Dispatch", run: () => void runRemote(fetchRemote) },
+    { id: "push", title: "Push branch", hint: "File to HQ", run: () => void runRemote(pushBranch) },
+    { id: "pull", title: "Fast-forward pull", hint: "Sync inbound", run: () => void runRemote(pullFfOnly) },
+    { id: "ssh-pick", title: "GitHub: Choose SSH key for this remote", run: () => setIdentityOpen(true) },
+    {
+      id: "ssh-agent",
+      title: "SSH: Start agent",
+      run: () => void sshAgentEnsure().catch((e) => setError(errMessage(e))),
+    },
+    {
+      id: "ssh-add",
+      title: "SSH: Add key to agent",
+      run: () => {
+        if (settings.ssh.defaultKey) void sshAddKey(settings.ssh.defaultKey);
+        else setIdentityOpen(true);
+      },
+    },
+    {
+      id: "settings-toml",
+      title: "Open settings.toml",
+      run: () => setSettingsOpen(true),
+    },
+  ];
+
+  const overlays = (
+    <>
+      <CommandPalette
+        open={paletteOpen}
+        commands={commands}
+        settings={settings}
+        onClose={() => setPaletteOpen(false)}
+        onOpenSetting={(key) => {
+          setSettingsFocus(key);
+          setSettingsOpen(true);
+        }}
+        onToggleSetting={async (def: SettingDef) => {
+          const next = await setSettings(def.set(settings, !def.get(settings)));
+          setSettingsState(next);
+        }}
+      />
+      <SettingsPage
+        open={settingsOpen}
+        settings={settings}
+        focusKey={settingsFocus}
+        onClose={() => setSettingsOpen(false)}
+        onChange={setSettingsState}
+      />
+      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSignedIn={setUser} />
+      <IdentityPicker
+        open={identityOpen}
+        onClose={() => setIdentityOpen(false)}
+        onChoose={async (choice: IdentityChoice) => {
+          setIdentityOpen(false);
+          if (choice.keyPath) {
+            try {
+              await sshAgentEnsure();
+              await sshAddKey(choice.keyPath, choice.passphrase);
+            } catch {
+              /* libgit2 can still use the key file */
+            }
+          }
+          const op = pendingRemote.current ?? pushBranch;
+          pendingRemote.current = null;
+          await runRemote(op, {
+            keyPath: choice.keyPath,
+            passphrase: choice.passphrase,
+            rememberKey: choice.rememberKey,
+            rememberDefault: choice.rememberDefault,
+            rememberPassphrase: choice.rememberPassphrase,
+          });
+        }}
+      />
+    </>
+  );
 
   if (!repo || !timeline) {
     return (
@@ -355,8 +566,30 @@ export default function App() {
           onOpenRecent={(path) => loadAll(path)}
           onRemoveRecent={(path) => setRecent(removeRecentRepo(path))}
           onBrowse={browse}
+          onClone={async (input) => {
+            try {
+              const destRoot = await pickCloneDestination();
+              if (!destRoot) return;
+              const url = cloneUrl(input, settings.github.cloneProtocol);
+              const name = url.split("/").pop()?.replace(/\.git$/, "") ?? "repo";
+              const dest = `${destRoot.replace(/[/\\]+$/, "")}/${name}`;
+              const summary = await cloneRepository(url, dest);
+              await loadAll(summary.path);
+            } catch (err) {
+              if (isSshIdentityError(err) || isPassphraseError(err)) {
+                setIdentityOpen(true);
+                return;
+              }
+              setError(errMessage(err));
+            }
+          }}
+          onSearchRepos={githubSearchRepos}
+          onSignIn={() => setAuthOpen(true)}
+          onSettings={() => setSettingsOpen(true)}
+          user={user}
           error={error}
         />
+        {overlays}
       </div>
     );
   }
@@ -365,8 +598,18 @@ export default function App() {
     <div className={appShell}>
       <BureauHeader
         repo={repo}
+        origin={origin}
+        sync={sync}
+        user={user}
+        notifications={notifications.length}
         onOpen={browse}
         onReload={() => loadAll(repo.path, { keepSelection: true })}
+        onFetch={() => void runRemote(fetchRemote)}
+        onPush={() => void runRemote(pushBranch)}
+        onPull={() => void runRemote(pullFfOnly)}
+        onSettings={() => setSettingsOpen(true)}
+        onSignIn={() => setAuthOpen(true)}
+        onSignOut={() => void githubLogout().then(() => setUser(null))}
       />
       {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
       <div
@@ -376,13 +619,15 @@ export default function App() {
         <VariantRail
           timeline={timeline}
           busy={busy}
+          prByBranch={prByBranch}
+          aheadBehind={sync}
           onCheckout={async (name) => {
             try {
               setBusy(true);
               await switchBranch(repo.path, name);
               await loadAll(repo.path);
             } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
+              setError(errMessage(err));
               setBusy(false);
             }
           }}
@@ -396,6 +641,8 @@ export default function App() {
               timeline={timeline}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              prHeadShas={prHeadShas}
+              failingShas={failingShas}
             />
           </div>
           <div
@@ -423,22 +670,54 @@ export default function App() {
                 error={diffError}
                 onMode={setDiffMode}
                 onClose={closeDiff}
+                reviewComments={reviewComments}
               />
             ) : null}
           </div>
         </div>
-        <CaseFile
+        <Docket
+          tab={docketTab}
+          onTab={setDocketTab}
           node={selectedNode}
           detail={detail}
-          selectedPath={
-            diffTarget?.kind === "commit" ? diffTarget.path : null
-          }
-          onOpenFile={(path) => openDiff({ kind: "commit", path })}
+          selectedPath={diffTarget?.kind === "commit" ? diffTarget.path : null}
+          onOpenFile={(path) => {
+            const pr = prs.find((p) => p.headSha === selectedId);
+            if (pr && origin?.owner && origin.nameOnHost) {
+              void githubListReviewComments(origin.owner, origin.nameOnHost, pr.number)
+                .then(setReviewComments)
+                .catch(() => setReviewComments([]));
+            }
+            openDiff({ kind: "commit", path });
+          }}
           onSelectCommit={setSelectedId}
+          owner={origin?.owner ?? null}
+          repoName={origin?.nameOnHost ?? null}
+          signedIn={Boolean(user)}
+          currentBranch={repo.branch}
+          sacredBranch={timeline.sacredBranch}
+          timeline={timeline}
+          selectedSha={selectedId}
+          checksBySha={Object.fromEntries(
+            prs.filter((p) => p.ciStatus).map((p) => [p.headSha, p.ciStatus!]),
+          )}
+          onCheckoutPr={async (number) => {
+            await runRemote((args) => checkoutPullRequest(args, number));
+          }}
+          onCreateTag={(name, sha, message) => {
+            void createLocalTag(repo.path, name, sha, message)
+              .then(() => loadAll(repo.path, { keepSelection: true }))
+              .catch((err) => setError(errMessage(err)));
+          }}
+          onPushTag={(name) => {
+            void runRemote((args) => pushTag(args, name));
+          }}
         />
         <AnomalyDock
           status={status}
           busy={busy}
+          ahead={sync?.ahead ?? 0}
+          onPush={() => void runRemote(pushBranch)}
           selected={
             diffTarget && diffTarget.kind !== "commit"
               ? { side: diffTarget.kind, path: diffTarget.path }
@@ -453,6 +732,7 @@ export default function App() {
           }}
         />
       </div>
+      {overlays}
     </div>
   );
 }
