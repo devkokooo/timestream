@@ -6,9 +6,11 @@ interface Props {
   timeline: Timeline;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  prHeadShas?: Set<string>;
+  failingShas?: Set<string>;
 }
 
-export function SacredTimeline({ timeline, selectedId, onSelect }: Props) {
+export function SacredTimeline({ timeline, selectedId, onSelect, prHeadShas, failingShas }: Props) {
   const view = useMemo(() => layoutTimelineView(timeline), [timeline]);
   const [pan, setPan] = useState({ x: 40, y: 20, scale: 1 });
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(
@@ -143,8 +145,11 @@ export function SacredTimeline({ timeline, selectedId, onSelect }: Props) {
 
         {view.nodes.map((node) => {
           const selected = node.id === selectedId;
+          const isRemote = node.refs.some((r) => r.kind === "remote") && node.refs.every((r) => r.kind !== "branch");
+          const isPr = prHeadShas?.has(node.id);
+          const failed = failingShas?.has(node.id);
           return (
-            <g key={node.id} onClick={() => onSelect(node.id)}>
+            <g key={node.id} onClick={() => onSelect(node.id)} opacity={isRemote ? 0.55 : 1}>
               {node.isHead && (
                 <circle
                   cx={node.x}
@@ -168,13 +173,21 @@ export function SacredTimeline({ timeline, selectedId, onSelect }: Props) {
                 cy={node.y}
                 r={selected ? node.r + 2 : node.r}
                 fill="url(#nexus)"
-                stroke={selected ? "#fff6d2" : "#2b2118"}
-                strokeWidth={selected ? 2 : 1}
+                stroke={failed ? "#c23b22" : selected ? "#fff6d2" : "#2b2118"}
+                strokeWidth={failed || selected ? 2 : 1}
                 filter="url(#glow)"
               />
+              {isPr ? (
+                <text x={node.x} y={node.y - node.r - 8} textAnchor="middle" className="ref-label" fill="#e85d04">
+                  REQUEST
+                  <title>Pull request</title>
+                </text>
+              ) : null}
               <circle className="node-hit" cx={node.x} cy={node.y} r={16}>
                 <title>
                   {node.shortId} — {node.summary}
+                  {failed ? " — Checks failed" : ""}
+                  {isPr ? " — Pull request" : ""}
                 </title>
               </circle>
             </g>

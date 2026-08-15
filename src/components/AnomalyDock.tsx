@@ -31,6 +31,8 @@ interface Props {
   onUnstage: (path: string) => void | Promise<void>;
   onCommit: (message: string) => Promise<void>;
   busy: boolean;
+  ahead?: number;
+  onPush?: () => void;
 }
 
 export function AnomalyDock({
@@ -41,6 +43,8 @@ export function AnomalyDock({
   onUnstage,
   onCommit,
   busy,
+  ahead = 0,
+  onPush,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -165,9 +169,19 @@ export function AnomalyDock({
                   ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
                   : "File at least one record before submitting"}
               </p>
-              <button className={btnPrimary} type="submit" disabled={!canFile}>
-                File variant
-              </button>
+              <div className="flex gap-2">
+                {ahead > 0 && onPush ? (
+                  <button type="button" className={btn} onClick={onPush}>
+                    File to HQ
+                    <span className="mt-0.5 block text-[9px] font-normal normal-case tracking-normal text-tva-muted">
+                      Push branch · {ahead} ahead
+                    </span>
+                  </button>
+                ) : null}
+                <button className={btnPrimary} type="submit" disabled={!canFile}>
+                  File variant
+                </button>
+              </div>
             </div>
           </form>
         </div>

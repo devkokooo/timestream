@@ -94,9 +94,14 @@ pub fn open_repo(path: &Path) -> Result<RepoSummary> {
     summary(&repo)
 }
 
+#[allow(dead_code)]
 pub fn load_timeline(path: &Path) -> Result<Timeline> {
+    load_timeline_opts(path, true)
+}
+
+pub fn load_timeline_opts(path: &Path, show_upstream: bool) -> Result<Timeline> {
     let repo = Repository::discover(path)?;
-    let (commits, refs, head, sacred_hint) = collect_raw(&repo)?;
+    let (commits, refs, head, sacred_hint) = collect_raw(&repo, show_upstream)?;
     Ok(layout_timeline(commits, refs, head, sacred_hint))
 }
 
@@ -184,6 +189,36 @@ pub fn list_branches(path: &Path) -> Result<Vec<BranchInfo>> {
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(out)
+}
+
+pub fn create_branch(path: &Path, name: &str) -> Result<RepoSummary> {
+    let repo = Repository::discover(path)?;
+    let commit = repo
+        .head()?
+        .peel_to_commit()
+        .map_err(|_| AppError::msg("HEAD has no commit"))?;
+    repo.branch(name, &commit, false)?;
+    checkout_branch(path, name)
+}
+
+pub fn create_tag(path: &Path, name: &str, sha: &str, message: Option<&str>) -> Result<()> {
+    let repo = Repository::discover(path)?;
+    let obj = repo.revparse_single(sha)?;
+    if let Some(message) = message.filter(|m| !m.trim().is_empty()) {
+        let sig = repo
+            .signature()
+            .or_else(|_| Signature::now("Timestream", "timestream@local"))?;
+        repo.tag(name, &obj, &sig, message, false)?;
+    } else {
+        repo.tag_lightweight(name, &obj, false)?;
+    }
+    Ok(())
+}
+
+pub fn delete_tag(path: &Path, name: &str) -> Result<()> {
+    let repo = Repository::discover(path)?;
+    repo.tag_delete(name)?;
+    Ok(())
 }
 
 pub fn checkout_branch(path: &Path, name: &str) -> Result<RepoSummary> {
@@ -281,6 +316,7 @@ fn current_branch(repo: &Repository) -> Option<String> {
 
 fn collect_raw(
     repo: &Repository,
+    show_upstream: bool,
 ) -> Result<(Vec<RawCommit>, Vec<RawRef>, Option<String>, Option<String>)> {
     let mut walk = repo.revwalk()?;
     walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
@@ -289,6 +325,21 @@ fn collect_raw(
     for reference in repo.references()? {
         let reference = reference?;
         if reference.is_remote() {
+            if !show_upstream {
+                continue;
+            }
+            let Ok(commit) = reference.peel_to_commit() else {
+                continue;
+            };
+            let _ = walk.push(commit.id());
+            let Some(name) = reference.shorthand() else {
+                continue;
+            };
+            refs.push(RawRef {
+                name: name.to_string(),
+                target: commit.id().to_string(),
+                kind: RefKind::Remote,
+            });
             continue;
         }
         let Ok(commit) = reference.peel_to_commit() else {
@@ -1034,5 +1085,49 @@ mod tests {
                 .any(|line| line.kind == "addition" && line.text.contains("brand new"))
         }));
         assert!(load_worktree_diff(&h.path, "missing.txt", false).is_err());
+    }
+
+    #[test]
+    fn remote_tracking_ref_appears_when_upstream_enabled() {
+        let mut h = Harness::new();
+        let root = h.commit("a.txt", "a", "root");
+        h.branch_from("feature", &root);
+        h.checkout("feature");
+        let tip = h.commit("f.txt", "f", "on feature");
+        let oid = git2::Oid::from_str(&tip).unwrap();
+        h.repo
+            .reference("refs/remotes/origin/feature", oid, true, "test remote")
+            .unwrap();
+
+        let hidden = load_timeline_opts(&h.path, false).unwrap();
+        assert!(!hidden.nodes.iter().any(|n| {
+            n.refs.iter().any(|r| r.kind == crate::graph::RefKind::Remote)
+        }));
+
+        let shown = load_timeline_opts(&h.path, true).unwrap();
+        assert_invariants(&shown);
+        assert!(shown.nodes.iter().any(|n| {
+            n.refs.iter().any(|r| r.kind == crate::graph::RefKind::Remote && r.name == "origin/feature")
+        }));
+    }
+
+    #[test]
+    fn create_and_delete_lightweight_tag() {
+        let mut h = Harness::new();
+        let tip = h.commit("a.txt", "a", "root");
+        create_tag(&h.path, "v1.0", &tip, None).unwrap();
+        let tl = load_timeline(&h.path).unwrap();
+        assert!(tl.nodes.iter().any(|n| n.refs.iter().any(|r| r.name == "v1.0")));
+        delete_tag(&h.path, "v1.0").unwrap();
+        let after = load_timeline(&h.path).unwrap();
+        assert!(!after.nodes.iter().any(|n| n.refs.iter().any(|r| r.name == "v1.0")));
+    }
+
+    #[test]
+    fn create_branch_from_head() {
+        let mut h = Harness::new();
+        h.commit("a.txt", "a", "root");
+        let summary = create_branch(&h.path, "variant-x").unwrap();
+        assert_eq!(summary.branch.as_deref(), Some("variant-x"));
     }
 }

@@ -14,7 +14,12 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 | Path | Role |
 | --- | --- |
 | `src-tauri/src/graph.rs` | Lane assignment, edges, branch topology. Pure. Heavily tested. |
-| `src-tauri/src/git.rs` | Open repo, walk history, status, diff, checkout, stage, commit |
+| `src-tauri/src/git.rs` | Open repo, walk history, status, diff, checkout, stage, commit, tags |
+| `src-tauri/src/remotes.rs` | libgit2 remotes, fetch, ff-only pull, push, clone, ahead/behind |
+| `src-tauri/src/auth.rs` | GitHub device flow + PAT; OS keychain |
+| `src-tauri/src/ssh.rs` | SSH key listing, ssh-agent, ssh-add |
+| `src-tauri/src/settings.rs` | Versioned `settings.toml` |
+| `src-tauri/src/github.rs` | GitHub REST: PRs, issues, releases, checks, reviews |
 | `src-tauri/src/commands.rs` | Tauri IPC surface — thin wrappers only |
 | `src/lib/timelineView.ts` | Graph → SVG coordinates, lane spacing, label collision |
 | `src/components/SacredTimeline.tsx` | Chronomonitor visualization |
@@ -31,10 +36,40 @@ Do not look like GitHub, GitKraken, or a generic dark IDE.
 
 ## Git rules
 
-- Local-first: operate only on a user-selected working tree. No remotes, clone, or push in v1
-- Graph input is refs + reachable commits. Default branch is the Sacred Timeline; others are variants
+- Local-first working tree, plus optional GitHub remotes in v2 (clone / fetch / ff-only pull / push)
+- Graph input is refs + reachable commits (local branches, tags, optional remote-tracking refs). Default branch is the Sacred Timeline; others are variants
 - Layout must stay consistent for: linear history, many simultaneous branches, and branches that diverge for dozens of commits
-- Never rewrite history. Checkout / stage / commit only
+- Never rewrite history. No force-push. Checkout / stage / commit / ff-only pull only
+- Never shell out to `git`. OpenSSH `ssh-agent` / `ssh-add` are allowed (they are not git)
+- Secrets (OAuth tokens, SSH passphrases) live in the OS keychain, never in `settings.toml`
+
+## GitHub personal access token
+
+Document and request **only** scopes that match implemented GitHub features. Device flow in `auth.rs` already asks for `repo read:org workflow` — keep PAT docs, OAuth scopes, and this list in lockstep. When you add a GitHub API, update this section, `README.md`, and the AuthDialog hint.
+
+**Classic PAT** (covers every shipped feature, including Checks API and the notification inbox):
+
+| Scope | Access | Used for |
+| --- | --- | --- |
+| `repo` | read + write | HTTPS clone / fetch / push, PRs, reviews, issues, comments, releases, check runs, notifications |
+| `workflow` | read + write | Push `.github/workflows` changes; rerun Actions jobs |
+| `read:org` | read | Search / list organization repositories |
+
+Do **not** suggest `admin`, `delete_repo`, `gist`, `packages`, `project`, `notifications` (already covered by `repo`), secrets, codespaces, pages, or discussions.
+
+**Fine-grained PAT** (least privilege; Checks API and some notification endpoints still need classic):
+
+| Permission | Access | Used for |
+| --- | --- | --- |
+| Contents | Read and write | Clone, fetch, push, tags, releases |
+| Pull requests | Read and write | List / create / update / merge PRs, reviews, review comments |
+| Issues | Read and write | Issues and issue comments |
+| Actions | Read and write | Rerun jobs |
+| Workflows | Read and write | Push workflow files |
+| Metadata | Read | Automatic; repo listing |
+| Members (org owner) | Read | Search org repos |
+
+Create a classic token: `https://github.com/settings/tokens/new?description=Timestream&scopes=repo,workflow,read:org`
 
 ## Testing (required before claiming done)
 

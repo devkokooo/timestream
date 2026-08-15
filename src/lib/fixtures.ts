@@ -35,6 +35,7 @@ function dossier(
     divergeRow: extra.divergeRow ?? 0,
     commitsApart: extra.commitsApart ?? 0,
     threat: extra.threat ?? "low",
+    isUpstream: extra.isUpstream ?? false,
   };
 }
 

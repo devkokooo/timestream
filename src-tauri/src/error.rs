@@ -7,6 +7,14 @@ pub enum AppError {
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
+    Toml(#[from] toml::de::Error),
+    #[error("{0}")]
+    TomlSer(#[from] toml::ser::Error),
+    #[error("{0}")]
+    Json(#[from] serde_json::Error),
+    #[error("{0}")]
+    Http(#[from] reqwest::Error),
+    #[error("{0}")]
     Message(String),
 }
 

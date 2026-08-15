@@ -12,7 +12,7 @@ import {
   stamp,
   stampByAction,
 } from "../lib/ui";
-import type { DiffHunk, DiffLine, DiffMode, FileChange, FileDiff } from "../lib/types";
+import type { DiffHunk, DiffLine, DiffMode, FileChange, FileDiff, ReviewComment } from "../lib/types";
 import { TvaScrollArea } from "./TvaScrollArea";
 
 interface Props {
@@ -22,9 +22,11 @@ interface Props {
   error: string | null;
   onMode: (mode: DiffMode) => void;
   onClose: () => void;
+  reviewComments?: ReviewComment[];
+  onAddComment?: (line: number, body: string) => void;
 }
 
-export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) {
+export function DiffViewer({ file, diff, mode, error, onMode, onClose, reviewComments, onAddComment }: Props) {
   const status = file?.status ?? diff?.status ?? "modified";
   const action = fileAction(status);
   const title = file
@@ -95,6 +97,25 @@ export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) 
             )
           : null}
       </TvaScrollArea>
+      {reviewComments && reviewComments.length > 0 ? (
+        <aside className="max-h-40 overflow-auto border-t border-tva-gold/16 px-3 py-2">
+          <p className="m-0 mb-1 text-[10px] uppercase tracking-[0.14em] text-tva-gold">
+            Margin notes · Pull request review comments
+          </p>
+          {reviewComments
+            .filter((c) => !file || c.path === file.path || c.path === diff?.path)
+            .map((c) => (
+              <p key={c.id} className="m-0 mb-1 text-[11px] text-tva-paper-dim" title="Pull request review comment">
+                L{c.line ?? "?"} {c.userLogin}: {c.body}
+              </p>
+            ))}
+          {onAddComment ? (
+            <p className="m-0 text-[10px] text-tva-muted">
+              Submit a review from the Requests docket. Comments here are GitHub review notes.
+            </p>
+          ) : null}
+        </aside>
+      ) : null}
     </section>
   );
 }

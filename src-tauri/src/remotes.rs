@@ -1,0 +1,454 @@
+use crate::auth;
+use crate::error::{AppError, Result};
+use crate::settings::AppSettings;
+use git2::{
+    AutotagOption, Cred, CredentialType, FetchOptions, PushOptions, RemoteCallbacks, Repository,
+};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteInfo {
+    pub name: String,
+    pub url: String,
+    pub transport: String,
+    pub host: Option<String>,
+    pub owner: Option<String>,
+    pub name_on_host: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AheadBehind {
+    pub ahead: usize,
+    pub behind: usize,
+    pub upstream: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GitAuth {
+    pub token: Option<String>,
+    pub ssh_key: Option<PathBuf>,
+    pub passphrase: Option<String>,
+    pub use_agent: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedRemote {
+    pub transport: String,
+    pub host: Option<String>,
+    pub owner: Option<String>,
+    pub name: Option<String>,
+}
+
+pub fn parse_remote_url(url: &str) -> ParsedRemote {
+    let trimmed = url.trim();
+    if let Some(rest) = trimmed.strip_prefix("git@") {
+        let (host, path) = rest.split_once(':').unwrap_or((rest, ""));
+        let (owner, name) = split_owner_repo(path);
+        return ParsedRemote {
+            transport: "ssh".into(),
+            host: Some(host.to_string()),
+            owner,
+            name,
+        };
+    }
+    if let Some(rest) = trimmed
+        .strip_prefix("ssh://")
+        .or_else(|| trimmed.strip_prefix("SSH://"))
+    {
+        let rest = rest.strip_prefix("git@").unwrap_or(rest);
+        let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
+        let host = host.split('@').next_back().unwrap_or(host);
+        let (owner, name) = split_owner_repo(path);
+        return ParsedRemote {
+            transport: "ssh".into(),
+            host: Some(host.to_string()),
+            owner,
+            name,
+        };
+    }
+    if let Some(rest) = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+    {
+        let rest = rest.split('@').next_back().unwrap_or(rest);
+        let mut parts = rest.split('/');
+        let host = parts.next().map(|s| s.to_string());
+        let owner = parts.next().map(|s| s.to_string());
+        let name = parts.next().map(strip_git_suffix).filter(|s| !s.is_empty());
+        return ParsedRemote {
+            transport: "https".into(),
+            host,
+            owner,
+            name,
+        };
+    }
+    ParsedRemote {
+        transport: "other".into(),
+        host: None,
+        owner: None,
+        name: None,
+    }
+}
+
+fn split_owner_repo(path: &str) -> (Option<String>, Option<String>) {
+    let path = path.trim_start_matches('/');
+    let mut parts = path.split('/');
+    let owner = parts.next().filter(|s| !s.is_empty()).map(|s| s.to_string());
+    let name = parts.next().map(strip_git_suffix).filter(|s| !s.is_empty());
+    (owner, name)
+}
+
+fn strip_git_suffix(name: &str) -> String {
+    name.trim_end_matches('/').trim_end_matches(".git").to_string()
+}
+
+pub fn list_remotes(path: &Path) -> Result<Vec<RemoteInfo>> {
+    let repo = Repository::discover(path)?;
+    let mut out = Vec::new();
+    for name in repo.remotes()?.iter().flatten() {
+        let remote = repo.find_remote(name)?;
+        let url = remote.url().unwrap_or("").to_string();
+        let parsed = parse_remote_url(&url);
+        out.push(RemoteInfo {
+            name: name.to_string(),
+            url,
+            transport: parsed.transport,
+            host: parsed.host,
+            owner: parsed.owner,
+            name_on_host: parsed.name,
+        });
+    }
+    Ok(out)
+}
+
+pub fn github_origin(path: &Path) -> Result<Option<RemoteInfo>> {
+    Ok(list_remotes(path)?
+        .into_iter()
+        .find(|r| r.name == "origin" && r.host.as_deref() == Some("github.com"))
+        .or_else(|| {
+            // fall back to any github.com remote
+            list_remotes(path)
+                .ok()
+                .and_then(|all| all.into_iter().find(|r| r.host.as_deref() == Some("github.com")))
+        }))
+}
+
+pub fn ahead_behind(path: &Path) -> Result<AheadBehind> {
+    let repo = Repository::discover(path)?;
+    ahead_behind_repo(&repo)
+}
+
+fn ahead_behind_repo(repo: &Repository) -> Result<AheadBehind> {
+    let head = match repo.head() {
+        Ok(h) => h,
+        Err(_) => {
+            return Ok(AheadBehind {
+                ahead: 0,
+                behind: 0,
+                upstream: None,
+            });
+        }
+    };
+    if !head.is_branch() {
+        return Ok(AheadBehind {
+            ahead: 0,
+            behind: 0,
+            upstream: None,
+        });
+    }
+    let local = head.target().ok_or_else(|| AppError::msg("HEAD has no target"))?;
+    let branch = git2::Branch::wrap(head);
+    match branch.upstream() {
+        Ok(up) => {
+            let upstream_name = up.name()?.map(|s| s.to_string());
+            let remote_oid = up.get().target().ok_or_else(|| AppError::msg("upstream has no target"))?;
+            let (ahead, behind) = repo.graph_ahead_behind(local, remote_oid)?;
+            Ok(AheadBehind {
+                ahead,
+                behind,
+                upstream: upstream_name,
+            })
+        }
+        Err(_) => Ok(AheadBehind {
+            ahead: 0,
+            behind: 0,
+            upstream: None,
+        }),
+    }
+}
+
+pub fn auth_for(
+    settings: &AppSettings,
+    repo_path: &Path,
+    remote: &RemoteInfo,
+    key_override: Option<&str>,
+    passphrase: Option<&str>,
+) -> Result<GitAuth> {
+    if remote.transport == "ssh" {
+        let key = key_override
+            .map(|s| s.to_string())
+            .or_else(|| settings.resolve_ssh_key(&repo_path.to_string_lossy(), &remote.name));
+        let Some(key) = key else {
+            return Err(AppError::msg("SSH_IDENTITY_REQUIRED"));
+        };
+        let pass = match passphrase {
+            Some(p) if !p.is_empty() => Some(p.to_string()),
+            _ => auth::load_passphrase(&key).ok().flatten(),
+        };
+        return Ok(GitAuth {
+            token: None,
+            ssh_key: Some(PathBuf::from(key)),
+            passphrase: pass,
+            use_agent: true,
+        });
+    }
+    Ok(GitAuth {
+        token: auth::load_token()?,
+        ssh_key: None,
+        passphrase: None,
+        use_agent: false,
+    })
+}
+
+fn make_callbacks(auth: &GitAuth) -> RemoteCallbacks<'_> {
+    let tried_agent = std::cell::Cell::new(false);
+    let tried_key = std::cell::Cell::new(false);
+    let tried_https = std::cell::Cell::new(false);
+    let mut cbs = RemoteCallbacks::new();
+    cbs.credentials(move |_url, username_from_url, allowed| {
+        let username = username_from_url.unwrap_or("git");
+        if allowed.contains(CredentialType::SSH_KEY) {
+            if auth.use_agent && !tried_agent.get() {
+                tried_agent.set(true);
+                if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+                    return Ok(cred);
+                }
+            }
+            if let Some(key) = &auth.ssh_key {
+                if !tried_key.get() {
+                    tried_key.set(true);
+                    let pub_key = {
+                        let mut p = key.clone();
+                        p.set_extension("pub");
+                        p
+                    };
+                    return Cred::ssh_key(
+                        username,
+                        pub_key.exists().then_some(pub_key.as_path()),
+                        key,
+                        auth.passphrase.as_deref(),
+                    );
+                }
+            }
+        }
+        if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) && !tried_https.get() {
+            tried_https.set(true);
+            if let Some(token) = &auth.token {
+                return Cred::userpass_plaintext("x-access-token", token);
+            }
+        }
+        Err(git2::Error::from_str("no credentials available"))
+    });
+    cbs
+}
+
+pub fn fetch(path: &Path, remote_name: &str, auth: &GitAuth) -> Result<AheadBehind> {
+    let repo = Repository::discover(path)?;
+    fetch_repo(&repo, remote_name, auth)?;
+    ahead_behind_repo(&repo)
+}
+
+fn fetch_repo(repo: &Repository, remote_name: &str, auth: &GitAuth) -> Result<()> {
+    let mut remote = repo.find_remote(remote_name)?;
+    let mut opts = FetchOptions::new();
+    opts.remote_callbacks(make_callbacks(auth));
+    opts.download_tags(AutotagOption::Auto);
+    remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
+    Ok(())
+}
+
+pub fn fetch_refspec(
+    path: &Path,
+    remote_name: &str,
+    refspec: &str,
+    auth: &GitAuth,
+) -> Result<()> {
+    let repo = Repository::discover(path)?;
+    let mut remote = repo.find_remote(remote_name)?;
+    let mut opts = FetchOptions::new();
+    opts.remote_callbacks(make_callbacks(auth));
+    remote.fetch(&[refspec], Some(&mut opts), None)?;
+    Ok(())
+}
+
+pub fn push_branch(
+    path: &Path,
+    remote_name: &str,
+    branch: Option<&str>,
+    auth: &GitAuth,
+) -> Result<AheadBehind> {
+    let repo = Repository::discover(path)?;
+    let branch_name = match branch {
+        Some(name) => name.to_string(),
+        None => repo
+            .head()?
+            .shorthand()
+            .ok_or_else(|| AppError::msg("detached HEAD cannot be pushed"))?
+            .to_string(),
+    };
+    let local_ref = format!("refs/heads/{branch_name}");
+    let local_oid = repo
+        .find_reference(&local_ref)?
+        .target()
+        .ok_or_else(|| AppError::msg("branch has no target"))?;
+    if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/{remote_name}/{branch_name}"))
+    {
+        if let Some(remote_oid) = remote_ref.target() {
+            let (_ahead, behind) = repo.graph_ahead_behind(local_oid, remote_oid)?;
+            if behind > 0 {
+                return Err(AppError::msg(
+                    "FORCE_PUSH_REJECTED: push would rewrite history on the remote",
+                ));
+            }
+        }
+    }
+    let mut remote = repo.find_remote(remote_name)?;
+    let mut opts = PushOptions::new();
+    opts.remote_callbacks(make_callbacks(auth));
+    remote.push(&[&format!("{local_ref}:{local_ref}")], Some(&mut opts))?;
+    // set upstream if missing
+    if let Ok(mut local) = repo.find_branch(&branch_name, git2::BranchType::Local) {
+        if local.upstream().is_err() {
+            let _ = local.set_upstream(Some(&format!("{remote_name}/{branch_name}")));
+        }
+    }
+    ahead_behind_repo(&repo)
+}
+
+pub fn push_tag(path: &Path, remote_name: &str, tag: &str, auth: &GitAuth) -> Result<()> {
+    let repo = Repository::discover(path)?;
+    let mut remote = repo.find_remote(remote_name)?;
+    let spec = format!("refs/tags/{tag}:refs/tags/{tag}");
+    let mut opts = PushOptions::new();
+    opts.remote_callbacks(make_callbacks(auth));
+    remote.push(&[&spec], Some(&mut opts))?;
+    Ok(())
+}
+
+pub fn delete_remote_tag(path: &Path, remote_name: &str, tag: &str, auth: &GitAuth) -> Result<()> {
+    let repo = Repository::discover(path)?;
+    let mut remote = repo.find_remote(remote_name)?;
+    let spec = format!(":refs/tags/{tag}");
+    let mut opts = PushOptions::new();
+    opts.remote_callbacks(make_callbacks(auth));
+    remote.push(&[&spec], Some(&mut opts))?;
+    Ok(())
+}
+
+pub fn pull_ff_only(path: &Path, remote_name: &str, auth: &GitAuth) -> Result<AheadBehind> {
+    let repo = Repository::discover(path)?;
+    fetch_repo(&repo, remote_name, auth)?;
+    let status = ahead_behind_repo(&repo)?;
+    if status.behind == 0 {
+        return Ok(status);
+    }
+    if status.ahead > 0 {
+        return Err(AppError::msg(
+            "VARIANT_DIVERGED: local branch and origin have diverged — pull would not fast-forward",
+        ));
+    }
+    let head = repo.head()?;
+    if !head.is_branch() {
+        return Err(AppError::msg("cannot fast-forward a detached HEAD"));
+    }
+    let branch_name = head
+        .shorthand()
+        .ok_or_else(|| AppError::msg("HEAD has no name"))?
+        .to_string();
+    let branch = repo.find_branch(&branch_name, git2::BranchType::Local)?;
+    let upstream = branch
+        .upstream()
+        .map_err(|_| AppError::msg("no upstream is configured"))?;
+    let remote_oid = upstream
+        .get()
+        .target()
+        .ok_or_else(|| AppError::msg("upstream has no target"))?;
+    let annotated = repo.find_annotated_commit(remote_oid)?;
+    let (analysis, _) = repo.merge_analysis(&[&annotated])?;
+    if !analysis.is_fast_forward() {
+        return Err(AppError::msg(
+            "VARIANT_DIVERGED: local branch and origin have diverged — pull would not fast-forward",
+        ));
+    }
+    let obj = repo.find_object(remote_oid, None)?;
+    repo.checkout_tree(&obj, None)?;
+    repo.head()?.set_target(remote_oid, "ff-only pull")?;
+    ahead_behind_repo(&repo)
+}
+
+pub fn clone_repository(
+    url: &str,
+    dest: &Path,
+    auth: &GitAuth,
+) -> Result<PathBuf> {
+    let mut builder = git2::build::RepoBuilder::new();
+    let mut fetch = FetchOptions::new();
+    fetch.remote_callbacks(make_callbacks(auth));
+    builder.fetch_options(fetch);
+    builder.clone(url, dest)?;
+    Ok(dest.to_path_buf())
+}
+
+#[allow(dead_code)]
+pub fn github_clone_url(owner: &str, name: &str, protocol: &str) -> String {
+    if protocol == "ssh" {
+        format!("git@github.com:{owner}/{name}.git")
+    } else {
+        format!("https://github.com/{owner}/{name}.git")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_ssh_scp_syntax() {
+        let p = parse_remote_url("git@github.com:acme/timestream.git");
+        assert_eq!(p.transport, "ssh");
+        assert_eq!(p.host.as_deref(), Some("github.com"));
+        assert_eq!(p.owner.as_deref(), Some("acme"));
+        assert_eq!(p.name.as_deref(), Some("timestream"));
+    }
+
+    #[test]
+    fn parses_https() {
+        let p = parse_remote_url("https://github.com/acme/timestream");
+        assert_eq!(p.transport, "https");
+        assert_eq!(p.owner.as_deref(), Some("acme"));
+        assert_eq!(p.name.as_deref(), Some("timestream"));
+    }
+
+    #[test]
+    fn parses_ssh_url() {
+        let p = parse_remote_url("ssh://git@github.com/acme/timestream.git");
+        assert_eq!(p.transport, "ssh");
+        assert_eq!(p.host.as_deref(), Some("github.com"));
+        assert_eq!(p.name.as_deref(), Some("timestream"));
+    }
+
+    #[test]
+    fn clone_url_respects_protocol() {
+        assert_eq!(
+            github_clone_url("acme", "app", "ssh"),
+            "git@github.com:acme/app.git"
+        );
+        assert_eq!(
+            github_clone_url("acme", "app", "https"),
+            "https://github.com/acme/app.git"
+        );
+    }
+}
