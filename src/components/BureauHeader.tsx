@@ -10,9 +10,6 @@ interface Props {
   anomalyLoading: boolean;
   reviewOpen: boolean;
   onToggleReview: () => void;
-  onOpen: () => void;
-  onReload: () => void;
-  onSettings: () => void;
 }
 
 export function BureauHeader({
@@ -23,9 +20,6 @@ export function BureauHeader({
   anomalyLoading,
   reviewOpen,
   onToggleReview,
-  onOpen,
-  onReload,
-  onSettings,
 }: Props) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-tva-gold/22 bg-linear-to-b from-[#2a231c] to-[#1a1612] px-[18px] py-2.5">
@@ -65,15 +59,6 @@ export function BureauHeader({
             noun="Anomalies"
             onPrimary={reviewOpen || anomalyCount > 0}
           />
-        </button>
-        <button type="button" className={btn} onClick={onReload}>
-          Rescan
-        </button>
-        <button type="button" className={btn} onClick={onSettings} title="Settings">
-          Settings
-        </button>
-        <button type="button" className={btnPrimary} onClick={onOpen}>
-          Open archive
         </button>
         <HintMark label="Sacred Timeline is the default branch graph. Dispatch, pull, and push live on the review desk." />
       </div>

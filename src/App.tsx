@@ -9,6 +9,7 @@ import { ReviewMode } from "./components/ReviewMode";
 import { IdentityPicker, type IdentityChoice } from "./components/IdentityPicker";
 import { SacredTimeline } from "./components/SacredTimeline";
 import { SettingsPage } from "./components/SettingsPage";
+import { TitleBar } from "./components/TitleBar";
 import { VariantRail } from "./components/VariantRail";
 import { WelcomeGate } from "./components/WelcomeGate";
 import {
@@ -524,6 +525,28 @@ export default function App() {
     }
   }
 
+  function closeFolder() {
+    setBusy(false);
+    setError(null);
+    setRepo(null);
+    setTimeline(null);
+    setStatus(null);
+    setSelectedId(null);
+    setDetail(null);
+    setDiffTarget(null);
+    setDiffOpen(false);
+    setDiffMounted(false);
+    setDiffMountTarget(null);
+    setDiff(null);
+    setDiffError(null);
+    setOrigin(null);
+    setSync(null);
+    setPrs([]);
+    setReviewComments([]);
+    setReviewOpen(false);
+    setDocketTab("case");
+  }
+
   async function runRemote(op: (args: RemoteAuthArgs) => Promise<unknown>, extra?: Partial<RemoteAuthArgs>) {
     if (!repo) return;
     const args: RemoteAuthArgs = { path: repo.path, remote: "origin", ...extra };
@@ -554,11 +577,12 @@ export default function App() {
     { id: "review", title: "Open review mode", hint: "Temporal anomalies", run: () => { if (!reviewOpen) toggleReview(); } },
     { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
     { id: "docket", title: "Toggle case file", run: () => setDocketOpen((open) => !open) },
-    { id: "settings", title: "Open settings", hint: "Bureau settings", run: () => setSettingsOpen(true) },
+    { id: "settings", title: "Open settings", hint: "File", run: () => setSettingsOpen(true) },
     { id: "signin", title: "Sign in with GitHub", hint: "Clearance", run: () => setAuthOpen(true) },
     { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => setUser(null)) },
-    { id: "open", title: "Open archive", run: () => void browse() },
-    { id: "rescan", title: "Rescan", run: () => repo && void loadAll(repo.path, { keepSelection: true }) },
+    { id: "open", title: "Open folder", hint: "File", run: () => void browse() },
+    { id: "close-folder", title: "Close folder", hint: "File", run: closeFolder },
+    { id: "rescan", title: "Rescan", hint: "View", run: () => repo && void loadAll(repo.path, { keepSelection: true }) },
     { id: "fetch", title: "Fetch from origin", hint: "Dispatch", run: () => void runRemote(fetchRemote) },
     { id: "push", title: "Push branch", hint: "File to HQ", run: () => void runRemote(pushBranch) },
     { id: "pull", title: "Fast-forward pull", hint: "Sync inbound", run: () => void runRemote(pullFfOnly) },
@@ -634,9 +658,23 @@ export default function App() {
     </>
   );
 
+  const titleBar = (
+    <TitleBar
+      title={repo?.name ?? "TIMESTREAM"}
+      folderOpen={Boolean(repo)}
+      onOpenFolder={() => void browse()}
+      onCloseFolder={closeFolder}
+      onRescan={() => {
+        if (repo) void loadAll(repo.path, { keepSelection: true });
+      }}
+      onSettings={() => setSettingsOpen(true)}
+    />
+  );
+
   if (!repo || !timeline) {
     return (
       <div className={appShell}>
+        {titleBar}
         <WelcomeGate
           recent={recent}
           onOpenRecent={(path) => loadAll(path)}
@@ -672,6 +710,7 @@ export default function App() {
 
   return (
     <div className={appShell}>
+      {titleBar}
       <BureauHeader
         repo={repo}
         origin={origin}
@@ -680,9 +719,6 @@ export default function App() {
         anomalyLoading={status == null}
         reviewOpen={reviewOpen}
         onToggleReview={toggleReview}
-        onOpen={browse}
-        onReload={() => loadAll(repo.path, { keepSelection: true })}
-        onSettings={() => setSettingsOpen(true)}
       />
       {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
       {reviewOpen ? (
