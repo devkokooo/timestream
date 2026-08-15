@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
+  "description": "Capability for Chronomonitor windows",
+  "windows": ["main", "archive-*"],
   "permissions": [
     "core:default",
     "core:window:allow-close",
@@ -13,6 +13,9 @@
     "core:window:allow-internal-toggle-maximize",
     "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
+    "core:window:allow-outer-position",
+    "core:window:allow-scale-factor",
+    "core:webview:allow-create-webview-window",
     "opener:default",
     "dialog:default"
   ]
