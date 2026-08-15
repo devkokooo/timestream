@@ -2,7 +2,7 @@ export const btn =
   "border border-tva-gold/35 bg-[#2d241c] px-3 py-[7px] text-[11px] uppercase tracking-[0.08em] text-tva-paper hover:border-tva-orange hover:text-tva-gold-bright disabled:opacity-50";
 
 export const btnPrimary =
-  "border border-tva-orange-hot bg-tva-orange font-semibold text-tva-ink hover:border-tva-orange-hot hover:text-tva-ink";
+  "border border-[#ffb347] bg-tva-orange-hot px-3 py-[7px] text-[11px] font-semibold uppercase tracking-[0.08em] text-tva-ink hover:border-[#ffc56a] hover:bg-[#ffb347] hover:text-tva-ink disabled:border-tva-gold/20 disabled:bg-[#2d241c] disabled:text-tva-muted disabled:hover:border-tva-gold/20 disabled:hover:bg-[#2d241c] disabled:hover:text-tva-muted";
 
 export const btnDanger = "border-tva-stamp text-[#f3c2b8]";
 

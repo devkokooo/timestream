@@ -3,7 +3,6 @@ import {
   useEffect,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { composeCommitMessage } from "../lib/commitMessage";
 import { cn } from "../lib/cn";
@@ -29,18 +28,10 @@ interface Props {
   busy: boolean;
 }
 
-const COMPOSER_MIN = 0.32;
-const COMPOSER_MAX = 0.72;
-const DESK_MIN = 320;
-const DESK_DEFAULT = 420;
-const TOP_MIN = 240;
-
 export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Props) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [composerRatio, setComposerRatio] = useState(0.46);
-  const [deskHeight, setDeskHeight] = useState(DESK_DEFAULT);
   const loading = status == null;
   const staged = status?.staged ?? [];
   const unfiled = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
@@ -70,65 +61,8 @@ export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Prop
     setBody("");
   }
 
-  function startHeightDrag(e: ReactPointerEvent<HTMLButtonElement>) {
-    const workspace = e.currentTarget.closest("[data-workspace]");
-    if (!(workspace instanceof HTMLElement)) return;
-    e.preventDefault();
-    const startY = e.clientY;
-    const startH = deskHeight;
-    const maxH = Math.max(DESK_MIN, workspace.clientHeight - TOP_MIN);
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-    const onMove = (ev: PointerEvent) => {
-      setDeskHeight(clamp(startH + (startY - ev.clientY), DESK_MIN, maxH));
-    };
-    const onUp = (ev: PointerEvent) => {
-      target.releasePointerCapture(ev.pointerId);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }
-
-  function startSplit(e: ReactPointerEvent<HTMLButtonElement>) {
-    const desk = e.currentTarget.closest("[data-filing-desk]");
-    if (!(desk instanceof HTMLElement)) return;
-    e.preventDefault();
-    const rect = desk.getBoundingClientRect();
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-    const onMove = (ev: PointerEvent) => {
-      const next = (rect.right - ev.clientX) / rect.width;
-      setComposerRatio(Math.min(COMPOSER_MAX, Math.max(COMPOSER_MIN, next)));
-    };
-    const onUp = (ev: PointerEvent) => {
-      target.releasePointerCapture(ev.pointerId);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }
-
   return (
-    <footer
-      className={cn(
-        "col-span-full min-h-0 border-t border-tva-gold/16 bg-[#1b1713] p-0",
-        open
-          ? "grid max-h-[calc(100%-240px)] min-h-80 grid-cols-[minmax(0,1fr)] grid-rows-[10px_auto_minmax(0,1fr)]"
-          : "flex flex-col",
-      )}
-      style={open ? { height: deskHeight } : undefined}
-    >
-      {open ? (
-        <button
-          type="button"
-          className="h-2.5 w-full shrink-0 cursor-row-resize border-0 border-y border-tva-gold/16 bg-[#211c17] p-0 hover:bg-tva-orange/22 focus-visible:bg-tva-orange/22 after:mx-auto after:mt-[3px] after:block after:h-0.5 after:w-9 after:bg-tva-gold/45 after:content-['']"
-          aria-label="Adjust filing desk height"
-          onPointerDown={startHeightDrag}
-        />
-      ) : null}
+    <footer className="col-span-full flex flex-col border-t border-tva-gold/16 bg-[#1b1713] p-0">
       <button
         type="button"
         className="flex w-full shrink-0 items-center justify-between gap-3 border-0 bg-transparent px-4 py-3 text-left text-inherit hover:bg-tva-orange/8"
@@ -149,91 +83,74 @@ export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Prop
       </button>
 
       {open ? (
-        <div
-          data-filing-desk
-          className="relative min-h-0 min-w-0 overflow-hidden bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#1b1713]"
-        >
-          <div className="absolute inset-0 flex min-h-0 flex-row items-stretch max-[980px]:flex-col">
-            <div
-              className="flex h-full min-h-0 min-w-0 flex-row items-stretch max-[980px]:h-auto max-[980px]:min-h-0 max-[980px]:flex-1"
-              style={{ flex: `${1 - composerRatio} 1 0%` }}
-            >
-              <Column
-                title="UNFILED"
-                items={unfiled}
-                action="file"
-                onClick={onStage}
-                onAll={() => runAll(unfiled.map((item) => item.path), onStage)}
-                loading={loading}
-                empty="No unfiled variance."
-              />
-              <Column
-                title="FILED (STAGED)"
-                items={staged}
-                action="unfile"
-                onClick={onUnstage}
-                onAll={() => runAll(staged.map((item) => item.path), onUnstage)}
-                loading={loading}
-                empty="Nothing staged for filing."
-              />
-            </div>
-
-            <button
-              type="button"
-              className="w-2.5 shrink-0 cursor-col-resize self-stretch border-0 border-x border-tva-gold/16 bg-[#211c17] p-0 hover:bg-tva-orange/22 focus-visible:bg-tva-orange/22 max-[980px]:hidden"
-              aria-label="Adjust case note width"
-              onPointerDown={startSplit}
+        <div className="max-h-72 flex flex-row items-stretch bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#1b1713] max-[980px]:flex-col">
+          <div className="flex min-w-0 flex-[1.17] flex-row items-stretch max-[980px]:flex-1">
+            <Column
+              title="UNFILED"
+              items={unfiled}
+              action="file"
+              onClick={onStage}
+              onAll={() => runAll(unfiled.map((item) => item.path), onStage)}
+              loading={loading}
+              empty="No unfiled variance."
             />
+            <Column
+              title="FILED (STAGED)"
+              items={staged}
+              action="unfile"
+              onClick={onUnstage}
+              onAll={() => runAll(staged.map((item) => item.path), onUnstage)}
+              loading={loading}
+              empty="Nothing staged for filing."
+            />
+          </div>
 
-            <form
-              className="grid h-full min-h-0 min-w-[280px] grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_minmax(5rem,1fr)_auto] gap-2.5 overflow-hidden bg-[#16120e] px-[18px] pt-4 pb-[18px] max-[980px]:h-auto max-[980px]:min-h-0 max-[980px]:min-w-0 max-[980px]:flex-1"
-              style={{ flex: `${composerRatio} 1 280px` }}
-              onSubmit={(e) => {
+          <form
+            className="flex min-w-[280px] flex-1 flex-col gap-2.5 bg-[#16120e] px-[18px] pt-4 pb-[18px] max-[980px]:min-w-0"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit();
+            }}
+            onKeyDown={(e: ReactKeyboardEvent<HTMLFormElement>) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                 e.preventDefault();
                 void submit();
-              }}
-              onKeyDown={(e: ReactKeyboardEvent<HTMLFormElement>) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  void submit();
-                }
-              }}
-            >
-              <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">CASE NOTE</h3>
-              <label className="flex flex-col gap-1.5">
-                <span className={fieldLabel}>Subject</span>
-                <input
-                  className={cn(fieldInput, "text-[15px]")}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Subject of this filing"
-                  maxLength={72}
-                  autoComplete="off"
-                />
-              </label>
-              <div className="flex min-h-0 min-w-0 flex-col gap-1.5 overflow-hidden">
-                <span className={cn(fieldLabel, "shrink-0")}>Addendum</span>
-                <div className="relative min-h-20 min-w-0 flex-1">
-                  <textarea
-                    className={cn(fieldInput, "absolute inset-0 h-full min-h-0 w-full resize-none leading-[1.45]")}
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder="Optional case note for this filing"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <p className="m-0 text-[11px] text-tva-muted">
-                  {staged.length
-                    ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
-                    : "File at least one record before submitting"}
-                </p>
-                <button className={cn(btn, btnPrimary)} type="submit" disabled={!canFile}>
-                  File variant
-                </button>
-              </div>
-            </form>
-          </div>
+              }
+            }}
+          >
+            <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">CASE NOTE</h3>
+            <label className="flex flex-col gap-1.5">
+              <span className={fieldLabel}>Subject</span>
+              <input
+                className={cn(fieldInput, "text-[15px]")}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Subject of this filing"
+                maxLength={72}
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={fieldLabel}>Addendum</span>
+              <textarea
+                className={cn(fieldInput, "resize-y leading-[1.45]")}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Optional case note for this filing"
+                rows={3}
+              />
+            </label>
+            <div className="flex items-center justify-between gap-3">
+              <p className="m-0 text-[11px] text-tva-muted">
+                {staged.length
+                  ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
+                  : "File at least one record before submitting"}
+              </p>
+              <button className={btnPrimary} type="submit" disabled={!canFile}>
+                File variant
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
     </footer>
@@ -259,7 +176,7 @@ function Column({
 }) {
   const verb = action === "file" ? "File" : "Unfile";
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col border-r border-tva-gold/12 py-3 pr-2.5 pl-3.5">
+    <div className="flex min-w-0 flex-1 flex-col border-r border-tva-gold/12 py-3 pr-2.5 pl-3.5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">
           {title} <span className="text-tva-muted">{loading ? "…" : items.length}</span>
@@ -273,7 +190,7 @@ function Column({
           {verb} all
         </button>
       </div>
-      <TvaScrollArea className="min-h-0 flex-1" axis="y" fill>
+      <TvaScrollArea className="max-h-[30vh]" axis="y">
         {loading ? <AnomalyColumnSkeleton /> : null}
         {!loading && items.length === 0 ? <div className={emptyText}>{empty}</div> : null}
         {!loading
@@ -303,8 +220,4 @@ function Column({
       </TvaScrollArea>
     </div>
   );
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
 }

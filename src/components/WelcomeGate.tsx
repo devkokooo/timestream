@@ -1,5 +1,5 @@
 import { cn } from "../lib/cn";
-import { btn, btnPrimary, errorText, eyebrow } from "../lib/ui";
+import { btnPrimary, errorText, eyebrow } from "../lib/ui";
 import type { RecentRepo } from "../lib/recentRepos";
 import { TvaScrollArea } from "./TvaScrollArea";
 
@@ -54,7 +54,7 @@ export function WelcomeGate({
             Open a local working tree to reconstruct the Sacred Timeline.
           </p>
 
-          <button type="button" className={cn(btn, btnPrimary, "w-full px-3.5 py-2.5")} onClick={onBrowse}>
+          <button type="button" className={cn(btnPrimary, "w-full px-3.5 py-2.5")} onClick={onBrowse}>
             Open project
           </button>
 

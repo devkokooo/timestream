@@ -1,4 +1,3 @@
-import { cn } from "../lib/cn";
 import { btn, btnPrimary, eyebrow } from "../lib/ui";
 import type { RepoSummary } from "../lib/types";
 
@@ -34,7 +33,7 @@ export function BureauHeader({ repo, onOpen, onReload }: Props) {
         <button type="button" className={btn} onClick={onReload}>
           Rescan
         </button>
-        <button type="button" className={cn(btn, btnPrimary)} onClick={onOpen}>
+        <button type="button" className={btnPrimary} onClick={onOpen}>
           Open archive
         </button>
       </div>
