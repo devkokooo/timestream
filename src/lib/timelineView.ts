@@ -1,3 +1,10 @@
+import {
+  createSpatialGrid,
+  insertAabb,
+  queryGrid,
+  type CullRect,
+  type SpatialGrid,
+} from "./cull";
 import type { Timeline, TimelineEdge, TimelineNode, VariantDossier } from "./types";
 
 export interface ViewOptions {
@@ -65,6 +72,24 @@ export interface TimelineView {
   rowWidth: number;
   minColumn: number;
   maxColumn: number;
+  maxRow: number;
+  head: ViewNode | null;
+}
+
+export interface TimelineCullIndex {
+  nodes: SpatialGrid<ViewNode>;
+  edges: SpatialGrid<ViewEdge>;
+  labels: SpatialGrid<ViewLabel>;
+  nodeById: Map<string, ViewNode>;
+  labelById: Map<string, ViewLabel>;
+  edgesByNode: Map<string, ViewEdge[]>;
+}
+
+export interface LodPolicy {
+  /** Keep every Nth unlabeled node; 1 keeps all. */
+  stride: number;
+  /** Drop unlabeled nodes that are not forced by keepIds. */
+  tipsOnly: boolean;
 }
 
 const DEFAULTS: ViewOptions = {
@@ -129,7 +154,7 @@ export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
   };
 }
 
-export type WorldRect = { x: number; y: number; w: number; h: number };
+export type WorldRect = CullRect;
 
 /** Graph-space AABB covered by the monitor, plus `pad` in world units. */
 export function worldRect(
@@ -162,20 +187,135 @@ function segmentHitsRect(x1: number, y1: number, x2: number, y2: number, rect: W
   return !(maxX < rect.x || minX > rect.x + rect.w || maxY < rect.y || minY > rect.y + rect.h);
 }
 
+export function indexTimelineView(view: TimelineView, cell = 160): TimelineCullIndex {
+  const nodes = createSpatialGrid<ViewNode>(0, 0, cell);
+  const edges = createSpatialGrid<ViewEdge>(0, 0, cell);
+  const labels = createSpatialGrid<ViewLabel>(0, 0, cell);
+  const nodeById = new Map<string, ViewNode>();
+  const labelById = new Map<string, ViewLabel>();
+  const edgesByNode = new Map<string, ViewEdge[]>();
+
+  for (const node of view.nodes) {
+    nodeById.set(node.id, node);
+    const pad = node.r + 16;
+    insertAabb(nodes, node, {
+      x: node.x - pad,
+      y: node.y - pad,
+      w: pad * 2,
+      h: pad * 2,
+    });
+  }
+  for (const edge of view.edges) {
+    insertAabb(edges, edge, {
+      x: Math.min(edge.x1, edge.x2),
+      y: Math.min(edge.y1, edge.y2),
+      w: Math.max(Math.abs(edge.x2 - edge.x1), 1),
+      h: Math.max(Math.abs(edge.y2 - edge.y1), 1),
+    });
+    pushEdge(edgesByNode, edge.from, edge);
+    pushEdge(edgesByNode, edge.to, edge);
+  }
+  for (const label of view.labels) {
+    labelById.set(label.id, label);
+    insertAabb(labels, label, label);
+  }
+
+  return { nodes, edges, labels, nodeById, labelById, edgesByNode };
+}
+
+function pushEdge(map: Map<string, ViewEdge[]>, id: string, edge: ViewEdge): void {
+  const list = map.get(id);
+  if (list) list.push(edge);
+  else map.set(id, [edge]);
+}
+
+/** Density LOD: zoomed-out or crowded frustums keep tips, not every nexus. */
+export function timelineLod(scale: number, visibleSlots: number): LodPolicy {
+  if (scale <= 0.55 || visibleSlots > 140) return { stride: 8, tipsOnly: true };
+  if (scale <= 0.8 || visibleSlots > 70) return { stride: 3, tipsOnly: false };
+  return { stride: 1, tipsOnly: false };
+}
+
+function nodeIsTip(node: ViewNode): boolean {
+  return node.isHead || node.refs.length > 0 || node.id === INCURSION_ID;
+}
+
+function keepLodNode(node: ViewNode, lod: LodPolicy | undefined, keepIds?: ReadonlySet<string>): boolean {
+  if (!lod || (lod.stride <= 1 && !lod.tipsOnly)) return true;
+  if (keepIds?.has(node.id) || nodeIsTip(node)) return true;
+  if (lod.tipsOnly) return false;
+  return Math.abs(node.row + node.column * 13) % lod.stride === 0;
+}
+
 export function cullTimelineView(
   view: TimelineView,
   rect: WorldRect,
   keepIds?: ReadonlySet<string>,
+  index?: TimelineCullIndex,
+  lod?: LodPolicy,
 ): { nodes: ViewNode[]; edges: ViewEdge[]; labels: ViewLabel[] } {
-  const nodes = view.nodes.filter(
-    (n) => Boolean(keepIds?.has(n.id)) || circleHitsRect(n.x, n.y, n.r + 16, rect),
-  );
-  const edges = view.edges.filter(
-    (e) =>
-      Boolean(keepIds?.has(e.from) || keepIds?.has(e.to)) ||
-      segmentHitsRect(e.x1, e.y1, e.x2, e.y2, rect),
-  );
-  const labels = view.labels.filter((l) => Boolean(keepIds?.has(l.id)) || boxesOverlap(l, rect, 0));
+  const nodePool = index ? queryGrid(index.nodes, rect) : view.nodes;
+  const nodes: ViewNode[] = [];
+  const seenNodes = new Set<string>();
+  for (const n of nodePool) {
+    if (seenNodes.has(n.id)) continue;
+    if (!keepIds?.has(n.id) && !circleHitsRect(n.x, n.y, n.r + 16, rect)) continue;
+    if (!keepLodNode(n, lod, keepIds)) continue;
+    seenNodes.add(n.id);
+    nodes.push(n);
+  }
+  if (keepIds && index) {
+    for (const id of keepIds) {
+      if (seenNodes.has(id)) continue;
+      const node = index.nodeById.get(id);
+      if (!node) continue;
+      seenNodes.add(id);
+      nodes.push(node);
+    }
+  }
+
+  const edgePool = index ? queryGrid(index.edges, rect) : view.edges;
+  const edges: ViewEdge[] = [];
+  const seenEdges = new Set<string>();
+  const takeEdge = (e: ViewEdge) => {
+    const key = `${e.from}:${e.to}:${e.kind}`;
+    if (seenEdges.has(key)) return;
+    seenEdges.add(key);
+    edges.push(e);
+  };
+  for (const e of edgePool) {
+    const forced = Boolean(keepIds?.has(e.from) || keepIds?.has(e.to));
+    if (!forced && !segmentHitsRect(e.x1, e.y1, e.x2, e.y2, rect)) continue;
+    if (lod?.tipsOnly && e.kind === "firstParent" && e.fromColumn === e.toColumn) continue;
+    takeEdge(e);
+  }
+  if (keepIds && index) {
+    for (const id of keepIds) {
+      const extras = index.edgesByNode.get(id);
+      if (!extras) continue;
+      for (const e of extras) takeEdge(e);
+    }
+  }
+
+  const labelPool = index ? queryGrid(index.labels, rect) : view.labels;
+  const labels: ViewLabel[] = [];
+  const seenLabels = new Set<string>();
+  for (const l of labelPool) {
+    if (seenLabels.has(l.id)) continue;
+    if (!keepIds?.has(l.id) && !boxesOverlap(l, rect, 0)) continue;
+    seenLabels.add(l.id);
+    labels.push(l);
+  }
+  if (keepIds && index) {
+    for (const id of keepIds) {
+      if (seenLabels.has(id)) continue;
+      const label = index.labelById.get(id);
+      if (!label) continue;
+      seenLabels.add(id);
+      labels.push(label);
+    }
+  }
+
   return { nodes, edges, labels };
 }
 
@@ -389,7 +529,8 @@ export function layoutTimelineView(
   const maxRow = nodes.reduce((m, n) => Math.max(m, n.row), 0);
   const width = paddingX * 2 + maxRow * rowWidth;
   const height = paddingY * 2 + Math.max(0, laneCount - 1) * laneGap;
-  const currentColumn = nodes.find((n) => n.isHead)?.column ?? 0;
+  const head = nodes.find((n) => n.isHead) ?? null;
+  const currentColumn = head?.column ?? 0;
 
   return {
     nodes,
@@ -403,6 +544,8 @@ export function layoutTimelineView(
     rowWidth,
     minColumn,
     maxColumn,
+    maxRow,
+    head,
   };
 }
 

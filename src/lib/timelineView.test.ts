@@ -9,14 +9,16 @@ import {
   edgePath,
   focusCamera,
   INCURSION_ID,
+  indexTimelineView,
   laneGapFor,
   laneTones,
   layoutTimelineView,
   lerpCamera,
   placeLabels,
+  timelineLod,
   worldRect,
 } from "./timelineView";
-import { crowdedTipsTimeline, linearTimeline, mixedRefTimeline } from "./fixtures";
+import { crowdedTipsTimeline, linearTimeline, longDivergedTimeline, manyBranchesTimeline, mixedRefTimeline } from "./fixtures";
 
 describe("laneGapFor", () => {
   it("keeps generous spacing for a quiet timeline", () => {
@@ -186,6 +188,68 @@ describe("cullTimelineView", () => {
     const rect = { x: -1000, y: -1000, w: 10, h: 10 };
     const culled = cullTimelineView(view, rect, new Set([last.id]));
     expect(culled.nodes.map((n) => n.id)).toContain(last.id);
+  });
+
+  it("spatial index matches brute-force on a 400-node river window", () => {
+    const view = layoutTimelineView(longDivergedTimeline(200));
+    expect(view.nodes.length).toBeGreaterThan(400);
+    const index = indexTimelineView(view);
+    const head = view.head!;
+    const rect = { x: head.x - 80, y: head.y - 40, w: 160, h: 80 };
+    const brute = cullTimelineView(view, rect);
+    const hashed = cullTimelineView(view, rect, undefined, index);
+    expect(hashed.nodes.map((n) => n.id).sort()).toEqual(brute.nodes.map((n) => n.id).sort());
+    expect(hashed.edges.map((e) => `${e.from}:${e.to}`).sort()).toEqual(
+      brute.edges.map((e) => `${e.from}:${e.to}`).sort(),
+    );
+    expect(hashed.nodes.length).toBeLessThan(40);
+  });
+
+  it("frustum-culls hundreds of variant lanes to the visible cell", () => {
+    const view = layoutTimelineView(manyBranchesTimeline(160));
+    expect(view.nodes.length).toBeGreaterThan(150);
+    const index = indexTimelineView(view);
+    const head = view.head!;
+    const rect = { x: head.x - 30, y: head.y - 30, w: 60, h: 60 };
+    const culled = cullTimelineView(view, rect, new Set([head.id]), index);
+    expect(culled.nodes.some((n) => n.id === head.id)).toBe(true);
+    expect(culled.nodes.length).toBeLessThan(30);
+  });
+
+  it("LOD drops unlabeled nexuses when the frustum is dense", () => {
+    const view = layoutTimelineView(longDivergedTimeline(400));
+    expect(view.nodes.length).toBeGreaterThan(800);
+    const index = indexTimelineView(view);
+    const rect = { x: 0, y: 0, w: view.width, h: view.height };
+    const full = cullTimelineView(view, rect, undefined, index);
+    const lod = timelineLod(0.45, 200);
+    expect(lod.tipsOnly).toBe(true);
+    const sparse = cullTimelineView(view, rect, undefined, index, lod);
+    expect(sparse.nodes.length).toBeLessThan(full.nodes.length / 8);
+    expect(sparse.nodes.every((n) => n.isHead || n.refs.length > 0)).toBe(true);
+    expect(sparse.nodes.some((n) => n.isHead)).toBe(true);
+  });
+
+  it("culls a 2_000-commit river to a monitor-sized frustum", () => {
+    const view = layoutTimelineView(longDivergedTimeline(1_000));
+    expect(view.nodes.length).toBeGreaterThan(2_000);
+    const index = indexTimelineView(view);
+    const cam = focusCamera(view.head!, 1.65, { width: 800, height: 400 });
+    const rect = worldRect(cam, { width: 800, height: 400 });
+    const culled = cullTimelineView(view, rect, view.head ? new Set([view.head.id]) : undefined, index);
+    expect(culled.nodes.length).toBeLessThan(80);
+    expect(culled.edges.length).toBeLessThan(120);
+    expect(culled.nodes.some((n) => n.isHead)).toBe(true);
+  });
+
+  it("keeps a selected off-screen node when the index is used", () => {
+    const view = layoutTimelineView(longDivergedTimeline(200));
+    const index = indexTimelineView(view);
+    const first = view.nodes[0];
+    const last = view.nodes.at(-1)!;
+    const rect = { x: last.x - 10, y: last.y - 10, w: 20, h: 20 };
+    const culled = cullTimelineView(view, rect, new Set([first.id]), index);
+    expect(culled.nodes.map((n) => n.id)).toContain(first.id);
   });
 });
 

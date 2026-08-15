@@ -8,10 +8,12 @@ import {
   estimateDiffRowSize,
   fileAction,
   fileDisplayPath,
+  diffRowText,
   flattenDiffRows,
+  hunkHeaderStarts,
   hunkKey,
   hunkLineCounts,
-  splitHeaderOverlay,
+  overlayHunkHeaders,
   type DiffViewRow,
 } from "../lib/diffView";
 import { tokenClassName, useHighlightedRange, type ThemedToken } from "../lib/syntaxHighlight";
@@ -98,21 +100,10 @@ export function DiffViewer({
     () => (diff && !diff.binary ? flattenDiffRows(diff.hunks, mode, readKeys) : []),
     [diff, mode, readKeys],
   );
-  const leftTexts = useMemo(
-    () =>
-      rows.map((row) => {
-        if (row.type === "inline") return row.line.text;
-        if (row.type === "split") return row.left?.text ?? "";
-        return "";
-      }),
-    [rows],
-  );
-  const rightTexts = useMemo(
-    () => rows.map((row) => (row.type === "split" ? (row.right?.text ?? "") : "")),
-    [rows],
-  );
-  const leftTokens = useHighlightedRange(leftTexts, lang, range.start, range.end);
-  const rightTokens = useHighlightedRange(rightTexts, lang, range.start, range.end);
+  const leftAt = useCallback((index: number) => diffRowText(rows[index], "left"), [rows]);
+  const rightAt = useCallback((index: number) => diffRowText(rows[index], "right"), [rows]);
+  const leftTokens = useHighlightedRange(leftAt, rows.length, lang, range.start, range.end, rows);
+  const rightTokens = useHighlightedRange(rightAt, rows.length, lang, range.start, range.end, rows);
   const minWidth = useMemo(
     () => (diff && !diff.binary ? diffContentMinWidth(diff.hunks, mode) : undefined),
     [diff, mode],
@@ -219,6 +210,7 @@ export function DiffViewer({
           estimateSize={(index) => estimateDiffRowSize(rows[index])}
           getItemKey={(index) => diffRowKey(rows[index])}
           minWidth={minWidth}
+          measure={false}
           onRangeChange={onRangeChange}
           overlay={(virtual) => stickyHunkHeader(virtual.startIndex, rows, diff?.hunks, reviewable, readKeys, toggleRead)}
         >
@@ -364,9 +356,10 @@ function SplitDiff({
     [onRangeChange],
   );
 
+  const headerStarts = useMemo(() => hunkHeaderStarts(rows), [rows]);
   const headers = useMemo(
-    () => splitHeaderOverlay(rows, scrollTop, viewportH),
-    [rows, scrollTop, viewportH],
+    () => overlayHunkHeaders(headerStarts, scrollTop, viewportH),
+    [headerStarts, scrollTop, viewportH],
   );
 
   function onHeaderWheel(e: React.WheelEvent) {
@@ -390,6 +383,7 @@ function SplitDiff({
             estimateSize={(index) => estimateDiffRowSize(rows[index])}
             getItemKey={(index) => `L-${diffRowKey(rows[index])}`}
             minWidth={minWidth}
+            measure={false}
             viewportRef={leftRef}
             onScroll={() => syncY("left")}
             onRangeChange={handleRange}
@@ -407,6 +401,7 @@ function SplitDiff({
             estimateSize={(index) => estimateDiffRowSize(rows[index])}
             getItemKey={(index) => `R-${diffRowKey(rows[index])}`}
             minWidth={minWidth}
+            measure={false}
             viewportRef={rightRef}
             onScroll={() => syncY("right")}
           >

@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { quantizeRect, rectKey } from "../lib/cull";
 import {
   clipRiverX,
   cullTimelineView,
   focusCamera,
   INCURSION_ID,
+  indexTimelineView,
   laneTones,
   layoutTimelineView,
   lerpCamera,
   REF_TONE_FILL,
+  timelineLod,
   worldRect,
   xInRect,
   type Camera,
@@ -19,6 +22,7 @@ const DEFAULT_SCALE = 1.65;
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.8;
 const FOCUS_MS = 480;
+const CULL_CELL = 80;
 
 interface Props {
   timeline: Timeline;
@@ -40,10 +44,13 @@ export function SacredTimeline({
   failingShas,
 }: Props) {
   const view = useMemo(() => layoutTimelineView(timeline, { incursion }), [timeline, incursion]);
+  const index = useMemo(() => indexTimelineView(view), [view]);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const worldRef = useRef<SVGGElement | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 400 });
   const [pan, setPan] = useState<Camera>({ x: 0, y: 0, scale: DEFAULT_SCALE });
   const panRef = useRef(pan);
+  const cullKeyRef = useRef("");
   const animRef = useRef<number | null>(null);
   const focusIdRef = useRef<string | undefined>(undefined);
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(
@@ -51,8 +58,8 @@ export function SacredTimeline({
   );
 
   const focus =
-    view.nodes.find((n) => n.id === selectedId) ??
-    view.nodes.find((n) => n.isHead) ??
+    (selectedId ? index.nodeById.get(selectedId) : undefined) ??
+    view.head ??
     view.nodes.at(-1);
 
   const stopCameraAnim = useCallback(() => {
@@ -62,10 +69,32 @@ export function SacredTimeline({
     }
   }, []);
 
-  const writePan = useCallback((next: Camera) => {
+  const paintCamera = useCallback((next: Camera) => {
     panRef.current = next;
-    setPan(next);
+    worldRef.current?.setAttribute(
+      "transform",
+      `translate(${next.x} ${next.y}) scale(${next.scale})`,
+    );
   }, []);
+
+  const writePan = useCallback((next: Camera) => {
+    paintCamera(next);
+    const q = quantizeRect(worldRect(next, viewport), CULL_CELL);
+    cullKeyRef.current = `${rectKey(q)}:${next.scale <= 0.8 ? 0 : 1}`;
+    setPan(next);
+  }, [paintCamera, viewport]);
+
+  const nudgeCamera = useCallback(
+    (next: Camera) => {
+      paintCamera(next);
+      const q = quantizeRect(worldRect(next, viewport), CULL_CELL);
+      const key = `${rectKey(q)}:${next.scale <= 0.8 ? 0 : 1}`;
+      if (key === cullKeyRef.current) return;
+      cullKeyRef.current = key;
+      setPan(next);
+    },
+    [paintCamera, viewport],
+  );
 
   const animateCamera = useCallback(
     (to: Camera) => {
@@ -81,13 +110,18 @@ export function SacredTimeline({
       const start = performance.now();
       const tick = (now: number) => {
         const t = Math.min(1, (now - start) / FOCUS_MS);
-        writePan(lerpCamera(from, to, t));
-        if (t < 1) animRef.current = requestAnimationFrame(tick);
-        else animRef.current = null;
+        const pose = lerpCamera(from, to, t);
+        if (t < 1) {
+          nudgeCamera(pose);
+          animRef.current = requestAnimationFrame(tick);
+        } else {
+          animRef.current = null;
+          writePan(pose);
+        }
       };
       animRef.current = requestAnimationFrame(tick);
     },
-    [stopCameraAnim, writePan],
+    [nudgeCamera, stopCameraAnim, writePan],
   );
 
   useEffect(() => {
@@ -129,9 +163,17 @@ export function SacredTimeline({
     writePan,
   ]);
 
+  useLayoutEffect(() => {
+    const cam = panRef.current;
+    worldRef.current?.setAttribute(
+      "transform",
+      `translate(${cam.x} ${cam.y}) scale(${cam.scale})`,
+    );
+  });
+
   const ticks = useMemo(() => {
-    const maxRow = timeline.nodes.reduce((m, n) => Math.max(m, n.row), 0);
-    const step = maxRow > 40 ? 8 : maxRow > 16 ? 4 : 2;
+    const maxRow = view.maxRow;
+    const step = pan.scale <= 0.6 ? 16 : maxRow > 40 ? 8 : maxRow > 16 ? 4 : 2;
     const out = [];
     for (let row = 0; row <= maxRow; row += step) {
       out.push({
@@ -141,23 +183,29 @@ export function SacredTimeline({
       });
     }
     return out;
-  }, [timeline.nodes, view.rowWidth]);
+  }, [pan.scale, view.maxRow, view.rowWidth]);
 
-  const rect = useMemo(() => worldRect(pan, viewport), [pan, viewport]);
+  const rect = useMemo(() => quantizeRect(worldRect(pan, viewport), CULL_CELL), [pan, viewport]);
   const keepIds = useMemo(() => {
     const ids = new Set<string>([INCURSION_ID]);
     if (selectedId) ids.add(selectedId);
-    const head = view.nodes.find((n) => n.isHead);
-    if (head) ids.add(head.id);
+    if (view.head) ids.add(view.head.id);
     return ids;
-  }, [selectedId, view.nodes]);
-  const culled = useMemo(() => cullTimelineView(view, rect, keepIds), [view, rect, keepIds]);
+  }, [selectedId, view.head]);
+  const lod = useMemo(() => {
+    const slots = (rect.w / view.rowWidth) * Math.max(1, rect.h / view.laneGap);
+    return timelineLod(pan.scale, slots);
+  }, [pan.scale, rect.h, rect.w, view.laneGap, view.rowWidth]);
+  const culled = useMemo(
+    () => cullTimelineView(view, rect, keepIds, index, lod),
+    [index, keepIds, lod, rect, view],
+  );
   const tones = useMemo(() => laneTones(view.nodes, view.currentColumn), [view]);
   const toneOf = (column: number) => tones.get(column) ?? "local";
   const river = clipRiverX(view, rect);
   const visibleTicks = useMemo(() => ticks.filter((t) => xInRect(t.x, rect)), [ticks, rect]);
 
-  const currentY = view.nodes.find((n) => n.isHead)?.y ?? view.sacredY;
+  const currentY = view.head?.y ?? view.sacredY;
 
   return (
     <div className="relative h-full w-full">
@@ -176,7 +224,7 @@ export function SacredTimeline({
         const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.scale + (e.deltaY > 0 ? -0.1 : 0.1)));
         const gx = (mx - p.x) / p.scale;
         const gy = (my - p.y) / p.scale;
-        writePan({ scale: nextScale, x: mx - gx * nextScale, y: my - gy * nextScale });
+        nudgeCamera({ scale: nextScale, x: mx - gx * nextScale, y: my - gy * nextScale });
       }}
       onPointerDown={(e) => {
         if ((e.target as Element).closest(".node-hit")) return;
@@ -186,7 +234,7 @@ export function SacredTimeline({
       }}
       onPointerMove={(e) => {
         if (!drag.current) return;
-        writePan({
+        nudgeCamera({
           ...panRef.current,
           x: drag.current.px + (e.clientX - drag.current.x),
           y: drag.current.py + (e.clientY - drag.current.y),
@@ -194,9 +242,12 @@ export function SacredTimeline({
       }}
       onPointerUp={() => {
         drag.current = null;
+        writePan(panRef.current);
       }}
       onPointerLeave={() => {
+        if (!drag.current) return;
         drag.current = null;
+        writePan(panRef.current);
       }}
     >
       <defs>
@@ -232,7 +283,7 @@ export function SacredTimeline({
         </pattern>
       </defs>
 
-      <g transform={`translate(${pan.x} ${pan.y}) scale(${pan.scale})`}>
+      <g ref={worldRef} className="monitor-world">
         {river ? (
           <g>
             <rect
@@ -243,7 +294,6 @@ export function SacredTimeline({
               fill="url(#river)"
               opacity="0.22"
               rx="10"
-              filter="url(#glow)"
             />
             <rect
               x={river.x}
@@ -283,7 +333,6 @@ export function SacredTimeline({
             fill={REF_TONE_FILL.current}
             opacity="0.14"
             rx="7"
-            filter="url(#glow)"
           />
         ) : null}
 

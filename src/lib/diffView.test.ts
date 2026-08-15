@@ -10,11 +10,14 @@ import {
   fileDisplayName,
   fileDisplayPath,
   flattenDiffRows,
+  hunkHeaderStarts,
   hunkKey,
   hunkLineCounts,
+  overlayHunkHeaders,
   pairHunkLines,
   splitHeaderOverlay,
 } from "./diffView";
+import { cullListWindow, prefixSums, cullListWindowVariable } from "./cull";
 import type { DiffHunk, DiffLine } from "./types";
 
 function line(
@@ -238,5 +241,51 @@ describe("splitHeaderOverlay", () => {
     expect(overlay).toHaveLength(1);
     expect(overlay[0].sticky).toBe(false);
     expect(overlay[0].top).toBe(0);
+  });
+
+  it("culls headers in a 4_000-hunk file without walking every row", () => {
+    const hunks = Array.from({ length: 4_000 }, (_, i) =>
+      sampleHunk({
+        oldStart: i * 8,
+        newStart: i * 8,
+        header: `@@ -${i * 8},3 +${i * 8},3 @@`,
+      }),
+    );
+    const rows = flattenDiffRows(hunks, "inline", new Set());
+    expect(rows.length).toBeGreaterThan(12_000);
+
+    const sizes = rows.map((row) => estimateDiffRowSize(row));
+    const offsets = prefixSums(sizes);
+    const win = cullListWindowVariable({
+      offsets,
+      scroll: offsets[6_000],
+      viewport: 400,
+      overscan: 8,
+    });
+    expect(win.end - win.start).toBeLessThan(50);
+
+    const starts = hunkHeaderStarts(rows);
+    expect(starts).toHaveLength(4_000);
+    const scroll = offsets[6_000] + 20;
+    const overlay = overlayHunkHeaders(starts, scroll, 400);
+    expect(overlay.length).toBeGreaterThan(0);
+    expect(overlay.length).toBeLessThan(30);
+    expect(overlay.filter((h) => h.sticky)).toHaveLength(1);
+
+    const naive = splitHeaderOverlay(rows, scroll, 400);
+    expect(overlay.map((h) => h.key)).toEqual(naive.map((h) => h.key));
+  });
+
+  it("windows 10_000 flattened diff lines to the viewport", () => {
+    const win = cullListWindow({
+      count: 10_000,
+      itemSize: 19,
+      scroll: 19 * 4_000,
+      viewport: 380,
+      overscan: 6,
+    });
+    expect(win.end - win.start).toBeLessThan(40);
+    expect(win.start).toBeGreaterThan(3_900);
+    expect(win.end).toBeLessThan(4_100);
   });
 });

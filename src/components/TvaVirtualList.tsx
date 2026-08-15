@@ -1,5 +1,5 @@
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { useEffect, useRef, type ReactNode, type Ref } from "react";
+import { useCallback, useEffect, useRef, type ReactNode, type Ref } from "react";
 import { TvaScrollArea } from "./TvaScrollArea";
 
 export interface VirtualRange {
@@ -25,6 +25,8 @@ interface Props {
   onRangeChange?: (startIndex: number, endIndex: number) => void;
   viewportRef?: Ref<HTMLDivElement | null>;
   onScroll?: () => void;
+  /** Measure each row. Off for fixed-height lists (diffs). */
+  measure?: boolean;
 }
 
 const EMPTY_RANGE: VirtualRange = { startIndex: 0, endIndex: 0, items: [] };
@@ -33,7 +35,7 @@ export function TvaVirtualList({
   count,
   estimateSize,
   getItemKey,
-  overscan = 10,
+  overscan = 6,
   className = "",
   axis = "y",
   rails,
@@ -45,14 +47,18 @@ export function TvaVirtualList({
   onRangeChange,
   viewportRef,
   onScroll,
+  measure = true,
 }: Props) {
   const innerRef = useRef<HTMLDivElement>(null);
-  const setViewport = (node: HTMLDivElement | null) => {
+  const viewportRefBox = useRef(viewportRef);
+  viewportRefBox.current = viewportRef;
+  const setViewport = useCallback((node: HTMLDivElement | null) => {
     innerRef.current = node;
-    if (!viewportRef) return;
-    if (typeof viewportRef === "function") viewportRef(node);
-    else viewportRef.current = node;
-  };
+    const extra = viewportRefBox.current;
+    if (!extra) return;
+    if (typeof extra === "function") extra(node);
+    else extra.current = node;
+  }, []);
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => innerRef.current,
@@ -75,6 +81,7 @@ export function TvaVirtualList({
     onRangeChange?.(range.startIndex, range.endIndex);
   }, [onRangeChange, range.startIndex, range.endIndex]);
 
+  const totalSize = virtualizer.getTotalSize();
   const list = (
     <TvaScrollArea
       className={overlay ? `${className} h-full`.trim() : className}
@@ -84,10 +91,13 @@ export function TvaVirtualList({
       viewportClassName={viewportClassName}
       viewportRef={setViewport}
       onScroll={onScroll}
+      contentHeight={totalSize}
+      contentWidth={typeof minWidth === "number" ? minWidth : undefined}
     >
       <div
         style={{
-          height: virtualizer.getTotalSize(),
+          height: totalSize,
+          minHeight: totalSize,
           width: "100%",
           minWidth,
           position: "relative",
@@ -97,7 +107,7 @@ export function TvaVirtualList({
           <div
             key={item.key}
             data-index={item.index}
-            ref={virtualizer.measureElement}
+            ref={measure ? virtualizer.measureElement : undefined}
             style={{
               position: "absolute",
               top: 0,
