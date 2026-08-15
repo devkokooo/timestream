@@ -15,8 +15,10 @@ export const panelTitle =
 export const eyebrow =
   "m-0 text-[10px] uppercase tracking-[0.28em] text-tva-gold";
 
-export const stamp =
-  "inline-block -rotate-6 border-2 border-tva-stamp px-1.5 py-px font-mono text-[10px] tracking-[0.14em] text-tva-stamp";
+export const stampChrome =
+  "inline-block -rotate-6 border-2 px-1.5 py-px font-mono text-[10px] tracking-[0.14em]";
+
+export const stamp = `${stampChrome} border-tva-stamp text-tva-stamp`;
 
 export const stampGold = "border-tva-gold text-tva-gold";
 

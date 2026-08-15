@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn";
-import { actionLabel, fileAction, fileDisplayPath, hunkKey, hunkLineCounts, pairHunkLines } from "../lib/diffView";
+import {
+  actionLabel,
+  actionTone,
+  fileAction,
+  fileDisplayPath,
+  hunkKey,
+  hunkLineCounts,
+  pairHunkLines,
+} from "../lib/diffView";
 import type { SplitCell as SplitCellModel } from "../lib/diffView";
 import { tokenClassName, useHighlightedLines, type ThemedToken } from "../lib/syntaxHighlight";
 import { languageFromPath } from "../lib/syntaxLang";
@@ -9,8 +17,8 @@ import {
   emptyText,
   errorText,
   eyebrow,
-  stamp,
   stampByAction,
+  stampChrome,
 } from "../lib/ui";
 import type { DiffHunk, DiffLine, DiffMode, FileChange, FileDiff, ReviewComment } from "../lib/types";
 import { TvaScrollArea } from "./TvaScrollArea";
@@ -40,6 +48,7 @@ export function DiffViewer({
 }: Props) {
   const status = file?.status ?? diff?.status ?? "modified";
   const action = fileAction(status);
+  const tone = actionTone(status);
   const title = file
     ? fileDisplayPath(file)
     : diff
@@ -95,7 +104,7 @@ export function DiffViewer({
             {title}
           </h2>
         </div>
-        <span className={cn(stamp, stampByAction[action])}>{actionLabel(action)}</span>
+        <span className={cn(stampChrome, stampByAction[tone])}>{actionLabel(action)}</span>
         {reviewable && hunkTotal > 0 ? (
           <p
             className="m-0 shrink-0 text-[11px] uppercase tracking-[0.12em] text-tva-gold"
