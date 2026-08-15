@@ -1,5 +1,6 @@
 import { threatCopy } from "../lib/timelineView";
 import type { Timeline, VariantDossier } from "../lib/types";
+import { TvaScrollArea } from "./TvaScrollArea";
 
 interface Props {
   timeline: Timeline;
@@ -10,15 +11,17 @@ interface Props {
 export function VariantRail({ timeline, onCheckout, busy }: Props) {
   return (
     <aside className="rail">
-      <h2 className="panel-title">VARIANT DOSSIERS</h2>
-      {timeline.dossiers.map((d) => (
-        <DossierCard
-          key={d.name}
-          dossier={d}
-          onCheckout={onCheckout}
-          busy={busy}
-        />
-      ))}
+      <TvaScrollArea className="rail-scroll" axis="y" fill viewportClassName="rail-pad">
+        <h2 className="panel-title">VARIANT DOSSIERS</h2>
+        {timeline.dossiers.map((d) => (
+          <DossierCard
+            key={d.name}
+            dossier={d}
+            onCheckout={onCheckout}
+            busy={busy}
+          />
+        ))}
+      </TvaScrollArea>
     </aside>
   );
 }

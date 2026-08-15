@@ -1,4 +1,5 @@
 import type { RecentRepo } from "../lib/recentRepos";
+import { TvaScrollArea } from "./TvaScrollArea";
 
 interface Props {
   recent: RecentRepo[];
@@ -76,30 +77,32 @@ export function WelcomeGate({
               No recent projects yet. Open a repository to begin review.
             </p>
           ) : (
-            <ul className="recent-list">
-              {recent.map((item) => (
-                <li key={item.path}>
-                  <button
-                    type="button"
-                    className="recent-item"
-                    onClick={() => onOpenRecent(item.path)}
-                  >
-                    <span className="recent-name">{item.name}</span>
-                    <span className="recent-path">
-                      {parentPath(item.path) || item.path}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="recent-remove"
-                    aria-label={`Remove ${item.name} from recent`}
-                    onClick={() => onRemoveRecent(item.path)}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <TvaScrollArea className="recent-scroll" axis="y" fill>
+              <ul className="recent-list">
+                {recent.map((item) => (
+                  <li key={item.path}>
+                    <button
+                      type="button"
+                      className="recent-item"
+                      onClick={() => onOpenRecent(item.path)}
+                    >
+                      <span className="recent-name">{item.name}</span>
+                      <span className="recent-path">
+                        {parentPath(item.path) || item.path}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="recent-remove"
+                      aria-label={`Remove ${item.name} from recent`}
+                      onClick={() => onRemoveRecent(item.path)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </TvaScrollArea>
           )}
         </section>
       </div>

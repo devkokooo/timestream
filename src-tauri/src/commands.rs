@@ -1,7 +1,8 @@
 use crate::error::Result;
 use crate::git::{
-    checkout_branch, commit_changes, list_branches, load_commit, load_status, load_timeline,
-    open_repo, stage_path, unstage_path, BranchInfo, CommitDetail, RepoSummary, StatusPayload,
+    checkout_branch, commit_changes, list_branches, load_commit, load_file_diff, load_status,
+    load_timeline, open_repo, stage_path, unstage_path, BranchInfo, CommitDetail, FileDiff,
+    RepoSummary, StatusPayload,
 };
 use crate::graph::Timeline;
 use std::path::PathBuf;
@@ -24,6 +25,11 @@ pub fn get_status(path: String) -> Result<StatusPayload> {
 #[tauri::command]
 pub fn get_commit(path: String, sha: String) -> Result<CommitDetail> {
     load_commit(&PathBuf::from(path), &sha)
+}
+
+#[tauri::command]
+pub fn get_file_diff(path: String, sha: String, rel: String) -> Result<FileDiff> {
+    load_file_diff(&PathBuf::from(path), &sha, &rel)
 }
 
 #[tauri::command]

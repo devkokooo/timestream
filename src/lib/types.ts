@@ -57,9 +57,38 @@ export interface RepoSummary {
   branch: string | null;
 }
 
+export type FileAction = "modified" | "added" | "deleted" | "moved";
+export type DiffMode = "split" | "inline";
+export type DiffLineKind = "context" | "addition" | "deletion" | "meta";
+
 export interface FileChange {
   path: string;
+  oldPath: string | null;
   status: string;
+}
+
+export interface DiffLine {
+  kind: DiffLineKind;
+  oldNo: number | null;
+  newNo: number | null;
+  text: string;
+}
+
+export interface DiffHunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  header: string;
+  lines: DiffLine[];
+}
+
+export interface FileDiff {
+  path: string;
+  oldPath: string | null;
+  status: string;
+  binary: boolean;
+  hunks: DiffHunk[];
 }
 
 export interface StatusPayload {

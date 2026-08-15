@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type {
   BranchInfo,
   CommitDetail,
+  FileDiff,
   RepoSummary,
   StatusPayload,
   Timeline,
@@ -32,6 +33,10 @@ export function getStatus(path: string): Promise<StatusPayload> {
 
 export function getCommit(path: string, sha: string): Promise<CommitDetail> {
   return invoke("get_commit", { path, sha });
+}
+
+export function getFileDiff(path: string, sha: string, rel: string): Promise<FileDiff> {
+  return invoke("get_file_diff", { path, sha, rel });
 }
 
 export function getBranches(path: string): Promise<BranchInfo[]> {

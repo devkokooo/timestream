@@ -7,6 +7,7 @@ use git2::{
     StatusOptions,
 };
 use serde::Serialize;
+use std::cell::RefCell;
 use std::path::Path;
 
 const MAX_COMMITS: usize = 2500;
@@ -24,7 +25,38 @@ pub struct RepoSummary {
 #[serde(rename_all = "camelCase")]
 pub struct FileChange {
     pub path: String,
+    pub old_path: Option<String>,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffLine {
+    pub kind: String,
+    pub old_no: Option<u32>,
+    pub new_no: Option<u32>,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffHunk {
+    pub old_start: u32,
+    pub old_lines: u32,
+    pub new_start: u32,
+    pub new_lines: u32,
+    pub header: String,
+    pub lines: Vec<DiffLine>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileDiff {
+    pub path: String,
+    pub old_path: Option<String>,
+    pub status: String,
+    pub binary: bool,
+    pub hunks: Vec<DiffHunk>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -75,26 +107,12 @@ pub fn load_status(path: &Path) -> Result<StatusPayload> {
 
 pub fn load_commit(path: &Path, sha: &str) -> Result<CommitDetail> {
     let repo = Repository::discover(path)?;
-    let oid = repo.revparse_single(sha)?.id();
-    let commit = repo.find_commit(oid)?;
-    let tree = commit.tree()?;
-    let parent_tree = commit.parents().next().and_then(|p| p.tree().ok());
-    let mut opts = DiffOptions::new();
-    let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), Some(&mut opts))?;
+    let (commit, diff) = diff_for_commit(&repo, sha)?;
 
     let mut files = Vec::new();
     diff.foreach(
         &mut |delta, _| {
-            let path = delta
-                .new_file()
-                .path()
-                .or_else(|| delta.old_file().path())
-                .map(|p| p.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_else(|| "?".into());
-            files.push(FileChange {
-                path,
-                status: delta_status(delta.status()),
-            });
+            files.push(file_change_from_delta(&delta));
             true
         },
         None,
@@ -127,6 +145,13 @@ pub fn load_commit(path: &Path, sha: &str) -> Result<CommitDetail> {
         parents,
         files,
     })
+}
+
+pub fn load_file_diff(path: &Path, sha: &str, rel: &str) -> Result<FileDiff> {
+    let repo = Repository::discover(path)?;
+    let rel = normalize_rel(rel)?;
+    let (_commit, diff) = diff_for_commit(&repo, sha)?;
+    collect_file_diff(&diff, &rel)
 }
 
 pub fn list_branches(path: &Path) -> Result<Vec<BranchInfo>> {
@@ -342,6 +367,7 @@ fn status_of(repo: &Repository) -> Result<StatusPayload> {
         ) {
             staged.push(FileChange {
                 path: path.clone(),
+                old_path: None,
                 status: index_status(st),
             });
         }
@@ -353,12 +379,14 @@ fn status_of(repo: &Repository) -> Result<StatusPayload> {
         ) {
             unstaged.push(FileChange {
                 path: path.clone(),
+                old_path: None,
                 status: wt_status(st),
             });
         }
         if st.contains(Status::WT_NEW) {
             untracked.push(FileChange {
                 path,
+                old_path: None,
                 status: "untracked".into(),
             });
         }
@@ -375,8 +403,8 @@ fn index_status(st: Status) -> String {
         "added"
     } else if st.contains(Status::INDEX_DELETED) {
         "deleted"
-    } else if st.contains(Status::INDEX_RENAMED) {
-        "renamed"
+    } else     if st.contains(Status::INDEX_RENAMED) {
+        "moved"
     } else {
         "modified"
     }
@@ -386,8 +414,8 @@ fn index_status(st: Status) -> String {
 fn wt_status(st: Status) -> String {
     if st.contains(Status::WT_DELETED) {
         "deleted"
-    } else if st.contains(Status::WT_RENAMED) {
-        "renamed"
+    } else     if st.contains(Status::WT_RENAMED) {
+        "moved"
     } else {
         "modified"
     }
@@ -398,11 +426,172 @@ fn delta_status(status: git2::Delta) -> String {
     match status {
         git2::Delta::Added => "added",
         git2::Delta::Deleted => "deleted",
-        git2::Delta::Renamed => "renamed",
-        git2::Delta::Copied => "copied",
+        git2::Delta::Renamed | git2::Delta::Copied => "moved",
         _ => "modified",
     }
     .into()
+}
+
+fn delta_path(file: &git2::DiffFile<'_>) -> Option<String> {
+    file.path()
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .filter(|p| !p.is_empty())
+}
+
+fn file_change_from_delta(delta: &git2::DiffDelta<'_>) -> FileChange {
+    let new_path = delta_path(&delta.new_file());
+    let old_path = delta_path(&delta.old_file());
+    let status = delta_status(delta.status());
+    let path = new_path
+        .clone()
+        .or_else(|| old_path.clone())
+        .unwrap_or_else(|| "?".into());
+    let old_path = old_path.filter(|p| p != &path);
+    FileChange {
+        path,
+        old_path,
+        status,
+    }
+}
+
+fn delta_matches(delta: &git2::DiffDelta<'_>, rel: &str) -> bool {
+    delta_path(&delta.new_file()).as_deref() == Some(rel)
+        || delta_path(&delta.old_file()).as_deref() == Some(rel)
+}
+
+fn diff_for_commit<'repo>(
+    repo: &'repo Repository,
+    sha: &str,
+) -> Result<(git2::Commit<'repo>, git2::Diff<'repo>)> {
+    let oid = repo.revparse_single(sha)?.id();
+    let commit = repo.find_commit(oid)?;
+    let tree = commit.tree()?;
+    let parent_tree = commit.parents().next().and_then(|p| p.tree().ok());
+    let mut opts = DiffOptions::new();
+    let mut diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), Some(&mut opts))?;
+    let mut find_opts = git2::DiffFindOptions::new();
+    find_opts.renames(true);
+    diff.find_similar(Some(&mut find_opts))?;
+    Ok((commit, diff))
+}
+
+struct DiffCollector {
+    wanted: String,
+    found: bool,
+    binary: bool,
+    path: String,
+    old_path: Option<String>,
+    status: String,
+    hunks: Vec<DiffHunk>,
+    current: Option<DiffHunk>,
+}
+
+impl DiffCollector {
+    fn new(wanted: String) -> Self {
+        Self {
+            wanted,
+            found: false,
+            binary: false,
+            path: String::new(),
+            old_path: None,
+            status: String::new(),
+            hunks: Vec::new(),
+            current: None,
+        }
+    }
+
+    fn flush(&mut self) {
+        if let Some(hunk) = self.current.take() {
+            self.hunks.push(hunk);
+        }
+    }
+
+    fn on_file(&mut self, delta: git2::DiffDelta<'_>) -> bool {
+        self.flush();
+        if !delta_matches(&delta, &self.wanted) {
+            return true;
+        }
+        let change = file_change_from_delta(&delta);
+        self.found = true;
+        self.path = change.path;
+        self.old_path = change.old_path;
+        self.status = change.status;
+        true
+    }
+
+    fn on_binary(&mut self, delta: git2::DiffDelta<'_>) -> bool {
+        if delta_matches(&delta, &self.wanted) {
+            self.binary = true;
+        }
+        true
+    }
+
+    fn on_hunk(&mut self, delta: git2::DiffDelta<'_>, hunk: git2::DiffHunk<'_>) -> bool {
+        if !delta_matches(&delta, &self.wanted) {
+            return true;
+        }
+        self.flush();
+        self.current = Some(DiffHunk {
+            old_start: hunk.old_start(),
+            old_lines: hunk.old_lines(),
+            new_start: hunk.new_start(),
+            new_lines: hunk.new_lines(),
+            header: String::from_utf8_lossy(hunk.header())
+                .trim_end_matches(['\n', '\r'])
+                .to_string(),
+            lines: Vec::new(),
+        });
+        true
+    }
+
+    fn on_line(&mut self, delta: git2::DiffDelta<'_>, line: git2::DiffLine<'_>) -> bool {
+        if !delta_matches(&delta, &self.wanted) {
+            return true;
+        }
+        if let Some(hunk) = self.current.as_mut() {
+            hunk.lines.push(DiffLine {
+                kind: line_kind(line.origin()),
+                old_no: line.old_lineno(),
+                new_no: line.new_lineno(),
+                text: String::from_utf8_lossy(line.content())
+                    .trim_end_matches(['\n', '\r'])
+                    .to_string(),
+            });
+        }
+        true
+    }
+}
+
+fn line_kind(origin: char) -> String {
+    match origin {
+        '+' => "addition",
+        '-' => "deletion",
+        ' ' | '=' => "context",
+        _ => "meta",
+    }
+    .into()
+}
+
+fn collect_file_diff(diff: &git2::Diff<'_>, rel: &str) -> Result<FileDiff> {
+    let collector = RefCell::new(DiffCollector::new(rel.to_string()));
+    diff.foreach(
+        &mut |delta, _| collector.borrow_mut().on_file(delta),
+        Some(&mut |delta, _| collector.borrow_mut().on_binary(delta)),
+        Some(&mut |delta, hunk| collector.borrow_mut().on_hunk(delta, hunk)),
+        Some(&mut |delta, _, line| collector.borrow_mut().on_line(delta, line)),
+    )?;
+    let mut collector = collector.into_inner();
+    collector.flush();
+    if !collector.found {
+        return Err(AppError::msg(format!("no variance recorded for '{rel}'")));
+    }
+    Ok(FileDiff {
+        path: collector.path,
+        old_path: collector.old_path,
+        status: collector.status,
+        binary: collector.binary,
+        hunks: collector.hunks,
+    })
 }
 
 fn normalize_rel(rel: &str) -> Result<String> {
@@ -460,11 +649,8 @@ mod tests {
             }
         }
 
-        fn commit(&mut self, file: &str, contents: &str, message: &str) -> String {
-            fs::write(self.path.join(file), contents).unwrap();
+        fn commit_tree(&mut self, message: &str) -> String {
             let mut index = self.repo.index().unwrap();
-            index.add_path(Path::new(file)).unwrap();
-            index.write().unwrap();
             let tree_id = index.write_tree().unwrap();
             let tree = self.repo.find_tree(tree_id).unwrap();
             let sig = Signature::new(
@@ -487,6 +673,41 @@ mod tests {
                 }
             }
             oid
+        }
+
+        fn commit(&mut self, file: &str, contents: &str, message: &str) -> String {
+            if let Some(parent) = Path::new(file).parent() {
+                if !parent.as_os_str().is_empty() {
+                    fs::create_dir_all(self.path.join(parent)).unwrap();
+                }
+            }
+            fs::write(self.path.join(file), contents).unwrap();
+            let mut index = self.repo.index().unwrap();
+            index.add_path(Path::new(file)).unwrap();
+            index.write().unwrap();
+            self.commit_tree(message)
+        }
+
+        fn rm(&mut self, file: &str, message: &str) -> String {
+            fs::remove_file(self.path.join(file)).unwrap();
+            let mut index = self.repo.index().unwrap();
+            index.remove_path(Path::new(file)).unwrap();
+            index.write().unwrap();
+            self.commit_tree(message)
+        }
+
+        fn mv(&mut self, from: &str, to: &str, message: &str) -> String {
+            if let Some(parent) = Path::new(to).parent() {
+                if !parent.as_os_str().is_empty() {
+                    fs::create_dir_all(self.path.join(parent)).unwrap();
+                }
+            }
+            fs::rename(self.path.join(from), self.path.join(to)).unwrap();
+            let mut index = self.repo.index().unwrap();
+            index.remove_path(Path::new(from)).unwrap();
+            index.add_path(Path::new(to)).unwrap();
+            index.write().unwrap();
+            self.commit_tree(message)
         }
 
         fn branch_from(&self, name: &str, sha: &str) {
@@ -684,5 +905,62 @@ mod tests {
         assert_eq!(tl.nodes.len(), 2);
         assert_eq!(tl.head.as_deref(), Some(sha.as_str()));
         assert!(load_status(&h.path).unwrap().staged.is_empty());
+    }
+
+    #[test]
+    fn file_diff_covers_modified_added_deleted_moved() {
+        let mut h = Harness::new();
+        h.commit("keep.txt", "alpha\nbeta\ngamma\n", "root");
+        let added = h.commit("fresh.txt", "new record\n", "add file");
+        let added_diff = load_file_diff(&h.path, &added, "fresh.txt").unwrap();
+        assert_eq!(added_diff.status, "added");
+        assert!(added_diff.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "addition" && line.text.contains("new record"))
+        }));
+
+        let edited = h.commit("keep.txt", "alpha\nBETA\ngamma\ndelta\n", "edit file");
+        let edited_diff = load_file_diff(&h.path, &edited, "keep.txt").unwrap();
+        assert_eq!(edited_diff.status, "modified");
+        assert!(edited_diff.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "deletion" && line.text.contains("beta"))
+        }));
+        assert!(edited_diff.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "addition" && line.text.contains("BETA"))
+        }));
+
+        let deleted = h.rm("fresh.txt", "delete file");
+        let deleted_diff = load_file_diff(&h.path, &deleted, "fresh.txt").unwrap();
+        assert_eq!(deleted_diff.status, "deleted");
+        assert!(deleted_diff.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "deletion" && line.text.contains("new record"))
+        }));
+
+        h.commit(
+            "old-name.txt",
+            "unique payload for rename detection 314159\n",
+            "before move",
+        );
+        let moved = h.mv("old-name.txt", "new-name.txt", "move file");
+        let detail = load_commit(&h.path, &moved).unwrap();
+        let change = detail
+            .files
+            .iter()
+            .find(|f| f.path == "new-name.txt")
+            .expect("moved file listed");
+        assert_eq!(change.status, "moved");
+        assert_eq!(change.old_path.as_deref(), Some("old-name.txt"));
+
+        let moved_diff = load_file_diff(&h.path, &moved, "new-name.txt").unwrap();
+        assert_eq!(moved_diff.status, "moved");
+        assert_eq!(moved_diff.old_path.as_deref(), Some("old-name.txt"));
+        assert!(load_file_diff(&h.path, &moved, "missing.txt").is_err());
     }
 }

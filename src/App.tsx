@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { AnomalyDock } from "./components/AnomalyDock";
 import { BureauHeader } from "./components/BureauHeader";
 import { CaseFile } from "./components/CaseFile";
+import { DiffViewer } from "./components/DiffViewer";
 import { SacredTimeline } from "./components/SacredTimeline";
 import { VariantRail } from "./components/VariantRail";
 import { WelcomeGate } from "./components/WelcomeGate";
 import {
   fileCommit,
   getCommit,
+  getFileDiff,
   getStatus,
   getTimeline,
   openRepository,
@@ -22,7 +24,7 @@ import {
   removeRecentRepo,
   type RecentRepo,
 } from "./lib/recentRepos";
-import type { CommitDetail, RepoSummary, StatusPayload, Timeline } from "./lib/types";
+import type { CommitDetail, DiffMode, FileDiff, RepoSummary, StatusPayload, Timeline } from "./lib/types";
 
 export default function App() {
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
@@ -31,6 +33,13 @@ export default function App() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
+  const [diffPath, setDiffPath] = useState<string | null>(null);
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffMounted, setDiffMounted] = useState(false);
+  const [diffMountPath, setDiffMountPath] = useState<string | null>(null);
+  const [diff, setDiff] = useState<FileDiff | null>(null);
+  const [diffMode, setDiffMode] = useState<DiffMode>("split");
+  const [diffError, setDiffError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -66,6 +75,7 @@ export default function App() {
       return;
     }
     let cancelled = false;
+    setDetail((current) => (current?.id === selectedId ? current : null));
     getCommit(repo.path, selectedId)
       .then((next) => {
         if (!cancelled) setDetail(next);
@@ -78,8 +88,84 @@ export default function App() {
     };
   }, [repo, selectedId]);
 
+  useEffect(() => {
+    if (diffPath) {
+      setDiffMounted(true);
+      setDiffMountPath(diffPath);
+    }
+  }, [diffPath]);
+
+  useEffect(() => {
+    if (!diffPath || !detail || detail.id !== selectedId) return;
+    const stillThere = detail.files.some((file) => file.path === diffPath);
+    if (!stillThere) {
+      setDiffOpen(false);
+      setDiffPath(null);
+    }
+  }, [detail, diffPath, selectedId]);
+
+  useEffect(() => {
+    if (!diffPath) {
+      setDiff(null);
+      setDiffError(null);
+      return;
+    }
+    if (!repo || !selectedId || !detail || detail.id !== selectedId) {
+      return;
+    }
+    if (!detail.files.some((file) => file.path === diffPath)) {
+      return;
+    }
+    let cancelled = false;
+    setDiff(null);
+    setDiffError(null);
+    getFileDiff(repo.path, selectedId, diffPath)
+      .then((next) => {
+        if (!cancelled) setDiff(next);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDiff(null);
+          setDiffError(err instanceof Error ? err.message : String(err));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [repo, selectedId, diffPath, detail]);
+
   const selectedNode =
     timeline?.nodes.find((n) => n.id === selectedId) ?? null;
+  const activeDiffPath = diffPath ?? diffMountPath;
+  const selectedFile =
+    detail?.files.find((file) => file.path === activeDiffPath) ?? null;
+  const visibleDiff =
+    diff &&
+    activeDiffPath &&
+    (diff.path === activeDiffPath || diff.oldPath === activeDiffPath)
+      ? diff
+      : null;
+
+  function toggleDiffFile(path: string) {
+    if (diffPath === path) {
+      setDiffOpen(false);
+      setDiffPath(null);
+      return;
+    }
+    setDiffMounted(true);
+    setDiffMountPath(path);
+    setDiffPath(path);
+    if (diffOpen) return;
+    setDiffOpen(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setDiffOpen(true));
+    });
+  }
+
+  function closeDiff() {
+    setDiffOpen(false);
+    setDiffPath(null);
+  }
 
   async function browse() {
     try {
@@ -129,14 +215,44 @@ export default function App() {
             }
           }}
         />
-        <div className="monitor">
-          <SacredTimeline
-            timeline={timeline}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+        <div className={`monitor-stage${diffOpen ? " diff-open" : ""}`}>
+          <div className="monitor" aria-hidden={diffOpen}>
+            <SacredTimeline
+              timeline={timeline}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          </div>
+          <div
+            className="diff-pane"
+            aria-hidden={!diffOpen}
+            onTransitionEnd={(e) => {
+              if (e.propertyName !== "transform") return;
+              if (e.target !== e.currentTarget) return;
+              if (!diffOpen) {
+                setDiffMounted(false);
+                setDiffMountPath(null);
+              }
+            }}
+          >
+            {diffMounted ? (
+              <DiffViewer
+                file={selectedFile}
+                diff={visibleDiff}
+                mode={diffMode}
+                error={diffError}
+                onMode={setDiffMode}
+                onClose={closeDiff}
+              />
+            ) : null}
+          </div>
         </div>
-        <CaseFile node={selectedNode} detail={detail} />
+        <CaseFile
+          node={selectedNode}
+          detail={detail}
+          selectedPath={diffPath}
+          onOpenFile={toggleDiffFile}
+        />
         <AnomalyDock
           status={status}
           busy={busy}
