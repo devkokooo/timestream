@@ -2,15 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   assertViewConsistent,
   boxesOverlap,
+  clipRiverX,
   columnTone,
+  cullTimelineView,
   easeOutCubic,
   edgePath,
   focusCamera,
   INCURSION_ID,
   laneGapFor,
+  laneTones,
   layoutTimelineView,
   lerpCamera,
   placeLabels,
+  worldRect,
 } from "./timelineView";
 import { crowdedTipsTimeline, linearTimeline, mixedRefTimeline } from "./fixtures";
 
@@ -130,5 +134,68 @@ describe("layoutTimelineView", () => {
     expect(columnTone(0, view.currentColumn, view.nodes)).toBe("current");
     expect(columnTone(1, view.currentColumn, view.nodes)).toBe("local");
     expect(columnTone(-1, view.currentColumn, view.nodes)).toBe("remote");
+
+    const tones = laneTones(view.nodes, view.currentColumn);
+    expect(tones.get(0)).toBe("current");
+    expect(tones.get(1)).toBe("local");
+    expect(tones.get(-1)).toBe("remote");
+  });
+});
+
+describe("worldRect", () => {
+  it("expands the camera viewport by pad in graph space", () => {
+    const rect = worldRect({ x: 0, y: 0, scale: 1 }, { width: 100, height: 80 }, 20);
+    expect(rect).toEqual({ x: -20, y: -20, w: 140, h: 120 });
+  });
+});
+
+describe("cullTimelineView", () => {
+  it("keeps nodes inside the rect and drops far ones", () => {
+    const view = layoutTimelineView(linearTimeline());
+    const first = view.nodes[0];
+    const last = view.nodes.at(-1)!;
+    const rect = { x: first.x - 4, y: first.y - 4, w: 8, h: 8 };
+    const culled = cullTimelineView(view, rect);
+    expect(culled.nodes.some((n) => n.id === first.id)).toBe(true);
+    expect(culled.nodes.some((n) => n.id === last.id)).toBe(false);
+  });
+
+  it("includes a node that sits in the pad just outside the viewport", () => {
+    const view = layoutTimelineView(linearTimeline());
+    const first = view.nodes[0];
+    const rect = { x: first.x + first.r + 17, y: first.y - 4, w: 8, h: 8 };
+    expect(cullTimelineView(view, rect).nodes.some((n) => n.id === first.id)).toBe(false);
+    const padded = { x: first.x - 2, y: first.y - 2, w: first.r + 20, h: 8 };
+    expect(cullTimelineView(view, padded).nodes.some((n) => n.id === first.id)).toBe(true);
+  });
+
+  it("keeps an edge that crosses the rect even when both ends are off-screen", () => {
+    const view = layoutTimelineView(linearTimeline());
+    const a = view.nodes[0];
+    const b = view.nodes[1];
+    const midX = (a.x + b.x) / 2;
+    const rect = { x: midX - 4, y: a.y - 4, w: 8, h: 8 };
+    const culled = cullTimelineView(view, rect);
+    expect(culled.nodes).toHaveLength(0);
+    expect(culled.edges.some((e) => e.from === a.id && e.to === b.id)).toBe(true);
+  });
+
+  it("always keeps requested ids", () => {
+    const view = layoutTimelineView(linearTimeline());
+    const last = view.nodes.at(-1)!;
+    const rect = { x: -1000, y: -1000, w: 10, h: 10 };
+    const culled = cullTimelineView(view, rect, new Set([last.id]));
+    expect(culled.nodes.map((n) => n.id)).toContain(last.id);
+  });
+});
+
+describe("clipRiverX", () => {
+  it("clips the sacred river to the visible x-range", () => {
+    const view = layoutTimelineView(linearTimeline());
+    const clip = clipRiverX(view, { x: 40, y: 0, w: 80, h: 40 });
+    expect(clip).not.toBeNull();
+    expect(clip!.x).toBeGreaterThanOrEqual(24);
+    expect(clip!.x + clip!.width).toBeLessThanOrEqual(view.width - 24 + 1);
+    expect(clipRiverX(view, { x: view.width + 50, y: 0, w: 10, h: 10 })).toBeNull();
   });
 });

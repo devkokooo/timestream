@@ -24,6 +24,7 @@ import { FileKindIcon } from "./FileKindIcon";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
 import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
+import { TvaVirtualList } from "./TvaVirtualList";
 
 export type AnomalySide = "staged" | "unstaged";
 
@@ -222,62 +223,75 @@ function Column({
           {verb} all
         </button>
       </div>
-      <TvaScrollArea className="min-h-0 flex-1" axis="y" fill>
-        {loading ? <AnomalyColumnSkeleton /> : null}
-        {!loading && items.length === 0 ? <div className={emptyText}>{empty}</div> : null}
-        {!loading
-          ? items.map((item) => {
-              const tone = actionTone(item.status);
-              const mark = actionMark(item.status);
-              const markTitle = actionMarkTitle(item.status);
-              const selected = selectedPath === item.path;
-              const test = isTestFile(item.path);
-              return (
-                <div
-                  key={`${action}-${item.path}`}
-                  className={cn(
-                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 px-2 py-2 font-mono text-xs min-h-10 group",
-                    actionColor[tone],
-                    selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
-                  )}
+      {loading ? (
+        <TvaScrollArea className="min-h-0 flex-1" axis="y" fill>
+          <AnomalyColumnSkeleton />
+        </TvaScrollArea>
+      ) : items.length === 0 ? (
+        <TvaScrollArea className="min-h-0 flex-1" axis="y" fill>
+          <div className={emptyText}>{empty}</div>
+        </TvaScrollArea>
+      ) : (
+        <TvaVirtualList
+          className="min-h-0 flex-1"
+          axis="y"
+          fill
+          count={items.length}
+          estimateSize={(index) => (items[index].path === selectedPath ? 56 : 40)}
+          getItemKey={(index) => `${action}-${items[index].path}`}
+        >
+          {(index) => {
+            const item = items[index];
+            const tone = actionTone(item.status);
+            const mark = actionMark(item.status);
+            const markTitle = actionMarkTitle(item.status);
+            const selected = selectedPath === item.path;
+            const test = isTestFile(item.path);
+            return (
+              <div
+                className={cn(
+                  "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 px-2 py-2 font-mono text-xs min-h-10 group",
+                  actionColor[tone],
+                  selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
+                )}
+              >
+                <button
+                  type="button"
+                  title={fileDisplayPath(item)}
+                  aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
+                  className="flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
+                  onClick={() => onOpen(side, item.path)}
                 >
-                  <button
-                    type="button"
-                    title={fileDisplayPath(item)}
-                    aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
-                    className="flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
-                    onClick={() => onOpen(side, item.path)}
-                  >
-                    <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
-                    <span className="min-w-0 overflow-hidden">
-                      <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                        {fileDisplayName(item)}
-                      </span>
-                      {selected ? (
-                        <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
-                          {fileDisplayPath(item)}
-                        </span>
-                      ) : null}
+                  <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
+                  <span className="min-w-0 overflow-hidden">
+                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                      {fileDisplayName(item)}
                     </span>
-                  </button>
-                  <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
-                    {mark}
+                    {selected ? (
+                      <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
+                        {fileDisplayPath(item)}
+                      </span>
+                    ) : null}
                   </span>
-                  <button
-                    type="button"
-                    className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright"
-                    onClick={(e: ReactMouseEvent) => {
-                      e.stopPropagation();
-                      void onClick(item.path);
-                    }}
-                  >
-                    {verb}
-                  </button>
-                </div>
-              );
-            })
-          : null}
-      </TvaScrollArea>
+                </button>
+                <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
+                  {mark}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright"
+                  onClick={(e: ReactMouseEvent) => {
+                    e.stopPropagation();
+                    void onClick(item.path);
+                  }}
+                >
+                  {verb}
+                </button>
+              </div>
+            );
+          }}
+        </TvaVirtualList>
+      )}
     </div>
   );
 }

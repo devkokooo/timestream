@@ -3,13 +3,17 @@ import {
   actionLabel,
   actionMark,
   actionTone,
+  DIFF_HEADER_HEIGHT,
+  estimateDiffRowSize,
   fileAction,
   fileBaseName,
   fileDisplayName,
   fileDisplayPath,
+  flattenDiffRows,
   hunkKey,
   hunkLineCounts,
   pairHunkLines,
+  splitHeaderOverlay,
 } from "./diffView";
 import type { DiffHunk, DiffLine } from "./types";
 
@@ -169,5 +173,70 @@ describe("hunkLineCounts", () => {
       ],
     };
     expect(hunkLineCounts(hunk)).toEqual({ added: 1, deleted: 2 });
+  });
+});
+
+function sampleHunk(extra: Partial<DiffHunk> = {}): DiffHunk {
+  return {
+    oldStart: 1,
+    oldLines: 3,
+    newStart: 1,
+    newLines: 3,
+    header: "@@ -1,3 +1,3 @@",
+    lines: [
+      line("context", "keep", 1, 1),
+      line("deletion", "old", 2, null),
+      line("addition", "new", null, 2),
+    ],
+    ...extra,
+  };
+}
+
+describe("flattenDiffRows", () => {
+  it("emits a header then each inline line", () => {
+    const hunk = sampleHunk();
+    const rows = flattenDiffRows([hunk], "inline", new Set());
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({ type: "header", hunkIndex: 0 });
+    expect(rows[1]).toMatchObject({ type: "inline", lineIndex: 0 });
+    expect(rows[2]).toMatchObject({ type: "inline", lineIndex: 1 });
+    expect(rows[3]).toMatchObject({ type: "inline", lineIndex: 2 });
+    expect(estimateDiffRowSize(rows[0])).toBe(36);
+    expect(estimateDiffRowSize(rows[1])).toBe(19);
+  });
+
+  it("omits lines when the hunk is marked read", () => {
+    const hunk = sampleHunk();
+    const rows = flattenDiffRows([hunk], "inline", new Set([hunkKey(hunk)]));
+    expect(rows).toEqual([{ type: "header", hunkIndex: 0, key: hunkKey(hunk) }]);
+  });
+
+  it("pairs split rows instead of listing every inline line", () => {
+    const hunk = sampleHunk();
+    const rows = flattenDiffRows([hunk], "split", new Set());
+    expect(rows[0]).toMatchObject({ type: "header" });
+    expect(rows.slice(1).every((row) => row.type === "split")).toBe(true);
+    expect(rows).toHaveLength(1 + pairHunkLines(hunk.lines).length);
+  });
+});
+
+describe("splitHeaderOverlay", () => {
+  it("keeps one connected header sticky while its lines are in view", () => {
+    const hunk = sampleHunk();
+    const rows = flattenDiffRows([hunk], "split", new Set());
+    const overlay = splitHeaderOverlay(rows, DIFF_HEADER_HEIGHT + 8, 200);
+    expect(overlay).toHaveLength(1);
+    expect(overlay[0].sticky).toBe(true);
+    expect(overlay[0].top).toBe(0);
+    expect(overlay[0].hunkIndex).toBe(0);
+  });
+
+  it("places the header at its natural offset at the top of the file", () => {
+    const hunk = sampleHunk();
+    const rows = flattenDiffRows([hunk], "split", new Set());
+    const overlay = splitHeaderOverlay(rows, 0, 200);
+    expect(overlay).toHaveLength(1);
+    expect(overlay[0].sticky).toBe(false);
+    expect(overlay[0].top).toBe(0);
   });
 });

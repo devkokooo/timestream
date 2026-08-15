@@ -129,6 +129,97 @@ export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
   };
 }
 
+export type WorldRect = { x: number; y: number; w: number; h: number };
+
+/** Graph-space AABB covered by the monitor, plus `pad` in world units. */
+export function worldRect(
+  camera: Camera,
+  viewport: { width: number; height: number },
+  pad = 120,
+): WorldRect {
+  const scale = camera.scale <= 0 ? 1 : camera.scale;
+  return {
+    x: -camera.x / scale - pad,
+    y: -camera.y / scale - pad,
+    w: viewport.width / scale + pad * 2,
+    h: viewport.height / scale + pad * 2,
+  };
+}
+
+function circleHitsRect(cx: number, cy: number, r: number, rect: WorldRect): boolean {
+  const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+  const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+  const dx = cx - closestX;
+  const dy = cy - closestY;
+  return dx * dx + dy * dy <= r * r;
+}
+
+function segmentHitsRect(x1: number, y1: number, x2: number, y2: number, rect: WorldRect): boolean {
+  const minX = Math.min(x1, x2);
+  const maxX = Math.max(x1, x2);
+  const minY = Math.min(y1, y2);
+  const maxY = Math.max(y1, y2);
+  return !(maxX < rect.x || minX > rect.x + rect.w || maxY < rect.y || minY > rect.y + rect.h);
+}
+
+export function cullTimelineView(
+  view: TimelineView,
+  rect: WorldRect,
+  keepIds?: ReadonlySet<string>,
+): { nodes: ViewNode[]; edges: ViewEdge[]; labels: ViewLabel[] } {
+  const nodes = view.nodes.filter(
+    (n) => Boolean(keepIds?.has(n.id)) || circleHitsRect(n.x, n.y, n.r + 16, rect),
+  );
+  const edges = view.edges.filter(
+    (e) =>
+      Boolean(keepIds?.has(e.from) || keepIds?.has(e.to)) ||
+      segmentHitsRect(e.x1, e.y1, e.x2, e.y2, rect),
+  );
+  const labels = view.labels.filter((l) => Boolean(keepIds?.has(l.id)) || boxesOverlap(l, rect, 0));
+  return { nodes, edges, labels };
+}
+
+export function clipRiverX(
+  view: Pick<TimelineView, "width">,
+  rect: WorldRect,
+  inset = 24,
+): { x: number; width: number } | null {
+  const left = inset;
+  const right = inset + Math.max(view.width - inset * 2, 200);
+  const x = Math.max(left, rect.x);
+  const end = Math.min(right, rect.x + rect.w);
+  const width = end - x;
+  if (width <= 0) return null;
+  return { x, width };
+}
+
+export function xInRect(x: number, rect: WorldRect): boolean {
+  return x >= rect.x && x <= rect.x + rect.w;
+}
+
+/** One tone lookup per lane so edges don't filter the whole node list. */
+export function laneTones(nodes: ViewNode[], currentColumn: number): Map<number, RefTone> {
+  const map = new Map<number, RefTone>();
+  map.set(currentColumn, "current");
+  const local = new Set<number>();
+  const remote = new Set<number>();
+  for (const n of nodes) {
+    if (n.column === currentColumn) continue;
+    for (const r of n.refs) {
+      if (r.kind === "branch") local.add(n.column);
+      else if (r.kind === "remote") remote.add(n.column);
+    }
+  }
+  for (const col of local) map.set(col, "local");
+  for (const col of remote) {
+    if (!map.has(col)) map.set(col, "remote");
+  }
+  for (const n of nodes) {
+    if (!map.has(n.column)) map.set(n.column, "local");
+  }
+  return map;
+}
+
 export function boxesOverlap(
   a: { x: number; y: number; w: number; h: number },
   b: { x: number; y: number; w: number; h: number },

@@ -2,7 +2,7 @@ import { cn } from "../lib/cn";
 import { btnStow, panelTitle, stamp, stampGold } from "../lib/ui";
 import { threatCopy } from "../lib/timelineView";
 import type { Timeline, VariantDossier } from "../lib/types";
-import { TvaScrollArea } from "./TvaScrollArea";
+import { TvaVirtualList } from "./TvaVirtualList";
 
 interface Props {
   timeline: Timeline;
@@ -22,18 +22,28 @@ export function VariantRail({ timeline, onCheckout, onStow, busy, prByBranch, ah
           Stow
         </button>
       </div>
-      <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-3 pb-5">
-        {timeline.dossiers.map((d) => (
-          <DossierCard
-            key={d.name}
-            dossier={d}
-            onCheckout={onCheckout}
-            busy={busy}
-            prNumber={prByBranch?.[d.name]}
-            sync={d.isHead ? aheadBehind : null}
-          />
-        ))}
-      </TvaScrollArea>
+      <TvaVirtualList
+        className="min-h-0 flex-1"
+        axis="y"
+        fill
+        viewportClassName="px-3 pb-5"
+        count={timeline.dossiers.length}
+        estimateSize={() => 88}
+        getItemKey={(index) => timeline.dossiers[index].name}
+      >
+        {(index) => {
+          const d = timeline.dossiers[index];
+          return (
+            <DossierCard
+              dossier={d}
+              onCheckout={onCheckout}
+              busy={busy}
+              prNumber={prByBranch?.[d.name]}
+              sync={d.isHead ? aheadBehind : null}
+            />
+          );
+        }}
+      </TvaVirtualList>
     </aside>
   );
 }
