@@ -774,7 +774,7 @@ button {
   min-height: 0;
 }
 
-.diff-body .tva-scroll-viewport {
+.diff-body.tva-scroll > .tva-scroll-viewport {
   padding: 8px 0 16px;
 }
 
@@ -798,9 +798,10 @@ button {
 
 .diff-inline-frame,
 .diff-side-frame {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 100%;
 }
 
 .diff-split-frame {
@@ -818,23 +819,26 @@ button {
   border-right: 1px solid rgba(232, 184, 109, 0.14);
 }
 
-.diff-gutters {
-  flex: none;
-  background: #16120e;
-  border-right: 1px solid rgba(232, 184, 109, 0.1);
-}
-
-.diff-gutter-row,
-.diff-code-row {
-  height: 19px;
+.diff-line {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 19px;
   line-height: 19px;
   box-sizing: border-box;
 }
 
 .diff-gutter-row {
   display: grid;
+  flex: none;
   align-items: stretch;
   font-size: 11px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #16120e;
+  border-right: 1px solid rgba(232, 184, 109, 0.1);
+  box-sizing: border-box;
 }
 
 .diff-inline-frame .diff-gutter-row {
@@ -862,12 +866,8 @@ button {
   max-width: 100%;
 }
 
-.diff-code-block {
-  width: max-content;
-  min-width: 100%;
-}
-
 .diff-code-row {
+  flex: 1 0 auto;
   padding: 0 10px 0 8px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -876,28 +876,37 @@ button {
   color: var(--tva-paper-dim);
 }
 
-.diff-gutter-row.addition,
-.diff-code-row.addition {
+.diff-line.addition {
   background: rgba(143, 154, 98, 0.16);
 }
 
-.diff-gutter-row.deletion,
-.diff-code-row.deletion {
+.diff-line.deletion {
   background: rgba(194, 59, 34, 0.16);
 }
 
-.diff-gutter-row.empty,
-.diff-code-row.empty {
+.diff-line.empty {
   background: rgba(0, 0, 0, 0.18);
 }
 
-.diff-gutter-row.addition .diff-mark,
-.diff-code-row.addition {
+.diff-line.addition .diff-gutter-row {
+  background: linear-gradient(rgba(143, 154, 98, 0.16), rgba(143, 154, 98, 0.16)), #16120e;
+}
+
+.diff-line.deletion .diff-gutter-row {
+  background: linear-gradient(rgba(194, 59, 34, 0.16), rgba(194, 59, 34, 0.16)), #16120e;
+}
+
+.diff-line.empty .diff-gutter-row {
+  background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)), #16120e;
+}
+
+.diff-line.addition .diff-mark,
+.diff-line.addition .diff-code-row {
   color: #c6d18d;
 }
 
-.diff-gutter-row.deletion .diff-mark,
-.diff-code-row.deletion {
+.diff-line.deletion .diff-mark,
+.diff-line.deletion .diff-code-row {
   color: #ff8a6a;
 }
 

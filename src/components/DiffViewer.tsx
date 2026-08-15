@@ -78,28 +78,19 @@ function InlineHunk({ hunk }: { hunk: DiffHunk }) {
   return (
     <div className="diff-hunk">
       <div className="diff-hunk-head">{hunk.header}</div>
-      <div className="diff-inline-frame">
-        <div className="diff-gutters" aria-hidden>
+      <TvaScrollArea className="diff-code-scroll" axis="x">
+        <div className="diff-inline-frame">
           {hunk.lines.map((line, index) => (
-            <GutterRow
+            <div
               key={`${line.kind}-${line.oldNo}-${line.newNo}-${index}`}
-              line={line}
-            />
+              className={`diff-line ${line.kind}`}
+            >
+              <GutterRow line={line} />
+              <div className="diff-code-row">{line.text}</div>
+            </div>
           ))}
         </div>
-        <TvaScrollArea className="diff-code-scroll" axis="x">
-          <div className="diff-code-block">
-            {hunk.lines.map((line, index) => (
-              <div
-                key={`${line.kind}-${line.oldNo}-${line.newNo}-${index}`}
-                className={`diff-code-row ${line.kind}`}
-              >
-                {line.text}
-              </div>
-            ))}
-          </div>
-        </TvaScrollArea>
-      </div>
+      </TvaScrollArea>
     </div>
   );
 }
@@ -107,7 +98,7 @@ function InlineHunk({ hunk }: { hunk: DiffHunk }) {
 function GutterRow({ line }: { line: DiffLine }) {
   const mark = line.kind === "addition" ? "+" : line.kind === "deletion" ? "−" : " ";
   return (
-    <div className={`diff-gutter-row ${line.kind}`}>
+    <div className="diff-gutter-row" aria-hidden>
       <span className="diff-ln">{line.oldNo ?? ""}</span>
       <span className="diff-ln">{line.newNo ?? ""}</span>
       <span className="diff-mark">{mark}</span>
@@ -137,30 +128,21 @@ function SplitSide({
 }) {
   return (
     <div className={`diff-side ${side}`}>
-      <div className="diff-side-frame">
-        <div className="diff-gutters" aria-hidden>
+      <TvaScrollArea className="diff-code-scroll" axis="x">
+        <div className="diff-side-frame">
           {cells.map((cell, index) => (
             <div
-              key={`${side}-g-${index}`}
-              className={`diff-gutter-row ${cell?.kind ?? "empty"}`}
+              key={`${side}-${index}`}
+              className={`diff-line ${cell?.kind ?? "empty"}`}
             >
-              <span className="diff-ln">{cell?.no ?? ""}</span>
+              <div className="diff-gutter-row" aria-hidden>
+                <span className="diff-ln">{cell?.no ?? ""}</span>
+              </div>
+              <div className="diff-code-row">{cell?.text ?? ""}</div>
             </div>
           ))}
         </div>
-        <TvaScrollArea className="diff-code-scroll" axis="x">
-          <div className="diff-code-block">
-            {cells.map((cell, index) => (
-              <div
-                key={`${side}-c-${index}`}
-                className={`diff-code-row ${cell?.kind ?? "empty"}`}
-              >
-                {cell?.text ?? ""}
-              </div>
-            ))}
-          </div>
-        </TvaScrollArea>
-      </div>
+      </TvaScrollArea>
     </div>
   );
 }
