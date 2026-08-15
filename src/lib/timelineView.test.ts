@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   assertViewConsistent,
   boxesOverlap,
+  easeOutCubic,
   edgePath,
   focusCamera,
   INCURSION_ID,
   laneGapFor,
   layoutTimelineView,
+  lerpCamera,
   placeLabels,
 } from "./timelineView";
 import { crowdedTipsTimeline, linearTimeline } from "./fixtures";
@@ -41,6 +43,24 @@ describe("focusCamera", () => {
     expect(cam.x + 100 * cam.scale).toBe(200);
     expect(cam.y + 50 * cam.scale).toBe(100);
     expect(cam.scale).toBe(2);
+  });
+});
+
+describe("lerpCamera", () => {
+  const from = { x: 0, y: 0, scale: 1 };
+  const to = { x: 100, y: 40, scale: 2 };
+
+  it("starts at the origin pose and lands on the target", () => {
+    expect(lerpCamera(from, to, 0)).toEqual(from);
+    expect(lerpCamera(from, to, 1)).toEqual(to);
+  });
+
+  it("eases out so the midpoint is past linear halfway", () => {
+    const mid = lerpCamera(from, to, 0.5);
+    expect(mid.x).toBeGreaterThan(50);
+    expect(mid.y).toBeGreaterThan(20);
+    expect(mid.scale).toBeGreaterThan(1.5);
+    expect(easeOutCubic(0.5)).toBeGreaterThan(0.5);
   });
 });
 

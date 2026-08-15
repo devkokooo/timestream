@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { focusCamera, INCURSION_ID, layoutTimelineView, type ViewNode } from "../lib/timelineView";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  focusCamera,
+  INCURSION_ID,
+  layoutTimelineView,
+  lerpCamera,
+  type Camera,
+  type ViewNode,
+} from "../lib/timelineView";
 import type { Timeline } from "../lib/types";
 
 const DEFAULT_SCALE = 1.65;
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.8;
+const FOCUS_MS = 480;
 
 interface Props {
   timeline: Timeline;
@@ -28,12 +36,53 @@ export function SacredTimeline({
   const view = useMemo(() => layoutTimelineView(timeline, { incursion }), [timeline, incursion]);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 400 });
-  const [pan, setPan] = useState({ x: 0, y: 0, scale: DEFAULT_SCALE });
+  const [pan, setPan] = useState<Camera>({ x: 0, y: 0, scale: DEFAULT_SCALE });
+  const panRef = useRef(pan);
+  const animRef = useRef<number | null>(null);
+  const focusIdRef = useRef<string | undefined>(undefined);
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(
     null,
   );
 
-  const focus = view.nodes.find((n) => n.isHead) ?? view.nodes.find((n) => n.id === selectedId) ?? view.nodes.at(-1);
+  const focus =
+    view.nodes.find((n) => n.id === selectedId) ??
+    view.nodes.find((n) => n.isHead) ??
+    view.nodes.at(-1);
+
+  const stopCameraAnim = useCallback(() => {
+    if (animRef.current != null) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+  }, []);
+
+  const writePan = useCallback((next: Camera) => {
+    panRef.current = next;
+    setPan(next);
+  }, []);
+
+  const animateCamera = useCallback(
+    (to: Camera) => {
+      stopCameraAnim();
+      const from = panRef.current;
+      if (
+        Math.abs(from.x - to.x) < 0.5 &&
+        Math.abs(from.y - to.y) < 0.5 &&
+        Math.abs(from.scale - to.scale) < 0.001
+      ) {
+        return;
+      }
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / FOCUS_MS);
+        writePan(lerpCamera(from, to, t));
+        if (t < 1) animRef.current = requestAnimationFrame(tick);
+        else animRef.current = null;
+      };
+      animRef.current = requestAnimationFrame(tick);
+    },
+    [stopCameraAnim, writePan],
+  );
 
   useEffect(() => {
     const el = svgRef.current;
@@ -51,10 +100,28 @@ export function SacredTimeline({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => () => stopCameraAnim(), [stopCameraAnim]);
+
   useEffect(() => {
     if (!focus) return;
-    setPan((p) => focusCamera(focus, p.scale, viewport));
-  }, [timeline.head, viewport.width, viewport.height, focus?.id, focus?.x, focus?.y]);
+    const target = focusCamera(focus, panRef.current.scale, viewport);
+    const first = focusIdRef.current === undefined;
+    const idChanged = focusIdRef.current !== focus.id;
+    focusIdRef.current = focus.id;
+    if (first || !idChanged) {
+      stopCameraAnim();
+      writePan(target);
+      return;
+    }
+    animateCamera(target);
+  }, [
+    animateCamera,
+    focus,
+    stopCameraAnim,
+    viewport.height,
+    viewport.width,
+    writePan,
+  ]);
 
   const ticks = useMemo(() => {
     const maxRow = timeline.nodes.reduce((m, n) => Math.max(m, n.row), 0);
@@ -78,24 +145,26 @@ export function SacredTimeline({
       preserveAspectRatio="xMidYMid meet"
       onWheel={(e) => {
         e.preventDefault();
+        stopCameraAnim();
         const rect = e.currentTarget.getBoundingClientRect();
         const mx = ((e.clientX - rect.left) / rect.width) * viewport.width;
         const my = ((e.clientY - rect.top) / rect.height) * viewport.height;
-        setPan((p) => {
-          const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.scale + (e.deltaY > 0 ? -0.1 : 0.1)));
-          const gx = (mx - p.x) / p.scale;
-          const gy = (my - p.y) / p.scale;
-          return { scale: next, x: mx - gx * next, y: my - gy * next };
-        });
+        const p = panRef.current;
+        const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.scale + (e.deltaY > 0 ? -0.1 : 0.1)));
+        const gx = (mx - p.x) / p.scale;
+        const gy = (my - p.y) / p.scale;
+        writePan({ scale: nextScale, x: mx - gx * nextScale, y: my - gy * nextScale });
       }}
       onPointerDown={(e) => {
         if ((e.target as Element).closest(".node-hit")) return;
-        drag.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+        stopCameraAnim();
+        const p = panRef.current;
+        drag.current = { x: e.clientX, y: e.clientY, px: p.x, py: p.y };
       }}
       onPointerMove={(e) => {
         if (!drag.current) return;
-        setPan({
-          ...pan,
+        writePan({
+          ...panRef.current,
           x: drag.current.px + (e.clientX - drag.current.x),
           y: drag.current.py + (e.clientY - drag.current.y),
         });
@@ -195,7 +264,16 @@ export function SacredTimeline({
           const isPr = prHeadShas?.has(node.id);
           const failed = failingShas?.has(node.id);
           return (
-            <g key={node.id} onClick={() => onSelect(node.id)} opacity={isRemote ? 0.55 : 1}>
+            <g
+              key={node.id}
+              onClick={() => {
+                if (node.id === selectedId) {
+                  animateCamera(focusCamera(node, panRef.current.scale, viewport));
+                }
+                onSelect(node.id);
+              }}
+              opacity={isRemote ? 0.55 : 1}
+            >
               {node.isHead && (
                 <circle
                   cx={node.x}

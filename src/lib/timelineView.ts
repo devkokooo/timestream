@@ -83,16 +83,33 @@ export function edgePath(x1: number, y1: number, x2: number, y2: number): string
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
+export type Camera = { x: number; y: number; scale: number };
+
 /** Pan/zoom so `point` sits in the middle of the monitor viewport. */
 export function focusCamera(
   point: { x: number; y: number },
   scale: number,
   viewport: { width: number; height: number },
-): { x: number; y: number; scale: number } {
+): Camera {
   return {
     x: viewport.width / 2 - point.x * scale,
     y: viewport.height / 2 - point.y * scale,
     scale,
+  };
+}
+
+export function easeOutCubic(t: number): number {
+  const x = t < 0 ? 0 : t > 1 ? 1 : t;
+  return 1 - (1 - x) ** 3;
+}
+
+/** Interpolate a camera pose. `t` is 0..1 and is eased. */
+export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
+  const e = easeOutCubic(t);
+  return {
+    x: from.x + (to.x - from.x) * e,
+    y: from.y + (to.y - from.y) * e,
+    scale: from.scale + (to.scale - from.scale) * e,
   };
 }
 
