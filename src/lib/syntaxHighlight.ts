@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   bundledLanguages,
   getSingletonHighlighter,
@@ -60,42 +60,73 @@ export function tokenClassName(fontStyle: number | undefined): string | undefine
   return parts.length > 0 ? parts.join(" ") : undefined;
 }
 
-export function useHighlightedLines(
+/** Tokenize `texts[start..end)` and cache by index. Headers / empty strings skip Shiki. */
+export function useHighlightedRange(
   texts: string[],
   lang: string | null,
-): ThemedToken[][] | null {
-  const fingerprint = `${lang ?? ""}\0${texts.join("\0")}`;
-  const [rows, setRows] = useState<ThemedToken[][] | null>(null);
-  const [applied, setApplied] = useState("");
+  start: number,
+  end: number,
+): Array<ThemedToken[] | undefined> {
+  const cacheRef = useRef<Array<ThemedToken[] | undefined>>([]);
+  const textsRef = useRef(texts);
+  textsRef.current = texts;
+  const [, bump] = useState(0);
 
   useEffect(() => {
-    if (!isHighlightableLanguage(lang)) {
-      setRows(null);
-      setApplied(fingerprint);
-      return;
+    cacheRef.current = new Array(texts.length);
+    bump((n) => n + 1);
+  }, [texts, lang]);
+
+  useEffect(() => {
+    if (!isHighlightableLanguage(lang)) return;
+
+    const cache = cacheRef.current;
+    const lo = Math.max(0, start);
+    const hi = Math.min(texts.length, Math.max(lo, end));
+    const missing: number[] = [];
+    let filledEmpty = false;
+    for (let i = lo; i < hi; i++) {
+      if (cache[i] !== undefined) continue;
+      if (!texts[i]) {
+        cache[i] = [];
+        filledEmpty = true;
+        continue;
+      }
+      missing.push(i);
     }
+    if (filledEmpty) bump((n) => n + 1);
+    if (missing.length === 0) return;
 
     let cancelled = false;
-    void highlightLines(texts, lang)
-      .then((next) => {
-        if (!cancelled) {
-          setRows(next);
-          setApplied(fingerprint);
+    void highlightLines(
+      missing.map((i) => texts[i]),
+      lang,
+    )
+      .then((rows) => {
+        if (cancelled || textsRef.current !== texts) return;
+        if (!rows) {
+          missing.forEach((index) => {
+            cacheRef.current[index] = [];
+          });
+        } else {
+          missing.forEach((index, j) => {
+            cacheRef.current[index] = rows[j];
+          });
         }
+        bump((n) => n + 1);
       })
       .catch(() => {
-        if (!cancelled) {
-          setRows(null);
-          setApplied(fingerprint);
-        }
+        if (cancelled || textsRef.current !== texts) return;
+        missing.forEach((index) => {
+          cacheRef.current[index] = [];
+        });
+        bump((n) => n + 1);
       });
 
     return () => {
       cancelled = true;
     };
-    // texts is represented by fingerprint
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fingerprint]);
+  }, [texts, lang, start, end]);
 
-  return applied === fingerprint ? rows : null;
+  return cacheRef.current;
 }

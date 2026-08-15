@@ -13,6 +13,7 @@ import type { CommitDetail, FileChange, TimelineNode } from "../lib/types";
 import { FileKindIcon } from "./FileKindIcon";
 import { CaseFileDetailSkeleton } from "./TvaSkeleton";
 import { TvaScrollArea } from "./TvaScrollArea";
+import { TvaVirtualList } from "./TvaVirtualList";
 
 interface Props {
   node: TimelineNode | null;
@@ -103,20 +104,37 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommi
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <h2 className={cn(panelTitle, "mx-4 mt-2.5 mb-1.5 shrink-0")}>AFFECTED FILES</h2>
-          <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-4 pb-4">
-            {loading ? (
+          {loading ? (
+            <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-4 pb-4">
               <CaseFileDetailSkeleton />
-            ) : (
-              (detail?.files ?? []).map((file) => (
-                <FileRow
-                  key={`${file.status}-${file.path}`}
-                  file={file}
-                  selected={selectedPath === file.path}
-                  onOpen={() => onOpenFile(file.path)}
-                />
-              ))
-            )}
-          </TvaScrollArea>
+            </TvaScrollArea>
+          ) : (
+            <TvaVirtualList
+              className="min-h-0 flex-1"
+              axis="y"
+              fill
+              viewportClassName="px-4 pb-4"
+              count={(detail?.files ?? []).length}
+              estimateSize={(index) =>
+                (detail?.files ?? [])[index]?.path === selectedPath ? 52 : 32
+              }
+              getItemKey={(index) => {
+                const file = (detail?.files ?? [])[index];
+                return `${file.status}-${file.path}`;
+              }}
+            >
+              {(index) => {
+                const file = (detail?.files ?? [])[index];
+                return (
+                  <FileRow
+                    file={file}
+                    selected={selectedPath === file.path}
+                    onOpen={() => onOpenFile(file.path)}
+                  />
+                );
+              }}
+            </TvaVirtualList>
+          )}
         </div>
       </div>
     </aside>

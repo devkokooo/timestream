@@ -1,4 +1,4 @@
-import type { DiffHunk, DiffLine, DiffLineKind, FileAction, FileChange } from "./types";
+import type { DiffHunk, DiffLine, DiffLineKind, DiffMode, FileAction, FileChange } from "./types";
 
 export interface SplitCell {
   no: number | null;
@@ -148,4 +148,114 @@ export function hunkLineCounts(hunk: Pick<DiffHunk, "lines">): { added: number; 
     else if (line.kind === "deletion") deleted += 1;
   }
   return { added, deleted };
+}
+
+export const DIFF_HEADER_HEIGHT = 36;
+export const DIFF_LINE_HEIGHT = 19;
+export const DIFF_CHAR_PX = 7.2;
+export const DIFF_INLINE_GUTTER_PX = 106;
+export const DIFF_SPLIT_GUTTER_PX = 44;
+
+export type DiffViewRow =
+  | { type: "header"; hunkIndex: number; key: string }
+  | { type: "inline"; hunkIndex: number; lineIndex: number; line: DiffLine }
+  | { type: "split"; hunkIndex: number; rowIndex: number; left: SplitCell | null; right: SplitCell | null };
+
+export function flattenDiffRows(
+  hunks: DiffHunk[],
+  mode: DiffMode,
+  collapsedKeys: ReadonlySet<string>,
+): DiffViewRow[] {
+  const rows: DiffViewRow[] = [];
+  hunks.forEach((hunk, hunkIndex) => {
+    const key = hunkKey(hunk);
+    rows.push({ type: "header", hunkIndex, key });
+    if (collapsedKeys.has(key)) return;
+    if (mode === "split") {
+      pairHunkLines(hunk.lines).forEach((pair, rowIndex) => {
+        rows.push({
+          type: "split",
+          hunkIndex,
+          rowIndex,
+          left: pair.left,
+          right: pair.right,
+        });
+      });
+      return;
+    }
+    hunk.lines.forEach((line, lineIndex) => {
+      rows.push({ type: "inline", hunkIndex, lineIndex, line });
+    });
+  });
+  return rows;
+}
+
+export function estimateDiffRowSize(row: DiffViewRow): number {
+  return row.type === "header" ? DIFF_HEADER_HEIGHT : DIFF_LINE_HEIGHT;
+}
+
+export function diffContentMinWidth(hunks: DiffHunk[], mode: DiffMode): number {
+  let maxChars = 0;
+  for (const hunk of hunks) {
+    for (const line of hunk.lines) {
+      if (line.text.length > maxChars) maxChars = line.text.length;
+    }
+  }
+  const code = Math.ceil(maxChars * DIFF_CHAR_PX) + 24;
+  if (mode === "split") return Math.max(240, DIFF_SPLIT_GUTTER_PX + code);
+  return Math.max(320, DIFF_INLINE_GUTTER_PX + code);
+}
+
+export interface SplitHeaderOverlay {
+  key: string;
+  hunkIndex: number;
+  top: number;
+  sticky: boolean;
+}
+
+/** Positions one connected hunk header over split panes, sticky while its lines are in view. */
+export function splitHeaderOverlay(
+  rows: DiffViewRow[],
+  scrollTop: number,
+  viewportH: number,
+): SplitHeaderOverlay[] {
+  const starts: Array<{ key: string; hunkIndex: number; y: number }> = [];
+  let y = 0;
+  for (const row of rows) {
+    if (row.type === "header") starts.push({ key: row.key, hunkIndex: row.hunkIndex, y });
+    y += estimateDiffRowSize(row);
+  }
+
+  const viewH = viewportH || 1;
+  const out: SplitHeaderOverlay[] = [];
+  let sticky: { key: string; hunkIndex: number; y: number; nextY: number } | null = null;
+
+  for (let i = 0; i < starts.length; i++) {
+    const cur = starts[i];
+    const nextY = i + 1 < starts.length ? starts[i + 1].y : Number.POSITIVE_INFINITY;
+    if (cur.y <= scrollTop && nextY > scrollTop) {
+      sticky = { ...cur, nextY };
+    }
+    const top = cur.y - scrollTop;
+    if (top < viewH && top + DIFF_HEADER_HEIGHT > 0) {
+      out.push({ key: cur.key, hunkIndex: cur.hunkIndex, top, sticky: false });
+    }
+  }
+
+  if (sticky) {
+    const natural = sticky.y - scrollTop;
+    const pushed = sticky.nextY - scrollTop - DIFF_HEADER_HEIGHT;
+    const top = Math.min(Math.max(natural, 0), pushed);
+    const existing = out.findIndex((h) => h.key === sticky.key);
+    const next: SplitHeaderOverlay = {
+      key: sticky.key,
+      hunkIndex: sticky.hunkIndex,
+      top,
+      sticky: natural < 0,
+    };
+    if (existing >= 0) out[existing] = next;
+    else out.unshift(next);
+  }
+
+  return out;
 }

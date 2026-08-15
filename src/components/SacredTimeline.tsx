@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  columnTone,
+  clipRiverX,
+  cullTimelineView,
   focusCamera,
   INCURSION_ID,
+  laneTones,
   layoutTimelineView,
   lerpCamera,
   REF_TONE_FILL,
+  worldRect,
+  xInRect,
   type Camera,
   type ViewNode,
 } from "../lib/timelineView";
@@ -139,8 +143,21 @@ export function SacredTimeline({
     return out;
   }, [timeline.nodes, view.rowWidth]);
 
+  const rect = useMemo(() => worldRect(pan, viewport), [pan, viewport]);
+  const keepIds = useMemo(() => {
+    const ids = new Set<string>([INCURSION_ID]);
+    if (selectedId) ids.add(selectedId);
+    const head = view.nodes.find((n) => n.isHead);
+    if (head) ids.add(head.id);
+    return ids;
+  }, [selectedId, view.nodes]);
+  const culled = useMemo(() => cullTimelineView(view, rect, keepIds), [view, rect, keepIds]);
+  const tones = useMemo(() => laneTones(view.nodes, view.currentColumn), [view]);
+  const toneOf = (column: number) => tones.get(column) ?? "local";
+  const river = clipRiverX(view, rect);
+  const visibleTicks = useMemo(() => ticks.filter((t) => xInRect(t.x, rect)), [ticks, rect]);
+
   const currentY = view.nodes.find((n) => n.isHead)?.y ?? view.sacredY;
-  const toneOf = (column: number) => columnTone(column, view.currentColumn, view.nodes);
 
   return (
     <div className="relative h-full w-full">
@@ -216,27 +233,31 @@ export function SacredTimeline({
       </defs>
 
       <g transform={`translate(${pan.x} ${pan.y}) scale(${pan.scale})`}>
-        <rect
-          x="24"
-          y={view.sacredY - 10}
-          width={Math.max(view.width - 48, 200)}
-          height="20"
-          fill="url(#river)"
-          opacity="0.22"
-          rx="10"
-          filter="url(#glow)"
-        />
-        <rect
-          x="24"
-          y={view.sacredY - 3}
-          width={Math.max(view.width - 48, 200)}
-          height="6"
-          fill="url(#vein)"
-          opacity="0.8"
-        />
+        {river ? (
+          <g>
+            <rect
+              x={river.x}
+              y={view.sacredY - 10}
+              width={river.width}
+              height="20"
+              fill="url(#river)"
+              opacity="0.22"
+              rx="10"
+              filter="url(#glow)"
+            />
+            <rect
+              x={river.x}
+              y={view.sacredY - 3}
+              width={river.width}
+              height="6"
+              fill="url(#vein)"
+              opacity="0.8"
+            />
+          </g>
+        ) : null}
 
         <g className="ticks">
-          {ticks.map((t) => (
+          {visibleTicks.map((t) => (
             <g key={t.row}>
               <line
                 x1={t.x}
@@ -253,11 +274,11 @@ export function SacredTimeline({
           ))}
         </g>
 
-        {currentY !== view.sacredY ? (
+        {currentY !== view.sacredY && river ? (
           <rect
-            x="24"
+            x={river.x}
             y={currentY - 7}
-            width={Math.max(view.width - 48, 200)}
+            width={river.width}
             height="14"
             fill={REF_TONE_FILL.current}
             opacity="0.14"
@@ -266,7 +287,7 @@ export function SacredTimeline({
           />
         ) : null}
 
-        {view.edges.map((edge) => {
+        {culled.edges.map((edge) => {
           const pending = edge.to === INCURSION_ID;
           const tone = pending ? "incursion" : toneOf(edge.toColumn);
           const currentLane =
@@ -287,12 +308,11 @@ export function SacredTimeline({
               strokeDasharray={pending ? "5 4" : tone === "remote" ? "4 3" : undefined}
               strokeLinecap="round"
               opacity={pending ? 0.72 : edge.kind === "merge" ? 0.75 : tone === "remote" ? 0.55 : 0.95}
-              filter="url(#glow)"
             />
           );
         })}
 
-        {view.nodes.map((node) => {
+        {culled.nodes.map((node) => {
           if (node.id === INCURSION_ID) {
             return <IncursionOrb key={node.id} node={node} onOpen={() => onOpenReview?.()} />;
           }
@@ -300,6 +320,7 @@ export function SacredTimeline({
           const tone = node.isHead ? "current" : toneOf(node.column);
           const isPr = prHeadShas?.has(node.id);
           const failed = failingShas?.has(node.id);
+          const glow = node.isHead || selected;
           return (
             <g
               key={node.id}
@@ -346,7 +367,7 @@ export function SacredTimeline({
                           : "#2b2118"
                 }
                 strokeWidth={failed || selected || node.isHead ? 2 : 1}
-                filter="url(#glow)"
+                filter={glow ? "url(#glow)" : undefined}
               />
               {isPr ? (
                 <text x={node.x} y={node.y - node.r - 8} textAnchor="middle" className="ref-label" fill="#e85d04">
@@ -365,7 +386,7 @@ export function SacredTimeline({
           );
         })}
 
-        {view.labels.map((label) => (
+        {culled.labels.map((label) => (
           <text
             key={`${label.id}-${label.text}`}
             className={`ref-label ${label.kind}`}

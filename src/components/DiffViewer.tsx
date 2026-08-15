@@ -3,14 +3,18 @@ import { cn } from "../lib/cn";
 import {
   actionLabel,
   actionTone,
+  DIFF_HEADER_HEIGHT,
+  diffContentMinWidth,
+  estimateDiffRowSize,
   fileAction,
   fileDisplayPath,
+  flattenDiffRows,
   hunkKey,
   hunkLineCounts,
-  pairHunkLines,
+  splitHeaderOverlay,
+  type DiffViewRow,
 } from "../lib/diffView";
-import type { SplitCell as SplitCellModel } from "../lib/diffView";
-import { tokenClassName, useHighlightedLines, type ThemedToken } from "../lib/syntaxHighlight";
+import { tokenClassName, useHighlightedRange, type ThemedToken } from "../lib/syntaxHighlight";
 import { languageFromPath } from "../lib/syntaxLang";
 import {
   btn,
@@ -22,6 +26,7 @@ import {
 } from "../lib/ui";
 import type { DiffHunk, DiffLine, DiffMode, FileChange, FileDiff, ReviewComment } from "../lib/types";
 import { TvaScrollArea } from "./TvaScrollArea";
+import { TvaVirtualList } from "./TvaVirtualList";
 
 interface Props {
   file: FileChange | null;
@@ -64,6 +69,7 @@ export function DiffViewer({
   const readByFile = useRef(new Map<string, Set<string>>());
   const [readKeys, setReadKeys] = useState<Set<string>>(() => new Set());
   const [filing, setFiling] = useState(false);
+  const [range, setRange] = useState({ start: 0, end: 40 });
 
   useEffect(() => {
     setReadKeys(new Set(readByFile.current.get(fileKey) ?? []));
@@ -82,8 +88,39 @@ export function DiffViewer({
     [fileKey],
   );
 
+  const onRangeChange = useCallback((startIndex: number, endIndex: number) => {
+    setRange((prev) =>
+      prev.start === startIndex && prev.end === endIndex ? prev : { start: startIndex, end: endIndex },
+    );
+  }, []);
+
+  const rows = useMemo(
+    () => (diff && !diff.binary ? flattenDiffRows(diff.hunks, mode, readKeys) : []),
+    [diff, mode, readKeys],
+  );
+  const leftTexts = useMemo(
+    () =>
+      rows.map((row) => {
+        if (row.type === "inline") return row.line.text;
+        if (row.type === "split") return row.left?.text ?? "";
+        return "";
+      }),
+    [rows],
+  );
+  const rightTexts = useMemo(
+    () => rows.map((row) => (row.type === "split" ? (row.right?.text ?? "") : "")),
+    [rows],
+  );
+  const leftTokens = useHighlightedRange(leftTexts, lang, range.start, range.end);
+  const rightTokens = useHighlightedRange(rightTexts, lang, range.start, range.end);
+  const minWidth = useMemo(
+    () => (diff && !diff.binary ? diffContentMinWidth(diff.hunks, mode) : undefined),
+    [diff, mode],
+  );
+
   const readCount = reviewable ? hunkKeys.filter((key) => readKeys.has(key)).length : 0;
   const hunkTotal = hunkKeys.length;
+  const empty = Boolean(error) || Boolean(diff?.binary) || Boolean(diff && !diff.binary && diff.hunks.length === 0);
 
   async function fileRecord() {
     if (!onFile || filing) return;
@@ -151,31 +188,68 @@ export function DiffViewer({
         </button>
       </header>
 
-      <TvaScrollArea className="diff-body min-h-0 flex-1" axis="both" fill>
-        {error ? <p className={cn(errorText, "px-3")}>{error}</p> : null}
-        {diff?.binary ? (
-          <p className={cn(emptyText, "px-3")}>Binary record — no textual variance.</p>
-        ) : null}
-        {diff && !diff.binary && diff.hunks.length === 0 ? (
-          <p className={cn(emptyText, "px-3")}>No textual variance recorded.</p>
-        ) : null}
-        {diff && !diff.binary
-          ? diff.hunks.map((hunk, index) => {
-              const key = hunkKey(hunk);
-              return (
-                <HunkBlock
-                  key={`${key}-${index}`}
-                  hunk={hunk}
-                  lang={lang}
-                  mode={mode}
-                  reviewable={reviewable}
-                  read={reviewable && readKeys.has(key)}
-                  onToggleRead={() => toggleRead(key)}
-                />
-              );
-            })
-          : null}
-      </TvaScrollArea>
+      {empty ? (
+        <TvaScrollArea className="diff-body min-h-0 flex-1" axis="both" fill>
+          {error ? <p className={cn(errorText, "px-3")}>{error}</p> : null}
+          {diff?.binary ? (
+            <p className={cn(emptyText, "px-3")}>Binary record — no textual variance.</p>
+          ) : null}
+          {diff && !diff.binary && diff.hunks.length === 0 ? (
+            <p className={cn(emptyText, "px-3")}>No textual variance recorded.</p>
+          ) : null}
+        </TvaScrollArea>
+      ) : mode === "split" ? (
+        <SplitDiff
+          rows={rows}
+          hunks={diff?.hunks ?? []}
+          reviewable={reviewable}
+          readKeys={readKeys}
+          onToggleRead={toggleRead}
+          leftTokens={leftTokens}
+          rightTokens={rightTokens}
+          minWidth={minWidth}
+          onRangeChange={onRangeChange}
+        />
+      ) : (
+        <TvaVirtualList
+          className="diff-body min-h-0 flex-1"
+          axis="both"
+          fill
+          count={rows.length}
+          estimateSize={(index) => estimateDiffRowSize(rows[index])}
+          getItemKey={(index) => diffRowKey(rows[index])}
+          minWidth={minWidth}
+          onRangeChange={onRangeChange}
+          overlay={(virtual) => stickyHunkHeader(virtual.startIndex, rows, diff?.hunks, reviewable, readKeys, toggleRead)}
+        >
+          {(index) => {
+            const row = rows[index];
+            if (!row || row.type !== "inline") {
+              if (row?.type === "header") {
+                const hunk = diff?.hunks[row.hunkIndex];
+                if (!hunk) return null;
+                return (
+                  <div className="mx-2.5 pt-2">
+                    <HunkHeader
+                      hunk={hunk}
+                      reviewable={reviewable}
+                      read={reviewable && readKeys.has(row.key)}
+                      onToggleRead={() => toggleRead(row.key)}
+                    />
+                  </div>
+                );
+              }
+              return null;
+            }
+            return (
+              <div className={`diff-line ${row.line.kind}`}>
+                <GutterRow line={row.line} />
+                <CodeRow text={row.line.text} tokens={leftTokens[index]} />
+              </div>
+            );
+          }}
+        </TvaVirtualList>
+      )}
       {reviewComments && reviewComments.length > 0 ? (
         <aside className="max-h-40 overflow-auto border-t border-tva-gold/16 px-3 py-2">
           <p className="m-0 mb-1 text-[10px] uppercase tracking-[0.14em] text-tva-gold">
@@ -199,97 +273,249 @@ export function DiffViewer({
   );
 }
 
-function HunkBlock({
-  hunk,
-  lang,
-  mode,
-  reviewable,
-  read,
-  onToggleRead,
-}: {
-  hunk: DiffHunk;
-  lang: string | null;
-  mode: DiffMode;
-  reviewable: boolean;
-  read: boolean;
-  onToggleRead: () => void;
-}) {
-  const counts = useMemo(() => hunkLineCounts(hunk), [hunk]);
-
+function stickyHunkHeader(
+  startIndex: number,
+  rows: DiffViewRow[],
+  hunks: DiffHunk[] | undefined,
+  reviewable: boolean,
+  readKeys: Set<string>,
+  onToggleRead: (key: string) => void,
+) {
+  const row = rows[startIndex];
+  if (!row || row.type === "header" || !hunks) return null;
+  const hunk = hunks[row.hunkIndex];
+  const key = hunkKey(hunk);
   return (
-    <div
-      className={cn(
-        "diff-hunk mx-2.5 my-2 mb-3.5 border border-tva-gold/14 bg-[#120e0b]",
-        read && "border-tva-gold/8",
-      )}
-    >
-      <div
-        className={cn(
-          "diff-hunk-header flex items-center gap-2 border-b border-tva-gold/12 bg-[#241c16] px-2.5 py-[5px]",
-          read && "border-b-0 bg-[#1a1612]",
-        )}
-      >
-        {reviewable ? (
-          <button
-            type="button"
-            className="min-w-0 flex-1 overflow-hidden border-0 bg-transparent p-0 text-left text-[11px] text-ellipsis whitespace-pre text-tva-gold hover:text-tva-gold-bright"
-            aria-expanded={!read}
-            aria-label={read ? "Expand hunk" : "Collapse hunk as read"}
-            onClick={onToggleRead}
-          >
-            {hunk.header}
-          </button>
-        ) : (
-          <div className="min-w-0 flex-1 overflow-hidden text-[11px] text-ellipsis whitespace-pre text-tva-gold">
-            {hunk.header}
-          </div>
-        )}
-        {counts.added > 0 || counts.deleted > 0 ? (
-          <span className="shrink-0 font-mono text-[10px] tracking-[0.04em]" aria-hidden>
-            {counts.added > 0 ? <span className="text-[#c6d18d]">+{counts.added}</span> : null}
-            {counts.added > 0 && counts.deleted > 0 ? " " : null}
-            {counts.deleted > 0 ? <span className="text-[#ff8a6a]">−{counts.deleted}</span> : null}
-          </span>
-        ) : null}
-        {reviewable ? (
-          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-tva-gold">
-            <input
-              type="checkbox"
-              checked={read}
-              onChange={onToggleRead}
-              aria-label={read ? "Mark hunk unread" : "Mark hunk as read"}
-            />
-            Read
-          </label>
-        ) : null}
-      </div>
-      {read ? null : mode === "split" ? (
-        <SplitHunk hunk={hunk} lang={lang} />
-      ) : (
-        <InlineHunk hunk={hunk} lang={lang} />
-      )}
+    <div className="pointer-events-auto mx-2.5">
+      <HunkHeader
+        hunk={hunk}
+        reviewable={reviewable}
+        read={reviewable && readKeys.has(key)}
+        onToggleRead={() => onToggleRead(key)}
+        sticky
+      />
     </div>
   );
 }
 
-function InlineHunk({ hunk, lang }: { hunk: DiffHunk; lang: string | null }) {
-  const texts = useMemo(() => hunk.lines.map((line) => line.text), [hunk]);
-  const highlighted = useHighlightedLines(texts, lang);
+function SplitDiff({
+  rows,
+  hunks,
+  reviewable,
+  readKeys,
+  onToggleRead,
+  leftTokens,
+  rightTokens,
+  minWidth,
+  onRangeChange,
+}: {
+  rows: DiffViewRow[];
+  hunks: DiffHunk[];
+  reviewable: boolean;
+  readKeys: Set<string>;
+  onToggleRead: (key: string) => void;
+  leftTokens: Array<ThemedToken[] | undefined>;
+  rightTokens: Array<ThemedToken[] | undefined>;
+  minWidth?: number;
+  onRangeChange: (startIndex: number, endIndex: number) => void;
+}) {
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const syncing = useRef(false);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+
+  const readScroll = useCallback(() => {
+    const el = leftRef.current ?? rightRef.current;
+    if (!el) return;
+    setScrollTop(el.scrollTop);
+    setViewportH(el.clientHeight);
+  }, []);
+
+  const syncY = useCallback(
+    (source: "left" | "right") => {
+      if (syncing.current) return;
+      const from = source === "left" ? leftRef.current : rightRef.current;
+      const to = source === "left" ? rightRef.current : leftRef.current;
+      if (!from || !to) return;
+      if (from.scrollTop !== to.scrollTop) {
+        syncing.current = true;
+        to.scrollTop = from.scrollTop;
+        syncing.current = false;
+      }
+      readScroll();
+    },
+    [readScroll],
+  );
+
+  useEffect(() => {
+    const el = leftRef.current;
+    if (!el) return;
+    readScroll();
+    const ro = new ResizeObserver(readScroll);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [readScroll, rows.length]);
+
+  const handleRange = useCallback(
+    (start: number, end: number) => {
+      onRangeChange(start, end);
+    },
+    [onRangeChange],
+  );
+
+  const headers = useMemo(
+    () => splitHeaderOverlay(rows, scrollTop, viewportH),
+    [rows, scrollTop, viewportH],
+  );
+
+  function onHeaderWheel(e: React.WheelEvent) {
+    const el = leftRef.current;
+    if (!el) return;
+    e.preventDefault();
+    el.scrollTop += e.deltaY;
+    syncY("left");
+  }
 
   return (
-    <TvaScrollArea className="diff-code-scroll" axis="x">
-      <div className="diff-inline-frame">
-        {hunk.lines.map((line, index) => (
-          <div
-            key={`${line.kind}-${line.oldNo}-${line.newNo}-${index}`}
-            className={`diff-line ${line.kind}`}
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="diff-split-frame min-h-0 flex-1">
+        <div className="diff-side old">
+          <TvaVirtualList
+            className="diff-body min-h-0 flex-1"
+            axis="both"
+            rails="x"
+            fill
+            count={rows.length}
+            estimateSize={(index) => estimateDiffRowSize(rows[index])}
+            getItemKey={(index) => `L-${diffRowKey(rows[index])}`}
+            minWidth={minWidth}
+            viewportRef={leftRef}
+            onScroll={() => syncY("left")}
+            onRangeChange={handleRange}
           >
-            <GutterRow line={line} />
-            <CodeRow text={line.text} tokens={highlighted?.[index]} />
-          </div>
-        ))}
+            {(index) => splitPaneRow(rows[index], "left", leftTokens[index])}
+          </TvaVirtualList>
+        </div>
+        <div className="diff-side new">
+          <TvaVirtualList
+            className="diff-body min-h-0 flex-1"
+            axis="both"
+            rails="both"
+            fill
+            count={rows.length}
+            estimateSize={(index) => estimateDiffRowSize(rows[index])}
+            getItemKey={(index) => `R-${diffRowKey(rows[index])}`}
+            minWidth={minWidth}
+            viewportRef={rightRef}
+            onScroll={() => syncY("right")}
+          >
+            {(index) => splitPaneRow(rows[index], "right", rightTokens[index])}
+          </TvaVirtualList>
+        </div>
       </div>
-    </TvaScrollArea>
+      <div className="pointer-events-none absolute inset-0 z-[6] overflow-hidden">
+        {headers.map((item) => {
+          const hunk = hunks[item.hunkIndex];
+          if (!hunk) return null;
+          return (
+            <div
+              key={item.key}
+              className="pointer-events-auto absolute right-3 left-2.5"
+              style={{ top: item.top }}
+              onWheel={onHeaderWheel}
+            >
+              <HunkHeader
+                hunk={hunk}
+                reviewable={reviewable}
+                read={reviewable && readKeys.has(item.key)}
+                onToggleRead={() => onToggleRead(item.key)}
+                sticky={item.sticky}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function splitPaneRow(
+  row: DiffViewRow | undefined,
+  side: "left" | "right",
+  tokens: ThemedToken[] | undefined,
+) {
+  if (!row) return null;
+  if (row.type === "header") {
+    return <div className="diff-hunk-slot" style={{ height: DIFF_HEADER_HEIGHT }} />;
+  }
+  if (row.type !== "split") return null;
+  const cell = side === "left" ? row.left : row.right;
+  return <SplitCellView cell={cell} tokens={tokens} />;
+}
+
+function diffRowKey(row: DiffViewRow): string {
+  if (row.type === "header") return `h-${row.key}`;
+  if (row.type === "inline") return `i-${row.hunkIndex}-${row.lineIndex}`;
+  return `s-${row.hunkIndex}-${row.rowIndex}`;
+}
+
+function HunkHeader({
+  hunk,
+  reviewable,
+  read,
+  onToggleRead,
+  sticky = false,
+}: {
+  hunk: DiffHunk;
+  reviewable: boolean;
+  read: boolean;
+  onToggleRead: () => void;
+  sticky?: boolean;
+}) {
+  const counts = hunkLineCounts(hunk);
+  return (
+    <div
+      className={cn(
+        "diff-hunk-header flex w-full min-w-0 items-center gap-2 border border-tva-gold/14 bg-[#241c16] px-2.5 py-[5px]",
+        read && "border-tva-gold/8 bg-[#1a1612]",
+        sticky && "diff-sticky-header",
+      )}
+    >
+      {reviewable ? (
+        <button
+          type="button"
+          className="min-w-0 flex-1 overflow-hidden border-0 bg-transparent p-0 text-left text-[11px] text-ellipsis whitespace-pre text-tva-gold hover:text-tva-gold-bright"
+          aria-expanded={!read}
+          aria-label={read ? "Expand hunk" : "Collapse hunk as read"}
+          onClick={onToggleRead}
+        >
+          {hunk.header}
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1 overflow-hidden text-[11px] text-ellipsis whitespace-pre text-tva-gold">
+          {hunk.header}
+        </div>
+      )}
+      {counts.added > 0 || counts.deleted > 0 ? (
+        <span className="shrink-0 whitespace-nowrap font-mono text-[10px] tracking-[0.04em]" aria-hidden>
+          {counts.added > 0 ? <span className="text-[#c6d18d]">+{counts.added}</span> : null}
+          {counts.added > 0 && counts.deleted > 0 ? " " : null}
+          {counts.deleted > 0 ? <span className="text-[#ff8a6a]">−{counts.deleted}</span> : null}
+        </span>
+      ) : null}
+      {reviewable ? (
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-[10px] uppercase tracking-[0.1em] text-tva-gold">
+          <input
+            type="checkbox"
+            checked={read}
+            onChange={onToggleRead}
+            aria-label={read ? "Mark hunk unread" : "Mark hunk as read"}
+          />
+          Read
+        </label>
+      ) : null}
+    </div>
   );
 }
 
@@ -304,47 +530,19 @@ function GutterRow({ line }: { line: DiffLine }) {
   );
 }
 
-function SplitHunk({ hunk, lang }: { hunk: DiffHunk; lang: string | null }) {
-  const rows = useMemo(() => pairHunkLines(hunk.lines), [hunk]);
-  const leftTexts = useMemo(() => rows.map((row) => row.left?.text ?? ""), [rows]);
-  const rightTexts = useMemo(() => rows.map((row) => row.right?.text ?? ""), [rows]);
-  const leftTokens = useHighlightedLines(leftTexts, lang);
-  const rightTokens = useHighlightedLines(rightTexts, lang);
-
-  return (
-    <div className="diff-split-frame">
-      <SplitSide side="old" cells={rows.map((row) => row.left)} tokens={leftTokens} />
-      <SplitSide side="new" cells={rows.map((row) => row.right)} tokens={rightTokens} />
-    </div>
-  );
-}
-
-function SplitSide({
-  side,
-  cells,
+function SplitCellView({
+  cell,
   tokens,
 }: {
-  side: "old" | "new";
-  cells: Array<SplitCellModel | null>;
-  tokens: ThemedToken[][] | null;
+  cell: { no: number | null; text: string; kind: string } | null;
+  tokens: ThemedToken[] | undefined;
 }) {
   return (
-    <div className={`diff-side ${side}`}>
-      <TvaScrollArea className="diff-code-scroll" axis="x">
-        <div className="diff-side-frame">
-          {cells.map((cell, index) => (
-            <div
-              key={`${side}-${index}`}
-              className={`diff-line ${cell?.kind ?? "empty"}`}
-            >
-              <div className="diff-gutter-row" aria-hidden>
-                <span className="diff-ln">{cell?.no ?? ""}</span>
-              </div>
-              <CodeRow text={cell?.text ?? ""} tokens={tokens?.[index]} />
-            </div>
-          ))}
-        </div>
-      </TvaScrollArea>
+    <div className={`diff-line ${cell?.kind ?? "empty"}`}>
+      <div className="diff-gutter-row" aria-hidden>
+        <span className="diff-ln">{cell?.no ?? ""}</span>
+      </div>
+      <CodeRow text={cell?.text ?? ""} tokens={tokens} />
     </div>
   );
 }

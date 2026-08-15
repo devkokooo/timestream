@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 
 type Axis = "x" | "y" | "both";
@@ -13,10 +14,16 @@ type Axis = "x" | "y" | "both";
 interface Props {
   children: ReactNode;
   className?: string;
+  /** Which overflow axes are enabled. */
   axis?: Axis;
+  /** Which overlay rails to draw. Defaults to `axis`. */
+  rails?: Axis;
   /** Stretch to fill a flex/grid parent (panels). Off for content-sized rows. */
   fill?: boolean;
   viewportClassName?: string;
+  /** Expose the scrolling viewport for virtualizers. */
+  viewportRef?: Ref<HTMLDivElement | null>;
+  onScroll?: () => void;
 }
 
 interface Metrics {
@@ -48,14 +55,25 @@ export function TvaScrollArea({
   children,
   className = "",
   axis = "both",
+  rails,
   fill = false,
   viewportClassName = "",
+  viewportRef,
+  onScroll,
 }: Props) {
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const [metrics, setMetrics] = useState<Metrics>(EMPTY);
 
+  const setViewportEl = useCallback(
+    (node: HTMLDivElement | null) => {
+      innerRef.current = node;
+      assignRef(viewportRef, node);
+    },
+    [viewportRef],
+  );
+
   const measure = useCallback(() => {
-    const el = viewportRef.current;
+    const el = innerRef.current;
     if (!el) return;
     setMetrics({
       clientW: el.clientWidth,
@@ -68,28 +86,38 @@ export function TvaScrollArea({
   }, []);
 
   useEffect(() => {
-    const el = viewportRef.current;
+    const el = innerRef.current;
     if (!el) return;
     measure();
     const ro = new ResizeObserver(() => measure());
     ro.observe(el);
-    if (el.firstElementChild instanceof Element) {
-      ro.observe(el.firstElementChild);
-    }
-    const mo = new MutationObserver(() => measure());
-    mo.observe(el, { childList: true, subtree: true, characterData: true });
+    let child: Element | null = null;
+    const syncChild = () => {
+      const next = el.firstElementChild;
+      if (next === child) return;
+      if (child) ro.unobserve(child);
+      child = next;
+      if (child) ro.observe(child);
+      measure();
+    };
+    syncChild();
+    const mo = new MutationObserver(syncChild);
+    mo.observe(el, { childList: true });
     window.addEventListener("resize", measure);
     return () => {
       ro.disconnect();
       mo.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [measure, children]);
+  }, [measure]);
 
   const allowX = axis === "x" || axis === "both";
   const allowY = axis === "y" || axis === "both";
-  const showX = allowX && metrics.scrollW > metrics.clientW + 1;
-  const showY = allowY && metrics.scrollH > metrics.clientH + 1;
+  const shown = rails ?? axis;
+  const railX = shown === "x" || shown === "both";
+  const railY = shown === "y" || shown === "both";
+  const showX = allowX && railX && metrics.scrollW > metrics.clientW + 1;
+  const showY = allowY && railY && metrics.scrollH > metrics.clientH + 1;
 
   const rail = 10;
   const yTrack = Math.max(metrics.clientH, 0);
@@ -108,13 +136,13 @@ export function TvaScrollArea({
     xMax > 0 ? (metrics.scrollL / xMax) * Math.max(xTrack - xThumbW, 0) : 0;
 
   function scrollToY(next: number) {
-    const el = viewportRef.current;
+    const el = innerRef.current;
     if (!el) return;
     el.scrollTop = clamp(next, 0, yMax);
   }
 
   function scrollToX(next: number) {
-    const el = viewportRef.current;
+    const el = innerRef.current;
     if (!el) return;
     el.scrollLeft = clamp(next, 0, xMax);
   }
@@ -207,10 +235,13 @@ export function TvaScrollArea({
       }
     >
       <div
-        ref={viewportRef}
+        ref={setViewportEl}
         className={`tva-scroll-viewport ${viewportClassName}`.trim()}
         style={viewportStyle}
-        onScroll={measure}
+        onScroll={() => {
+          measure();
+          onScroll?.();
+        }}
       >
         {children}
       </div>
@@ -231,4 +262,10 @@ export function TvaScrollArea({
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
+}
+
+function assignRef<T>(ref: Ref<T> | undefined, value: T) {
+  if (!ref) return;
+  if (typeof ref === "function") ref(value);
+  else ref.current = value;
 }
