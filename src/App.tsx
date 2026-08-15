@@ -16,14 +16,16 @@ import {
   switchBranch,
   unstageFile,
 } from "./lib/api";
+import {
+  loadRecentRepos,
+  rememberRepo,
+  removeRecentRepo,
+  type RecentRepo,
+} from "./lib/recentRepos";
 import type { CommitDetail, RepoSummary, StatusPayload, Timeline } from "./lib/types";
 
-const LAST_REPO = "timestream.lastRepo";
-
 export default function App() {
-  const [pathInput, setPathInput] = useState(
-    () => localStorage.getItem(LAST_REPO) ?? "",
-  );
+  const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
   const [repo, setRepo] = useState<RepoSummary | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [status, setStatus] = useState<StatusPayload | null>(null);
@@ -44,8 +46,7 @@ export default function App() {
       setRepo(summary);
       setTimeline(nextTimeline);
       setStatus(nextStatus);
-      localStorage.setItem(LAST_REPO, summary.path);
-      setPathInput(summary.path);
+      setRecent(rememberRepo(summary.path));
       setSelectedId((current) => {
         if (keepSelection && current && nextTimeline.nodes.some((n) => n.id === current)) {
           return current;
@@ -84,7 +85,6 @@ export default function App() {
     try {
       const picked = await pickRepository();
       if (picked) {
-        setPathInput(picked);
         await loadAll(picked);
       }
     } catch (err) {
@@ -96,10 +96,10 @@ export default function App() {
     return (
       <div className="app">
         <WelcomeGate
-          path={pathInput}
-          onPath={setPathInput}
+          recent={recent}
+          onOpenRecent={(path) => loadAll(path)}
+          onRemoveRecent={(path) => setRecent(removeRecentRepo(path))}
           onBrowse={browse}
-          onOpen={() => pathInput && loadAll(pathInput)}
           error={error}
         />
       </div>

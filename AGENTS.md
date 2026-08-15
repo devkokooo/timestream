@@ -27,7 +27,7 @@ Do not look like GitHub, GitKraken, or a generic dark IDE.
 - **Palette:** TVA orange (`#E85D04`), sacred gold (`#E8B86D` / `#F4C430`), board-formed concrete (`#2B2723`), cream paper (`#F5E6C8`), wood brown (`#5C4033`)
 - **Timeline:** central gold-veined river; branches are variant spurs above/below; commits are nexus orbs
 - **Chrome:** mid-century bureaucratic — dossier panels, stamps (`VARIANT`, `NEXUS`), CRT scanlines, analog grain. No cyan sci-fi glow
-- **Type:** serif display for titles, IBM Plex Mono for SHAs and metadata
+- **Type:** JetBrains Mono throughout (titles, UI, SHAs, metadata)
 
 ## Git rules
 
