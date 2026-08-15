@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnomalyDock } from "./components/AnomalyDock";
 import { AuthDialog } from "./components/AuthDialog";
 import { BureauHeader } from "./components/BureauHeader";
 import { CommandPalette, type PaletteCommand } from "./components/CommandPalette";
 import { DiffViewer } from "./components/DiffViewer";
 import { Docket } from "./components/Docket";
+import { RailStrip } from "./components/RailStrip";
+import { ReviewMode } from "./components/ReviewMode";
 import { IdentityPicker, type IdentityChoice } from "./components/IdentityPicker";
 import { SacredTimeline } from "./components/SacredTimeline";
 import { SettingsPage } from "./components/SettingsPage";
@@ -23,7 +24,6 @@ import {
   getStatus,
   getTimeline,
   getWorktreeDiff,
-  githubListNotifications,
   githubListPulls,
   githubListReviewComments,
   githubOrigin,
@@ -65,7 +65,6 @@ import type {
   FileChange,
   FileDiff,
   GithubUser,
-  NotificationItem,
   PullRequestSummary,
   RemoteAuthArgs,
   RemoteInfo,
@@ -100,6 +99,28 @@ function statusFile(
       ? status.staged
       : [...status.unstaged, ...status.untracked];
   return list.find((file) => file.path === target.path) ?? null;
+}
+
+function firstWorktreeTarget(status: StatusPayload | null): DiffTarget | null {
+  if (!status) return null;
+  const unfiled = [...status.unstaged, ...status.untracked];
+  if (unfiled[0]) return { kind: "unstaged", path: unfiled[0].path };
+  if (status.staged[0]) return { kind: "staged", path: status.staged[0].path };
+  return null;
+}
+
+function followWorktreeTarget(
+  status: StatusPayload | null,
+  target: DiffTarget | null,
+): DiffTarget | null {
+  if (!status || !target || target.kind === "commit") return null;
+  if (statusFile(status, target)) return target;
+  const other: DiffTarget = {
+    kind: target.kind === "staged" ? "unstaged" : "staged",
+    path: target.path,
+  };
+  if (statusFile(status, other)) return other;
+  return firstWorktreeTarget(status);
 }
 
 function targetsEqual(a: DiffTarget | null, b: DiffTarget | null): boolean {
@@ -161,7 +182,6 @@ export default function App() {
   const [origin, setOrigin] = useState<RemoteInfo | null>(null);
   const [sync, setSync] = useState<AheadBehind | null>(null);
   const [prs, setPrs] = useState<PullRequestSummary[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
   const [docketTab, setDocketTab] = useState<DocketTab>("case");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -169,14 +189,21 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [variantRailOpen, setVariantRailOpen] = useState(true);
+  const [docketOpen, setDocketOpen] = useState(true);
   const pendingRemote = useRef<((args: RemoteAuthArgs) => Promise<unknown>) | null>(null);
   const busyRef = useRef(false);
   const repoPathRef = useRef<string | null>(null);
   const diffTargetRef = useRef<DiffTarget | null>(null);
   const loadedDiffKeyRef = useRef<string | null>(null);
+  const reviewOpenRef = useRef(false);
+  const paletteOpenRef = useRef(false);
   busyRef.current = busy;
   repoPathRef.current = repo?.path ?? null;
   diffTargetRef.current = diffTarget;
+  reviewOpenRef.current = reviewOpen;
+  paletteOpenRef.current = paletteOpen;
 
   const loadAll = useCallback(async (path: string, options: LoadOptions = {}) => {
     const { keepSelection = false, quiet = false } = options;
@@ -228,9 +255,6 @@ export default function App() {
     void githubListPulls(origin.owner, origin.nameOnHost, "open")
       .then(setPrs)
       .catch(() => setPrs([]));
-    void githubListNotifications()
-      .then(setNotifications)
-      .catch(() => setNotifications([]));
   }, [origin?.owner, origin?.nameOnHost, user?.login]);
 
   useEffect(() => {
@@ -238,9 +262,18 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setPaletteOpen(true);
+        return;
       }
-      if (e.key === "Escape") {
+      if (e.key !== "Escape") return;
+      if (paletteOpenRef.current) {
         setPaletteOpen(false);
+        return;
+      }
+      if (reviewOpenRef.current) {
+        setReviewOpen(false);
+        setDiffTarget((target) => (target && target.kind !== "commit" ? null : target));
+        setDiffMounted(false);
+        setDiffMountTarget(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -339,13 +372,19 @@ export default function App() {
   }, [detail, diffTarget, selectedId]);
 
   useEffect(() => {
-    if (!diffTarget || diffTarget.kind === "commit") return;
-    if (!status) return;
-    if (!statusFile(status, diffTarget)) {
-      setDiffOpen(false);
-      setDiffTarget(null);
+    if (!reviewOpen || !status) return;
+    if (diffTarget?.kind === "commit") return;
+    const next = followWorktreeTarget(status, diffTarget) ?? firstWorktreeTarget(status);
+    if (targetsEqual(diffTarget, next)) return;
+    setDiffTarget(next);
+    if (next) {
+      setDiffMounted(true);
+      setDiffMountTarget(next);
+    } else {
+      setDiffMounted(false);
+      setDiffMountTarget(null);
     }
-  }, [status, diffTarget]);
+  }, [reviewOpen, status, diffTarget]);
 
   const worktreeDiffKey =
     diffTarget && diffTarget.kind !== "commit" && statusFile(status, diffTarget)
@@ -398,6 +437,8 @@ export default function App() {
   }, [diffKey, diffTarget, selectedId]);
 
   const selectedNode = timeline?.nodes.find((n) => n.id === selectedId) ?? null;
+  const varianceCount =
+    (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0) + (status?.untracked.length ?? 0);
   const activeTarget = diffTarget ?? diffMountTarget;
   const selectedFile =
     activeTarget?.kind === "commit"
@@ -422,24 +463,56 @@ export default function App() {
   );
 
   function openDiff(target: DiffTarget) {
-    if (targetsEqual(diffTarget, target)) {
+    if (target.kind === "commit") {
+      if (targetsEqual(diffTarget, target)) {
+        setDiffOpen(false);
+        setDiffTarget(null);
+        return;
+      }
+      setReviewOpen(false);
+      setDiffMounted(true);
+      setDiffMountTarget(target);
+      setDiffTarget(target);
+      if (diffOpen) return;
       setDiffOpen(false);
-      setDiffTarget(null);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setDiffOpen(true));
+      });
       return;
     }
+    setDiffOpen(false);
+    setReviewOpen(true);
     setDiffMounted(true);
     setDiffMountTarget(target);
     setDiffTarget(target);
-    if (diffOpen) return;
-    setDiffOpen(false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setDiffOpen(true));
-    });
   }
 
   function closeDiff() {
     setDiffOpen(false);
     setDiffTarget(null);
+  }
+
+  function closeReview() {
+    setReviewOpen(false);
+    if (diffTargetRef.current && diffTargetRef.current.kind !== "commit") {
+      setDiffTarget(null);
+      setDiffMounted(false);
+      setDiffMountTarget(null);
+    }
+  }
+
+  function toggleReview() {
+    if (reviewOpen) {
+      closeReview();
+      return;
+    }
+    setDiffOpen(false);
+    if (diffTarget?.kind === "commit") {
+      setDiffTarget(null);
+      setDiffMounted(false);
+      setDiffMountTarget(null);
+    }
+    setReviewOpen(true);
   }
 
   async function browse() {
@@ -478,6 +551,9 @@ export default function App() {
 
   const commands: PaletteCommand[] = [
     { id: "palette", title: "Show command palette", hint: "Ctrl+Shift+P", run: () => setPaletteOpen(true) },
+    { id: "review", title: "Open review mode", hint: "Temporal anomalies", run: () => { if (!reviewOpen) toggleReview(); } },
+    { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
+    { id: "docket", title: "Toggle case file", run: () => setDocketOpen((open) => !open) },
     { id: "settings", title: "Open settings", hint: "Bureau settings", run: () => setSettingsOpen(true) },
     { id: "signin", title: "Sign in with GitHub", hint: "Clearance", run: () => setAuthOpen(true) },
     { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => setUser(null)) },
@@ -600,27 +676,69 @@ export default function App() {
         repo={repo}
         origin={origin}
         sync={sync}
-        user={user}
-        notifications={notifications.length}
+        anomalyCount={varianceCount}
+        anomalyLoading={status == null}
+        reviewOpen={reviewOpen}
+        onToggleReview={toggleReview}
         onOpen={browse}
         onReload={() => loadAll(repo.path, { keepSelection: true })}
-        onFetch={() => void runRemote(fetchRemote)}
-        onPush={() => void runRemote(pushBranch)}
-        onPull={() => void runRemote(pullFfOnly)}
         onSettings={() => setSettingsOpen(true)}
-        onSignIn={() => setAuthOpen(true)}
-        onSignOut={() => void githubLogout().then(() => setUser(null))}
       />
       {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
+      {reviewOpen ? (
+        <ReviewMode
+          status={status}
+          busy={busy}
+          ahead={sync?.ahead ?? 0}
+          onPush={() => void runRemote(pushBranch)}
+          onFetch={() => void runRemote(fetchRemote)}
+          onPull={() => void runRemote(pullFfOnly)}
+          selected={
+            diffTarget && diffTarget.kind !== "commit"
+              ? { side: diffTarget.kind, path: diffTarget.path }
+              : null
+          }
+          onOpenFile={(side, path) => openDiff({ kind: side, path })}
+          onStage={async (rel) => setStatus(await stageFile(repo.path, rel))}
+          onUnstage={async (rel) => setStatus(await unstageFile(repo.path, rel))}
+          onCommit={async (message) => {
+            await fileCommit(repo.path, message);
+            await loadAll(repo.path, { keepSelection: true });
+          }}
+        >
+          {diffTarget && diffTarget.kind !== "commit" ? (
+            <DiffViewer
+              file={selectedFile}
+              diff={visibleDiff}
+              mode={diffMode}
+              error={diffError}
+              onMode={setDiffMode}
+              onClose={closeReview}
+              onFile={
+                diffTarget.kind === "unstaged" && selectedFile
+                  ? async () => {
+                      setStatus(await stageFile(repo.path, selectedFile.path));
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
+        </ReviewMode>
+      ) : (
       <div
         data-workspace
-        className="grid min-h-0 flex-1 overflow-hidden grid-cols-[260px_minmax(0,1fr)_320px] grid-rows-[minmax(240px,1fr)_auto]"
+        className="grid min-h-0 flex-1 overflow-hidden"
+        style={{
+          gridTemplateColumns: `${variantRailOpen ? "260px" : "36px"} minmax(0,1fr) ${docketOpen ? "320px" : "36px"}`,
+        }}
       >
+        {variantRailOpen ? (
         <VariantRail
           timeline={timeline}
           busy={busy}
           prByBranch={prByBranch}
           aheadBehind={sync}
+          onStow={() => setVariantRailOpen(false)}
           onCheckout={async (name) => {
             try {
               setBusy(true);
@@ -632,6 +750,9 @@ export default function App() {
             }
           }}
         />
+        ) : (
+          <RailStrip label="VARIANTS" side="start" onExpand={() => setVariantRailOpen(true)} />
+        )}
         <div className={cn("relative min-h-0 min-w-0 overflow-hidden", diffOpen && "diff-open")}>
           <div
             className="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-[radial-gradient(900px_280px_at_50%_20%,rgba(232,93,4,0.14),transparent_60%),linear-gradient(180deg,#1a1511,#100d0a)]"
@@ -641,6 +762,10 @@ export default function App() {
               timeline={timeline}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              incursion={varianceCount > 0}
+              onOpenReview={() => {
+                if (!reviewOpen) toggleReview();
+              }}
               prHeadShas={prHeadShas}
               failingShas={failingShas}
             />
@@ -662,7 +787,7 @@ export default function App() {
               }
             }}
           >
-            {diffMounted ? (
+            {diffMounted && activeTarget?.kind === "commit" ? (
               <DiffViewer
                 file={selectedFile}
                 diff={visibleDiff}
@@ -670,18 +795,12 @@ export default function App() {
                 error={diffError}
                 onMode={setDiffMode}
                 onClose={closeDiff}
-                onFile={
-                  activeTarget?.kind === "unstaged" && selectedFile
-                    ? async () => {
-                        setStatus(await stageFile(repo.path, selectedFile.path));
-                      }
-                    : undefined
-                }
                 reviewComments={reviewComments}
               />
             ) : null}
           </div>
         </div>
+        {docketOpen ? (
         <Docket
           tab={docketTab}
           onTab={setDocketTab}
@@ -719,26 +838,13 @@ export default function App() {
           onPushTag={(name) => {
             void runRemote((args) => pushTag(args, name));
           }}
+          onStow={() => setDocketOpen(false)}
         />
-        <AnomalyDock
-          status={status}
-          busy={busy}
-          ahead={sync?.ahead ?? 0}
-          onPush={() => void runRemote(pushBranch)}
-          selected={
-            diffTarget && diffTarget.kind !== "commit"
-              ? { side: diffTarget.kind, path: diffTarget.path }
-              : null
-          }
-          onOpenFile={(side, path) => openDiff({ kind: side, path })}
-          onStage={async (rel) => setStatus(await stageFile(repo.path, rel))}
-          onUnstage={async (rel) => setStatus(await unstageFile(repo.path, rel))}
-          onCommit={async (message) => {
-            await fileCommit(repo.path, message);
-            await loadAll(repo.path, { keepSelection: true });
-          }}
-        />
+        ) : (
+          <RailStrip label="DOCKET" side="end" onExpand={() => setDocketOpen(true)} />
+        )}
       </div>
+      )}
       {overlays}
     </div>
   );

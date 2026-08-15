@@ -18,8 +18,9 @@ import {
   githubUpdatePull,
   githubUpdateRelease,
 } from "../lib/api";
+import { cn } from "../lib/cn";
 import { detectStacks } from "../lib/stackDetect";
-import { btn, btnPrimary, emptyText, fieldInput, fieldLabel, stamp } from "../lib/ui";
+import { btn, btnPrimary, btnStow, emptyText, fieldInput, fieldLabel, stamp } from "../lib/ui";
 import type {
   CheckRunSummary,
   CommitDetail,
@@ -58,16 +59,22 @@ interface DocketProps {
   onPushTag: (name: string) => void;
   selectedSha: string | null;
   checksBySha: Record<string, string>;
+  onStow: () => void;
 }
 
 export function Docket(props: DocketProps) {
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden border-l border-tva-gold/16 bg-[#1b1713] p-0">
       <div className="flex shrink-0 border-b border-tva-gold/16">
-        <TabBtn active={props.tab === "case"} onClick={() => props.onTab("case")} flavor="Case file" noun="Commit" />
-        <TabBtn active={props.tab === "requests"} onClick={() => props.onTab("requests")} flavor="Requests" noun="Pull requests" />
-        <TabBtn active={props.tab === "incidents"} onClick={() => props.onTab("incidents")} flavor="Incidents" noun="Issues" />
-        <TabBtn active={props.tab === "canon"} onClick={() => props.onTab("canon")} flavor="Canon" noun="Releases" />
+        <div className="flex min-w-0 flex-1">
+          <TabBtn active={props.tab === "case"} onClick={() => props.onTab("case")} flavor="Case file" noun="Commit" />
+          <TabBtn active={props.tab === "requests"} onClick={() => props.onTab("requests")} flavor="Requests" noun="Pull requests" />
+          <TabBtn active={props.tab === "incidents"} onClick={() => props.onTab("incidents")} flavor="Incidents" noun="Issues" />
+          <TabBtn active={props.tab === "canon"} onClick={() => props.onTab("canon")} flavor="Canon" noun="Releases" />
+        </div>
+        <button type="button" className={cn(btnStow, "m-1")} onClick={props.onStow}>
+          Stow
+        </button>
       </div>
       {props.tab === "case" ? (
         <div className="min-h-0 flex-1 overflow-hidden [&_aside]:border-0">

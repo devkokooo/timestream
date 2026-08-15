@@ -26,6 +26,11 @@
   fill: var(--color-tva-gold-bright);
 }
 
+.ref-label.incursion {
+  fill: var(--color-tva-orange);
+  letter-spacing: 0.12em;
+}
+
 /* Diff viewer dense layout + token colors */
 .diff-body.tva-scroll > .tva-scroll-viewport {
   padding: 0 0 16px;

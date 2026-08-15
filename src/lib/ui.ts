@@ -6,6 +6,9 @@ export const btnPrimary =
 
 export const btnDanger = "border-tva-stamp text-[#f3c2b8]";
 
+export const btnStow =
+  "shrink-0 border border-tva-gold/35 bg-transparent px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright";
+
 export const panelTitle =
   "m-0 font-display text-[15px] tracking-[0.16em] text-tva-gold";
 
