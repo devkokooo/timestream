@@ -7,6 +7,7 @@ interface TvaTermProps {
   className?: string;
   flavorClassName?: string;
   nounClassName?: string;
+  onPrimary?: boolean;
 }
 
 export function TvaTerm({
@@ -16,11 +17,20 @@ export function TvaTerm({
   className,
   flavorClassName,
   nounClassName,
+  onPrimary,
 }: TvaTermProps) {
   return (
     <span className={cn("inline-flex flex-col items-start leading-tight", className)}>
-      <span className={cn("uppercase tracking-[0.08em]", flavorClassName)}>{flavor}</span>
-      <span className={cn("text-[9px] font-normal normal-case tracking-normal text-tva-muted", nounClassName)}>
+      <span className={cn("uppercase tracking-[0.08em]", onPrimary && "text-tva-ink", flavorClassName)}>
+        {flavor}
+      </span>
+      <span
+        className={cn(
+          "text-[9px] font-normal normal-case tracking-normal",
+          onPrimary ? "text-tva-orange-deep" : "text-tva-muted",
+          nounClassName,
+        )}
+      >
         {noun}
       </span>
       {hint ? <span className="sr-only">{hint}</span> : null}

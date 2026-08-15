@@ -62,7 +62,7 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommi
             {!loading && detail?.body ? (
               <p className="mb-3 text-xs leading-relaxed text-tva-paper-dim">{detail.body}</p>
             ) : null}
-            <div className="mt-3 space-y-0.5 border-t border-tva-gold/12 pt-3 font-mono text-[11px] leading-snug text-tva-muted">
+            <div className="mt-3 space-y-0.5 border-t border-tva-gold/12 pt-3 font-mono text-[11px] leading-snug text-tva-paper-dim">
               <p className="m-0">
                 {detail && !loading ? detail.author : node.author}
                 {detail && !loading && detail.email ? ` · ${detail.email}` : ""}
