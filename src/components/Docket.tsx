@@ -203,7 +203,7 @@ function RequestsPanel(props: DocketProps) {
             await reload();
           }}
         >
-          <TvaTerm flavor="Open request" noun="Create pull request" />
+          <TvaTerm flavor="Open request" noun="Create pull request" onPrimary />
         </button>
       </div>
       {prs.map((pr) => (
@@ -401,7 +401,7 @@ function IncidentsPanel(props: DocketProps) {
             await reload();
           }}
         >
-          <TvaTerm flavor="File incident" noun="Create issue" />
+          <TvaTerm flavor="File incident" noun="Create issue" onPrimary />
         </button>
       </div>
       {issues.map((issue) => (

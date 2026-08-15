@@ -75,7 +75,7 @@ export function BureauHeader({
           <TvaTerm flavor="Sync inbound" noun="Pull" />
         </button>
         <button type="button" className={btnPrimary} onClick={onPush} title="Push branch">
-          <TvaTerm flavor="File to HQ" noun="Push" flavorClassName="text-tva-ink" nounClassName="text-tva-ink/70" />
+          <TvaTerm flavor="File to HQ" noun="Push" onPrimary />
         </button>
         {user ? (
           <button type="button" className={btn} onClick={onSignOut}>

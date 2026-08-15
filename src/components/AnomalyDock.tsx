@@ -19,6 +19,7 @@ import {
 } from "../lib/ui";
 import type { FileChange, StatusPayload } from "../lib/types";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
+import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
 
 export type AnomalySide = "staged" | "unstaged";
@@ -172,10 +173,7 @@ export function AnomalyDock({
               <div className="flex gap-2">
                 {ahead > 0 && onPush ? (
                   <button type="button" className={btn} onClick={onPush}>
-                    File to HQ
-                    <span className="mt-0.5 block text-[9px] font-normal normal-case tracking-normal text-tva-muted">
-                      Push branch · {ahead} ahead
-                    </span>
+                    <TvaTerm flavor="File to HQ" noun={`Push branch · ${ahead} ahead`} />
                   </button>
                 ) : null}
                 <button className={btnPrimary} type="submit" disabled={!canFile}>
