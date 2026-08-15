@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  columnTone,
   focusCamera,
   INCURSION_ID,
   layoutTimelineView,
   lerpCamera,
+  REF_TONE_FILL,
   type Camera,
   type ViewNode,
 } from "../lib/timelineView";
@@ -137,7 +139,11 @@ export function SacredTimeline({
     return out;
   }, [timeline.nodes, view.rowWidth]);
 
+  const currentY = view.nodes.find((n) => n.isHead)?.y ?? view.sacredY;
+  const toneOf = (column: number) => columnTone(column, view.currentColumn, view.nodes);
+
   return (
+    <div className="relative h-full w-full">
     <svg
       ref={svgRef}
       className="monitor-svg"
@@ -182,10 +188,20 @@ export function SacredTimeline({
           <stop offset="40%" stopColor="#f4c430" />
           <stop offset="100%" stopColor="#e85d04" />
         </linearGradient>
-        <radialGradient id="nexus" cx="50%" cy="50%" r="50%">
+        <radialGradient id="nexus-current" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#fff6d2" />
           <stop offset="45%" stopColor="#f4c430" />
           <stop offset="100%" stopColor="#e85d04" />
+        </radialGradient>
+        <radialGradient id="nexus-local" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffd4a8" />
+          <stop offset="45%" stopColor="#e85d04" />
+          <stop offset="100%" stopColor="#8a2e08" />
+        </radialGradient>
+        <radialGradient id="nexus-remote" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#d4c19a" />
+          <stop offset="50%" stopColor="#6b5d4d" />
+          <stop offset="100%" stopColor="#3a332c" />
         </radialGradient>
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="4" result="b" />
@@ -237,19 +253,40 @@ export function SacredTimeline({
           ))}
         </g>
 
+        {currentY !== view.sacredY ? (
+          <rect
+            x="24"
+            y={currentY - 7}
+            width={Math.max(view.width - 48, 200)}
+            height="14"
+            fill={REF_TONE_FILL.current}
+            opacity="0.14"
+            rx="7"
+            filter="url(#glow)"
+          />
+        ) : null}
+
         {view.edges.map((edge) => {
           const pending = edge.to === INCURSION_ID;
-          const sacred = !pending && edge.fromColumn === 0 && edge.toColumn === 0;
+          const tone = pending ? "incursion" : toneOf(edge.toColumn);
+          const currentLane =
+            !pending && edge.fromColumn === view.currentColumn && edge.toColumn === view.currentColumn;
           return (
             <path
               key={`${edge.from}-${edge.to}-${edge.kind}`}
               d={edge.d}
               fill="none"
-              stroke={pending ? "#e85d04" : edge.kind === "merge" ? "#c23b22" : sacred ? "#f4c430" : "#e85d04"}
-              strokeWidth={pending ? 1.8 : sacred ? 3.2 : 1.7}
-              strokeDasharray={pending ? "5 4" : undefined}
+              stroke={
+                pending
+                  ? REF_TONE_FILL.incursion
+                  : edge.kind === "merge"
+                    ? "#c23b22"
+                    : REF_TONE_FILL[tone]
+              }
+              strokeWidth={pending ? 1.8 : currentLane ? 3.2 : 1.7}
+              strokeDasharray={pending ? "5 4" : tone === "remote" ? "4 3" : undefined}
               strokeLinecap="round"
-              opacity={pending ? 0.72 : edge.kind === "merge" ? 0.75 : 0.95}
+              opacity={pending ? 0.72 : edge.kind === "merge" ? 0.75 : tone === "remote" ? 0.55 : 0.95}
               filter="url(#glow)"
             />
           );
@@ -260,7 +297,7 @@ export function SacredTimeline({
             return <IncursionOrb key={node.id} node={node} onOpen={() => onOpenReview?.()} />;
           }
           const selected = node.id === selectedId;
-          const isRemote = node.refs.some((r) => r.kind === "remote") && node.refs.every((r) => r.kind !== "branch");
+          const tone = node.isHead ? "current" : toneOf(node.column);
           const isPr = prHeadShas?.has(node.id);
           const failed = failingShas?.has(node.id);
           return (
@@ -272,7 +309,7 @@ export function SacredTimeline({
                 }
                 onSelect(node.id);
               }}
-              opacity={isRemote ? 0.55 : 1}
+              opacity={tone === "remote" ? 0.55 : 1}
             >
               {node.isHead && (
                 <circle
@@ -280,7 +317,7 @@ export function SacredTimeline({
                   cy={node.y}
                   r={node.r + 10}
                   fill="none"
-                  stroke="#f4c430"
+                  stroke={REF_TONE_FILL.current}
                   strokeDasharray="3 3"
                   opacity="0.8"
                 >
@@ -296,9 +333,19 @@ export function SacredTimeline({
                 cx={node.x}
                 cy={node.y}
                 r={selected ? node.r + 2 : node.r}
-                fill="url(#nexus)"
-                stroke={failed ? "#c23b22" : selected ? "#fff6d2" : "#2b2118"}
-                strokeWidth={failed || selected ? 2 : 1}
+                fill={`url(#nexus-${tone === "incursion" ? "local" : tone})`}
+                stroke={
+                  failed
+                    ? "#c23b22"
+                    : selected
+                      ? "#fff6d2"
+                      : node.isHead
+                        ? REF_TONE_FILL.current
+                        : tone === "local"
+                          ? REF_TONE_FILL.local
+                          : "#2b2118"
+                }
+                strokeWidth={failed || selected || node.isHead ? 2 : 1}
                 filter="url(#glow)"
               />
               {isPr ? (
@@ -325,11 +372,25 @@ export function SacredTimeline({
             x={label.x}
             y={label.y + 12}
           >
-            {label.text}
+            {label.segments.map((seg, i) => (
+              <tspan key={`${seg.tone}-${seg.text}-${i}`} fill={REF_TONE_FILL[seg.tone]}>
+                {i > 0 ? " · " : ""}
+                {seg.text}
+              </tspan>
+            ))}
           </text>
         ))}
       </g>
     </svg>
+    <div
+      className="pointer-events-none absolute bottom-2 left-3 flex items-center gap-3 font-mono text-[9px] tracking-[0.16em] text-tva-muted"
+      aria-hidden
+    >
+      <span className="text-tva-gold-bright">NOW</span>
+      <span className="text-tva-orange">LOCAL</span>
+      <span>UPSTREAM</span>
+    </div>
+    </div>
   );
 }
 
@@ -352,7 +413,7 @@ function IncursionOrb({ node, onOpen }: { node: ViewNode; onOpen: () => void }) 
         cx={node.x}
         cy={node.y}
         r={r}
-        fill="url(#nexus)"
+        fill="url(#nexus-local)"
         stroke="#e85d04"
         strokeWidth="1.6"
         filter="url(#glow)"

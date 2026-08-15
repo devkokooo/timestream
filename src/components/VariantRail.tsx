@@ -59,14 +59,16 @@ function DossierCard({
         dossier.isSacred
           ? "bg-linear-to-b from-[#3a2a16] to-[#241910]"
           : "bg-linear-to-b from-[#2a221a] to-[#1e1914]",
-        dossier.isHead && "border-tva-orange shadow-[inset_0_0_0_1px_rgba(232,93,4,0.35)]",
+        dossier.isHead && "border-tva-gold-bright shadow-[inset_0_0_0_1px_rgba(244,196,48,0.45)]",
       )}
       onClick={() => onCheckout(dossier.name)}
       disabled={busy || dossier.isHead}
     >
       <div className="flex justify-between font-mono text-xs">
-        <span>{dossier.name}</span>
-        {dossier.isSacred ? (
+        <span className={cn(dossier.isHead && "font-semibold text-tva-gold-bright")}>{dossier.name}</span>
+        {dossier.isHead ? (
+          <span className={cn(stamp, stampGold)}>NOW</span>
+        ) : dossier.isSacred ? (
           <span className={cn(stamp, stampGold)}>SACRED</span>
         ) : dossier.isUpstream ? (
           <span className={stamp} title="Remote-tracking branch">

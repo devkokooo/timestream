@@ -50,7 +50,10 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommi
       <div className="shrink-0 px-4 pt-4 pb-2.5">
         <div className="mb-0 flex items-start justify-between">
           <h2 className={panelTitle}>CASE FILE</h2>
-          <span className={cn(stamp, node.column === 0 && stampGold)}>{stampLabel}</span>
+          <div className="flex items-start gap-1.5">
+            {node.isHead ? <span className={cn(stamp, stampGold)}>NOW</span> : null}
+            <span className={cn(stamp, node.column === 0 && stampGold)}>{stampLabel}</span>
+          </div>
         </div>
       </div>
       <div className="flex min-h-[360px] flex-1 flex-col overflow-hidden">

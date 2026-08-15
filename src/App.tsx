@@ -9,6 +9,7 @@ import { ReviewMode } from "./components/ReviewMode";
 import { IdentityPicker, type IdentityChoice } from "./components/IdentityPicker";
 import { SacredTimeline } from "./components/SacredTimeline";
 import { SettingsPage } from "./components/SettingsPage";
+import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { VariantRail } from "./components/VariantRail";
 import { WelcomeGate } from "./components/WelcomeGate";
@@ -741,6 +742,22 @@ export default function App() {
     />
   );
 
+  const statusBar = (
+    <StatusBar
+      repo={repo}
+      origin={origin}
+      sync={sync}
+      onBranchClick={
+        repo
+          ? () => {
+              setReviewOpen(false);
+              setVariantRailOpen(true);
+            }
+          : undefined
+      }
+    />
+  );
+
   if (!repo || !timeline) {
     return (
       <div className={appShell}>
@@ -771,6 +788,7 @@ export default function App() {
           cloneLog={cloneLog}
           cloning={cloning}
         />
+        {statusBar}
         {overlays}
       </div>
     );
@@ -782,7 +800,6 @@ export default function App() {
       <BureauHeader
         repo={repo}
         origin={origin}
-        sync={sync}
         anomalyCount={varianceCount}
         anomalyLoading={status == null}
         reviewOpen={reviewOpen}
@@ -949,6 +966,7 @@ export default function App() {
         )}
       </div>
       )}
+      {statusBar}
       {overlays}
     </div>
   );

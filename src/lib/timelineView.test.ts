@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertViewConsistent,
   boxesOverlap,
+  columnTone,
   easeOutCubic,
   edgePath,
   focusCamera,
@@ -11,7 +12,7 @@ import {
   lerpCamera,
   placeLabels,
 } from "./timelineView";
-import { crowdedTipsTimeline, linearTimeline } from "./fixtures";
+import { crowdedTipsTimeline, linearTimeline, mixedRefTimeline } from "./fixtures";
 
 describe("laneGapFor", () => {
   it("keeps generous spacing for a quiet timeline", () => {
@@ -106,5 +107,28 @@ describe("layoutTimelineView", () => {
     expect(view.edges.some((e) => e.from === head.id && e.to === INCURSION_ID)).toBe(true);
     expect(view.labels.some((l) => l.kind === "incursion" && l.text === "INCURSION")).toBe(true);
     expect(incursion!.x).toBeGreaterThan(Math.max(...base.nodes.map((n) => n.x)));
+  });
+
+  it("color-codes current, local, and remote ref labels", () => {
+    const view = layoutTimelineView(mixedRefTimeline());
+    expect(assertViewConsistent(view)).toEqual([]);
+    expect(view.currentColumn).toBe(0);
+
+    const head = view.labels.find((l) => l.kind === "head");
+    expect(head?.segments).toEqual([
+      { text: "NOW", tone: "current" },
+      { text: "main", tone: "current" },
+      { text: "origin/main", tone: "remote" },
+    ]);
+
+    const feature = view.labels.find((l) => l.text === "feature");
+    expect(feature?.segments).toEqual([{ text: "feature", tone: "local" }]);
+
+    const remote = view.labels.find((l) => l.text === "origin/hotfix");
+    expect(remote?.segments).toEqual([{ text: "origin/hotfix", tone: "remote" }]);
+
+    expect(columnTone(0, view.currentColumn, view.nodes)).toBe("current");
+    expect(columnTone(1, view.currentColumn, view.nodes)).toBe("local");
+    expect(columnTone(-1, view.currentColumn, view.nodes)).toBe("remote");
   });
 });

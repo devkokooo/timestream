@@ -25,6 +25,20 @@ export interface ViewEdge extends TimelineEdge {
   y2: number;
 }
 
+export type RefTone = "current" | "local" | "remote" | "incursion";
+
+export const REF_TONE_FILL: Record<RefTone, string> = {
+  current: "#f4c430",
+  local: "#e85d04",
+  remote: "#9a8b74",
+  incursion: "#e85d04",
+};
+
+export interface LabelSegment {
+  text: string;
+  tone: RefTone;
+}
+
 export interface ViewLabel {
   id: string;
   text: string;
@@ -33,6 +47,7 @@ export interface ViewLabel {
   w: number;
   h: number;
   kind: "ref" | "head" | "incursion";
+  segments: LabelSegment[];
 }
 
 /** Synthetic view-only id for uncommitted work on the Sacred Timeline. */
@@ -45,6 +60,7 @@ export interface TimelineView {
   width: number;
   height: number;
   sacredY: number;
+  currentColumn: number;
   laneGap: number;
   rowWidth: number;
   minColumn: number;
@@ -130,24 +146,52 @@ export function estimateLabelWidth(text: string): number {
   return Math.max(28, Math.round(text.length * 7.1 + 16));
 }
 
+export function refSegments(node: ViewNode): LabelSegment[] {
+  if (node.id === INCURSION_ID) {
+    return [{ text: "INCURSION", tone: "incursion" }];
+  }
+  const segments: LabelSegment[] = [];
+  if (node.isHead) {
+    segments.push({ text: "NOW", tone: "current" });
+  }
+  for (const ref of node.refs) {
+    if (ref.kind === "head") continue;
+    if (ref.kind === "remote") {
+      segments.push({ text: ref.name, tone: "remote" });
+    } else if (node.isHead && ref.kind === "branch") {
+      segments.push({ text: ref.name, tone: "current" });
+    } else {
+      segments.push({ text: ref.name, tone: "local" });
+    }
+  }
+  return segments;
+}
+
+/** Color a lane: checked-out column, other local branches, or remote-only. */
+export function columnTone(
+  column: number,
+  currentColumn: number,
+  nodes: ViewNode[],
+): RefTone {
+  if (column === currentColumn) return "current";
+  const lane = nodes.filter((n) => n.column === column);
+  if (lane.some((n) => n.refs.some((r) => r.kind === "branch"))) return "local";
+  if (lane.some((n) => n.refs.some((r) => r.kind === "remote"))) return "remote";
+  return "local";
+}
+
 export function placeLabels(nodes: ViewNode[]): ViewLabel[] {
   const placed: ViewLabel[] = [];
   const labeled = nodes.filter((n) => n.refs.length > 0 || n.isHead);
 
   for (const node of labeled) {
-    const names =
-      node.id === INCURSION_ID
-        ? ["INCURSION"]
-        : node.refs.filter((r) => r.kind !== "head").map((r) => r.name);
-    if (node.isHead && node.id !== INCURSION_ID && !names.includes("HEAD")) {
-      names.unshift("NOW");
-    }
-    if (names.length === 0) continue;
+    const segments = refSegments(node);
+    if (segments.length === 0) continue;
 
-    const text = names.join(" · ");
+    const text = segments.map((s) => s.text).join(" · ");
     const w = estimateLabelWidth(text);
     const h = 16;
-    let candidate = {
+    let candidate: ViewLabel = {
       id: node.id,
       text,
       x: node.x + node.r + 10,
@@ -156,10 +200,11 @@ export function placeLabels(nodes: ViewNode[]): ViewLabel[] {
       h,
       kind:
         node.id === INCURSION_ID
-          ? ("incursion" as const)
+          ? "incursion"
           : node.isHead
-            ? ("head" as const)
-            : ("ref" as const),
+            ? "head"
+            : "ref",
+      segments,
     };
 
     const nudges = [0, -18, 18, -36, 36, 54, -54];
@@ -253,6 +298,7 @@ export function layoutTimelineView(
   const maxRow = nodes.reduce((m, n) => Math.max(m, n.row), 0);
   const width = paddingX * 2 + maxRow * rowWidth;
   const height = paddingY * 2 + Math.max(0, laneCount - 1) * laneGap;
+  const currentColumn = nodes.find((n) => n.isHead)?.column ?? 0;
 
   return {
     nodes,
@@ -261,6 +307,7 @@ export function layoutTimelineView(
     width: Math.max(width, 480),
     height: Math.max(height, 220),
     sacredY: yForColumn(0, minColumn, laneGap, paddingY),
+    currentColumn,
     laneGap,
     rowWidth,
     minColumn,
