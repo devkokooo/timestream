@@ -2,6 +2,7 @@ use crate::error::{AppError, Result};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -80,36 +81,102 @@ pub fn key_info(private: &Path, public: &Path) -> Option<SshKeyInfo> {
     })
 }
 
-pub fn agent_status() -> SshAgentStatus {
-    let listed = Command::new("ssh-add").arg("-l").output();
-    match listed {
-        Ok(out) if out.status.success() => SshAgentStatus {
+fn hidden_command(program: impl AsRef<OsStr>) -> Command {
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    cmd
+}
+
+fn ssh_add_command() -> Command {
+    #[cfg(windows)]
+    {
+        if let Some(path) = windows_openssh_bin("ssh-add.exe") {
+            let mut cmd = hidden_command(path);
+            // Windows OpenSSH uses \\.\pipe\openssh-ssh-agent. Git for Windows often
+            // leaves a stale cygwin SSH_AUTH_SOCK that the real ssh-add will chase.
+            cmd.env_remove("SSH_AUTH_SOCK");
+            cmd.env_remove("SSH_AGENT_PID");
+            return cmd;
+        }
+        return hidden_command("ssh-add.exe");
+    }
+    #[cfg(not(windows))]
+    hidden_command("ssh-add")
+}
+
+#[cfg(windows)]
+fn windows_openssh_bin(exe: &str) -> Option<PathBuf> {
+    let root = PathBuf::from(std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into()));
+    for dir in ["System32", "Sysnative"] {
+        let path = root.join(dir).join("OpenSSH").join(exe);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+struct AgentProbe {
+    running: bool,
+    fingerprints: Vec<String>,
+}
+
+fn interpret_ssh_add_output(code: Option<i32>, stdout: &str, stderr: &str) -> AgentProbe {
+    let fingerprints = parse_ssh_add_l(stdout);
+    let lower = format!("{stdout}{stderr}").to_lowercase();
+    let unreachable = code == Some(2)
+        || lower.contains("could not open a connection")
+        || lower.contains("error connecting to agent")
+        || lower.contains("connection refused")
+        || lower.contains("failed to connect");
+    if unreachable {
+        return AgentProbe {
+            running: false,
+            fingerprints: Vec::new(),
+        };
+    }
+    // ssh-add -l: 0 = identities listed, 1 = agent reachable but empty.
+    // Do not treat "The agent has no identities" as a dead agent.
+    if code == Some(0)
+        || code == Some(1)
+        || lower.contains("no identities")
+        || !fingerprints.is_empty()
+    {
+        return AgentProbe {
             running: true,
-            service_disabled: false,
-            hint: None,
-            loaded_fingerprints: parse_ssh_add_l(&String::from_utf8_lossy(&out.stdout)),
-        },
+            fingerprints,
+        };
+    }
+    AgentProbe {
+        running: false,
+        fingerprints: Vec::new(),
+    }
+}
+
+pub fn agent_status() -> SshAgentStatus {
+    match ssh_add_command().arg("-l").output() {
         Ok(out) => {
-            let stderr = String::from_utf8_lossy(&out.stderr);
             let stdout = String::from_utf8_lossy(&out.stdout);
-            let combined = format!("{stdout}{stderr}").to_lowercase();
-            if combined.contains("could not open a connection")
-                || combined.contains("no such file")
-                || combined.contains("agent")
-            {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let probe = interpret_ssh_add_output(out.status.code(), &stdout, &stderr);
+            if probe.running {
+                SshAgentStatus {
+                    running: true,
+                    service_disabled: false,
+                    hint: None,
+                    loaded_fingerprints: probe.fingerprints,
+                }
+            } else {
                 let (service_disabled, hint) = windows_agent_hint();
                 SshAgentStatus {
                     running: false,
                     service_disabled,
                     hint,
                     loaded_fingerprints: Vec::new(),
-                }
-            } else {
-                SshAgentStatus {
-                    running: true,
-                    service_disabled: false,
-                    hint: None,
-                    loaded_fingerprints: parse_ssh_add_l(&stdout),
                 }
             }
         }
@@ -141,27 +208,34 @@ fn parse_ssh_add_l(stdout: &str) -> Vec<String> {
 fn windows_agent_hint() -> (bool, Option<String>) {
     #[cfg(windows)]
     {
-        let out = Command::new("sc").args(["query", "ssh-agent"]).output();
-        if let Ok(out) = out {
-            let text = String::from_utf8_lossy(&out.stdout).to_uppercase();
-            if text.contains("DISABLED") {
-                return (
-                    true,
-                    Some(
-                        "Windows OpenSSH agent is disabled. In an admin PowerShell run: Get-Service ssh-agent | Set-Service -StartupType Manual; Start-Service ssh-agent".into(),
-                    ),
-                );
-            }
-            if text.contains("STOPPED") {
-                return (
-                    false,
-                    Some("Windows OpenSSH agent is not running. Timestream can start it.".into()),
-                );
-            }
+        let query = sc_text(&["query", "ssh-agent"]);
+        if query.contains("1060") || query.contains("DOES NOT EXIST") {
+            return (
+                false,
+                Some(
+                    "Windows OpenSSH agent is not installed. Add OpenSSH Authentication Agent in Optional Features.".into(),
+                ),
+            );
+        }
+        if sc_text(&["qc", "ssh-agent"]).contains("DISABLED") {
+            return (
+                true,
+                Some(
+                    "Windows OpenSSH agent is disabled. Timestream can enable and start it (administrator prompt).".into(),
+                ),
+            );
+        }
+        if query.contains("RUNNING") {
+            return (
+                false,
+                Some(
+                    "OpenSSH agent service is running but ssh-add could not connect. Use the Windows OpenSSH client, not Git's ssh-add.".into(),
+                ),
+            );
         }
         (
             false,
-            Some("Windows OpenSSH agent is not running.".into()),
+            Some("Windows OpenSSH agent is not running. Timestream can start it.".into()),
         )
     }
     #[cfg(not(windows))]
@@ -173,17 +247,26 @@ fn windows_agent_hint() -> (bool, Option<String>) {
     }
 }
 
+#[cfg(windows)]
+fn sc_text(args: &[&str]) -> String {
+    hidden_command("sc.exe")
+        .args(args)
+        .output()
+        .map(|out| {
+            format!(
+                "{}{}",
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr)
+            )
+            .to_uppercase()
+        })
+        .unwrap_or_default()
+}
+
 pub fn ensure_agent() -> Result<SshAgentStatus> {
     let status = agent_status();
     if status.running {
         return Ok(status);
-    }
-    if status.service_disabled {
-        return Err(AppError::msg(
-            status
-                .hint
-                .unwrap_or_else(|| "SSH agent service is disabled".into()),
-        ));
     }
     start_agent()?;
     let next = agent_status();
@@ -199,28 +282,62 @@ pub fn ensure_agent() -> Result<SshAgentStatus> {
 fn start_agent() -> Result<()> {
     #[cfg(windows)]
     {
-        let status = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "Start-Service ssh-agent",
-            ])
-            .status();
-        if status.map(|s| s.success()).unwrap_or(false) {
+        if try_start_ssh_agent_service(false) && wait_for_agent() {
+            return Ok(());
+        }
+        if try_start_ssh_agent_service(true) && wait_for_agent() {
             return Ok(());
         }
         return Err(AppError::msg(
-            "could not start the Windows OpenSSH agent. Enable the ssh-agent service and retry.",
+            "Could not start the Windows OpenSSH agent. Approve the administrator prompt, or enable the ssh-agent service and retry.",
         ));
     }
     #[cfg(not(windows))]
     {
-        let output = Command::new("ssh-agent").output()?;
+        let output = hidden_command("ssh-agent").output()?;
         if !output.status.success() {
             return Err(AppError::msg("could not start ssh-agent"));
         }
         Ok(())
     }
+}
+
+#[cfg(windows)]
+fn wait_for_agent() -> bool {
+    for _ in 0..25 {
+        if agent_status().running {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(80));
+    }
+    false
+}
+
+#[cfg(windows)]
+fn try_start_ssh_agent_service(elevate: bool) -> bool {
+    if elevate {
+        // UAC: set Manual (if Disabled) then start. -Wait blocks until the prompt is handled.
+        let status = hidden_command("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                "Start-Process -FilePath powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-WindowStyle','Hidden','-Command','Set-Service -Name ssh-agent -StartupType Manual; Start-Service ssh-agent'",
+            ])
+            .status();
+        return status.map(|s| s.success()).unwrap_or(false);
+    }
+    let Ok(out) = hidden_command("sc.exe").args(["start", "ssh-agent"]).output() else {
+        return false;
+    };
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+    .to_uppercase();
+    out.status.success() || text.contains("1056") || text.contains("ALREADY RUNNING")
 }
 
 pub fn add_key(path: &str, passphrase: Option<&str>) -> Result<SshAgentStatus> {
@@ -229,7 +346,7 @@ pub fn add_key(path: &str, passphrase: Option<&str>) -> Result<SshAgentStatus> {
     if !key.is_file() {
         return Err(AppError::msg(format!("SSH key not found: {path}")));
     }
-    let mut cmd = Command::new("ssh-add");
+    let mut cmd = ssh_add_command();
     cmd.arg(&key);
     if let Some(pass) = passphrase.filter(|p| !p.is_empty()) {
         cmd.env("SSH_ASKPASS_REQUIRE", "force");
@@ -309,5 +426,39 @@ mod tests {
             "256 SHA256:abc+def analyst@tva (ED25519)\n256 SHA256:zzz work (ED25519)\n",
         );
         assert_eq!(fps, vec!["SHA256:abc+def", "SHA256:zzz"]);
+    }
+
+    #[test]
+    fn empty_agent_is_running() {
+        let probe = interpret_ssh_add_output(Some(1), "The agent has no identities.\n", "");
+        assert!(probe.running);
+        assert!(probe.fingerprints.is_empty());
+    }
+
+    #[test]
+    fn listed_identities_are_running() {
+        let probe = interpret_ssh_add_output(
+            Some(0),
+            "256 SHA256:abc+def analyst@tva (ED25519)\n",
+            "",
+        );
+        assert!(probe.running);
+        assert_eq!(probe.fingerprints, vec!["SHA256:abc+def"]);
+    }
+
+    #[test]
+    fn unreachable_agent_is_not_running() {
+        let probe = interpret_ssh_add_output(
+            Some(2),
+            "",
+            "Could not open a connection to your authentication agent.\n",
+        );
+        assert!(!probe.running);
+        let pipe = interpret_ssh_add_output(
+            Some(2),
+            "",
+            "Error connecting to agent: No such file or directory\n",
+        );
+        assert!(!pipe.running);
     }
 }

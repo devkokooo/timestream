@@ -63,4 +63,57 @@
   button {
     cursor: pointer;
   }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin: 0;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 55%, transparent);
+    background: #120e0b;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+
+  input[type="checkbox"] {
+    border-radius: 1px;
+  }
+
+  input[type="radio"] {
+    border-radius: 50%;
+  }
+
+  input[type="checkbox"]:checked {
+    border-color: var(--color-tva-gold);
+    background-color: var(--color-tva-orange);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='none' stroke='%231a120c' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter' d='M2 6.2 4.8 9 10 3'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 10px 10px;
+  }
+
+  input[type="radio"]:checked {
+    border-color: var(--color-tva-gold);
+    background: radial-gradient(
+      circle at center,
+      var(--color-tva-gold-bright) 0 3.5px,
+      #120e0b 4px 100%
+    );
+  }
+
+  input[type="checkbox"]:focus-visible,
+  input[type="radio"]:focus-visible {
+    outline: 1px solid var(--color-tva-orange-hot);
+    outline-offset: 2px;
+  }
+
+  input[type="checkbox"]:disabled,
+  input[type="radio"]:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
