@@ -5,9 +5,12 @@ import {
   panelTitle,
   stamp,
   stampGold,
+  TEST_FILE_HEX,
 } from "../lib/ui";
-import { actionLabel, fileAction, fileDisplayPath } from "../lib/diffView";
+import { actionLabel, fileAction, fileDisplayName, fileDisplayPath } from "../lib/diffView";
+import { isTestFile } from "../lib/fileKind";
 import type { CommitDetail, FileChange, TimelineNode } from "../lib/types";
+import { FileKindIcon } from "./FileKindIcon";
 import { CaseFileDetailSkeleton } from "./TvaSkeleton";
 import { TvaScrollArea } from "./TvaScrollArea";
 
@@ -127,18 +130,31 @@ function FileRow({
   onOpen: () => void;
 }) {
   const action = fileAction(file.status);
+  const test = isTestFile(file.path);
   return (
     <button
       type="button"
+      title={fileDisplayPath(file)}
+      aria-label={`${actionLabel(action)} · ${fileDisplayPath(file)}`}
       className={cn(
-        "flex w-full items-baseline justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent px-1 py-1.5 text-left font-mono text-xs hover:bg-tva-orange/8",
+        "flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent px-1 py-1.5 text-left font-mono text-xs hover:bg-tva-orange/8",
         actionColor[action],
         selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
       )}
       onClick={onOpen}
     >
-      <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-        {fileDisplayPath(file)}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <FileKindIcon path={file.path} color={test ? TEST_FILE_HEX : undefined} />
+        <span className="min-w-0 overflow-hidden">
+          <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+            {fileDisplayName(file)}
+          </span>
+          {selected ? (
+            <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
+              {fileDisplayPath(file)}
+            </span>
+          ) : null}
+        </span>
       </span>
       <span className="shrink-0 text-[10px] tracking-[0.12em]">{actionLabel(action)}</span>
     </button>

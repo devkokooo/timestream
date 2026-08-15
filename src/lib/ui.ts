@@ -36,6 +36,9 @@ export const actionColor: Record<string, string> = {
   moved: "text-tva-orange-hot",
 };
 
+/** Specimen / test records — icon only. */
+export const TEST_FILE_HEX = "#E85D04";
+
 export const fieldInput =
   "w-full border border-tva-gold/25 bg-[#120e0b] px-3 py-2.5 text-tva-paper outline-none focus:border-tva-orange focus:shadow-[inset_0_0_0_1px_var(--color-tva-orange-hot),0_0_0_1px_rgba(232,93,4,0.28)]";
 
