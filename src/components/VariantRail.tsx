@@ -1,5 +1,5 @@
 import { cn } from "../lib/cn";
-import { panelTitle, stamp, stampGold } from "../lib/ui";
+import { btnStow, panelTitle, stamp, stampGold } from "../lib/ui";
 import { threatCopy } from "../lib/timelineView";
 import type { Timeline, VariantDossier } from "../lib/types";
 import { TvaScrollArea } from "./TvaScrollArea";
@@ -7,16 +7,22 @@ import { TvaScrollArea } from "./TvaScrollArea";
 interface Props {
   timeline: Timeline;
   onCheckout: (name: string) => void;
+  onStow: () => void;
   busy: boolean;
   prByBranch?: Record<string, number>;
   aheadBehind?: { ahead: number; behind: number } | null;
 }
 
-export function VariantRail({ timeline, onCheckout, busy, prByBranch, aheadBehind }: Props) {
+export function VariantRail({ timeline, onCheckout, onStow, busy, prByBranch, aheadBehind }: Props) {
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713] p-0">
-      <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-3 py-3.5 pb-5">
-        <h2 className={cn(panelTitle, "mb-2.5")}>VARIANT DOSSIERS</h2>
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-3.5 pb-2">
+        <h2 className={cn(panelTitle, "m-0")}>VARIANT DOSSIERS</h2>
+        <button type="button" className={btnStow} onClick={onStow}>
+          Stow
+        </button>
+      </div>
+      <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-3 pb-5">
         {timeline.dossiers.map((d) => (
           <DossierCard
             key={d.name}

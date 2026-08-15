@@ -1,37 +1,31 @@
 import { btn, btnPrimary, eyebrow } from "../lib/ui";
 import { HintMark, TvaTerm } from "./TvaTerm";
-import type { AheadBehind, GithubUser, RemoteInfo, RepoSummary } from "../lib/types";
+import type { AheadBehind, RemoteInfo, RepoSummary } from "../lib/types";
 
 interface Props {
   repo: RepoSummary;
   origin: RemoteInfo | null;
   sync: AheadBehind | null;
-  user: GithubUser | null;
-  notifications?: number;
+  anomalyCount: number;
+  anomalyLoading: boolean;
+  reviewOpen: boolean;
+  onToggleReview: () => void;
   onOpen: () => void;
   onReload: () => void;
-  onFetch: () => void;
-  onPush: () => void;
-  onPull: () => void;
   onSettings: () => void;
-  onSignIn: () => void;
-  onSignOut: () => void;
 }
 
 export function BureauHeader({
   repo,
   origin,
   sync,
-  user,
-  notifications = 0,
+  anomalyCount,
+  anomalyLoading,
+  reviewOpen,
+  onToggleReview,
   onOpen,
   onReload,
-  onFetch,
-  onPush,
-  onPull,
   onSettings,
-  onSignIn,
-  onSignOut,
 }: Props) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-tva-gold/22 bg-linear-to-b from-[#2a231c] to-[#1a1612] px-[18px] py-2.5">
@@ -54,45 +48,34 @@ export function BureauHeader({
           {repo.head?.slice(0, 7) ?? "—"}
           {origin?.owner && origin.nameOnHost ? ` · ${origin.owner}/${origin.nameOnHost}` : ""}
         </span>
-        <span title={user ? (notifications === 0 ? "No GitHub notifications." : `${notifications} GitHub notifications`) : undefined}>
-          {sync ? `↑${sync.ahead} ↓${sync.behind}` : "↑— ↓—"}
-          {user ? (
-            <span className="ml-2" title="Signed in to GitHub">
-              @{user.login}
-              {notifications > 0 ? ` · ${notifications} notices` : ""}
-            </span>
-          ) : null}
-        </span>
+        <span>{sync ? `↑${sync.ahead} ↓${sync.behind}` : "↑— ↓—"}</span>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          className={reviewOpen || anomalyCount > 0 ? btnPrimary : btn}
+          onClick={onToggleReview}
+          aria-pressed={reviewOpen}
+          title="Review unfiled and filed records"
+        >
+          <TvaTerm
+            flavor={
+              anomalyLoading ? "Scanning" : anomalyCount ? `${anomalyCount} detected` : "Sequence stable"
+            }
+            noun="Anomalies"
+            onPrimary={reviewOpen || anomalyCount > 0}
+          />
+        </button>
         <button type="button" className={btn} onClick={onReload}>
           Rescan
         </button>
-        <button type="button" className={btn} onClick={onFetch} title="Fetch from origin">
-          <TvaTerm flavor="Dispatch" noun="Fetch" />
-        </button>
-        <button type="button" className={btn} onClick={onPull} title="Fast-forward pull">
-          <TvaTerm flavor="Sync inbound" noun="Pull" />
-        </button>
-        <button type="button" className={btnPrimary} onClick={onPush} title="Push branch">
-          <TvaTerm flavor="File to HQ" noun="Push" onPrimary />
-        </button>
-        {user ? (
-          <button type="button" className={btn} onClick={onSignOut}>
-            <TvaTerm flavor="Revoke" noun="Sign out" />
-          </button>
-        ) : (
-          <button type="button" className={btn} onClick={onSignIn}>
-            <TvaTerm flavor="Clearance" noun="Sign in with GitHub" />
-          </button>
-        )}
         <button type="button" className={btn} onClick={onSettings} title="Settings">
           Settings
         </button>
         <button type="button" className={btnPrimary} onClick={onOpen}>
           Open archive
         </button>
-        <HintMark label="Sacred Timeline is the default branch graph. Dispatch fetches; File to HQ pushes." />
+        <HintMark label="Sacred Timeline is the default branch graph. Dispatch, pull, and push live on the review desk." />
       </div>
     </header>
   );

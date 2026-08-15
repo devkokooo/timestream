@@ -3,6 +3,8 @@ import {
   assertViewConsistent,
   boxesOverlap,
   edgePath,
+  focusCamera,
+  INCURSION_ID,
   laneGapFor,
   layoutTimelineView,
   placeLabels,
@@ -33,6 +35,15 @@ describe("edgePath", () => {
   });
 });
 
+describe("focusCamera", () => {
+  it("places the focus point at the viewport center", () => {
+    const cam = focusCamera({ x: 100, y: 50 }, 2, { width: 400, height: 200 });
+    expect(cam.x + 100 * cam.scale).toBe(200);
+    expect(cam.y + 50 * cam.scale).toBe(100);
+    expect(cam.scale).toBe(2);
+  });
+});
+
 describe("layoutTimelineView", () => {
   it("keeps a linear trunk on one gold river", () => {
     const view = layoutTimelineView(linearTimeline());
@@ -59,5 +70,21 @@ describe("layoutTimelineView", () => {
         expect(boxesOverlap(labels[i], labels[j], 0)).toBe(false);
       }
     }
+  });
+
+  it("sprouts an incursion node from HEAD when the worktree is dirty", () => {
+    const base = layoutTimelineView(linearTimeline());
+    const view = layoutTimelineView(linearTimeline(), { incursion: true });
+    expect(assertViewConsistent(view)).toEqual([]);
+    expect(view.nodes).toHaveLength(base.nodes.length + 1);
+    const head = view.nodes.find((n) => n.isHead)!;
+    const incursion = view.nodes.find((n) => n.id === INCURSION_ID);
+    expect(incursion).toBeTruthy();
+    expect(incursion!.y).toBe(head.y);
+    expect(incursion!.x).toBeGreaterThan(head.x);
+    expect(incursion!.column).toBe(head.column);
+    expect(view.edges.some((e) => e.from === head.id && e.to === INCURSION_ID)).toBe(true);
+    expect(view.labels.some((l) => l.kind === "incursion" && l.text === "INCURSION")).toBe(true);
+    expect(incursion!.x).toBeGreaterThan(Math.max(...base.nodes.map((n) => n.x)));
   });
 });

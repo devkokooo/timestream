@@ -6,6 +6,8 @@ export interface ViewOptions {
   paddingX: number;
   paddingY: number;
   nodeRadius: number;
+  /** Draw a forming nexus for uncommitted work, sprouting from HEAD. */
+  incursion?: boolean;
 }
 
 export interface ViewNode extends TimelineNode {
@@ -30,8 +32,11 @@ export interface ViewLabel {
   y: number;
   w: number;
   h: number;
-  kind: "ref" | "head";
+  kind: "ref" | "head" | "incursion";
 }
+
+/** Synthetic view-only id for uncommitted work on the Sacred Timeline. */
+export const INCURSION_ID = "tva:incursion";
 
 export interface TimelineView {
   nodes: ViewNode[];
@@ -78,6 +83,19 @@ export function edgePath(x1: number, y1: number, x2: number, y2: number): string
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
+/** Pan/zoom so `point` sits in the middle of the monitor viewport. */
+export function focusCamera(
+  point: { x: number; y: number },
+  scale: number,
+  viewport: { width: number; height: number },
+): { x: number; y: number; scale: number } {
+  return {
+    x: viewport.width / 2 - point.x * scale,
+    y: viewport.height / 2 - point.y * scale,
+    scale,
+  };
+}
+
 export function boxesOverlap(
   a: { x: number; y: number; w: number; h: number },
   b: { x: number; y: number; w: number; h: number },
@@ -100,10 +118,11 @@ export function placeLabels(nodes: ViewNode[]): ViewLabel[] {
   const labeled = nodes.filter((n) => n.refs.length > 0 || n.isHead);
 
   for (const node of labeled) {
-    const names = node.refs
-      .filter((r) => r.kind !== "head")
-      .map((r) => r.name);
-    if (node.isHead && !names.includes("HEAD")) {
+    const names =
+      node.id === INCURSION_ID
+        ? ["INCURSION"]
+        : node.refs.filter((r) => r.kind !== "head").map((r) => r.name);
+    if (node.isHead && node.id !== INCURSION_ID && !names.includes("HEAD")) {
       names.unshift("NOW");
     }
     if (names.length === 0) continue;
@@ -118,7 +137,12 @@ export function placeLabels(nodes: ViewNode[]): ViewLabel[] {
       y: node.y - 22,
       w,
       h,
-      kind: node.isHead ? ("head" as const) : ("ref" as const),
+      kind:
+        node.id === INCURSION_ID
+          ? ("incursion" as const)
+          : node.isHead
+            ? ("head" as const)
+            : ("ref" as const),
     };
 
     const nudges = [0, -18, 18, -36, 36, 54, -54];
@@ -164,8 +188,52 @@ export function layoutTimelineView(
     return { ...e, d: edgePath(x1, y1, x2, y2), x1, y1, x2, y2 };
   });
 
+  if (opts.incursion) {
+    const head = nodes.find((n) => n.isHead) ?? nodes.at(-1);
+    if (head) {
+      const taken = new Set(nodes.filter((n) => n.column === head.column).map((n) => n.row));
+      let row = head.row + 1;
+      while (taken.has(row)) row += 1;
+      const x = paddingX + row * rowWidth;
+      const y = head.y;
+      nodes.push({
+        id: INCURSION_ID,
+        shortId: "pending",
+        parents: [head.id],
+        summary: "Unfiled variance — temporal incursion",
+        author: "",
+        email: "",
+        timestamp: 0,
+        column: head.column,
+        row,
+        refs: [{ name: "INCURSION", kind: "head" }],
+        isHead: false,
+        x,
+        y,
+        r: nodeRadius + 1,
+        side: head.side,
+      });
+      const x1 = head.x;
+      const y1 = head.y;
+      edges.push({
+        from: head.id,
+        to: INCURSION_ID,
+        kind: "firstParent",
+        fromColumn: head.column,
+        toColumn: head.column,
+        fromRow: head.row,
+        toRow: row,
+        d: edgePath(x1, y1, x, y),
+        x1,
+        y1,
+        x2: x,
+        y2: y,
+      });
+    }
+  }
+
   const labels = placeLabels(nodes);
-  const maxRow = timeline.nodes.reduce((m, n) => Math.max(m, n.row), 0);
+  const maxRow = nodes.reduce((m, n) => Math.max(m, n.row), 0);
   const width = paddingX * 2 + maxRow * rowWidth;
   const height = paddingY * 2 + Math.max(0, laneCount - 1) * laneGap;
 

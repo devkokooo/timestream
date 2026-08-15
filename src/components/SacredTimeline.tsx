@@ -1,31 +1,60 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { layoutTimelineView } from "../lib/timelineView";
+import { focusCamera, INCURSION_ID, layoutTimelineView, type ViewNode } from "../lib/timelineView";
 import type { Timeline } from "../lib/types";
+
+const DEFAULT_SCALE = 1.65;
+const MIN_SCALE = 0.45;
+const MAX_SCALE = 2.8;
 
 interface Props {
   timeline: Timeline;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onOpenReview?: () => void;
+  incursion?: boolean;
   prHeadShas?: Set<string>;
   failingShas?: Set<string>;
 }
 
-export function SacredTimeline({ timeline, selectedId, onSelect, prHeadShas, failingShas }: Props) {
-  const view = useMemo(() => layoutTimelineView(timeline), [timeline]);
-  const [pan, setPan] = useState({ x: 40, y: 20, scale: 1 });
+export function SacredTimeline({
+  timeline,
+  selectedId,
+  onSelect,
+  onOpenReview,
+  incursion = false,
+  prHeadShas,
+  failingShas,
+}: Props) {
+  const view = useMemo(() => layoutTimelineView(timeline, { incursion }), [timeline, incursion]);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [viewport, setViewport] = useState({ width: 800, height: 400 });
+  const [pan, setPan] = useState({ x: 0, y: 0, scale: DEFAULT_SCALE });
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(
     null,
   );
 
+  const focus = view.nodes.find((n) => n.isHead) ?? view.nodes.find((n) => n.id === selectedId) ?? view.nodes.at(-1);
+
   useEffect(() => {
-    const head = view.nodes.find((n) => n.isHead) ?? view.nodes.at(-1);
-    if (!head) return;
-    setPan((p) => ({
-      ...p,
-      x: Math.max(40, 220 - head.x * p.scale),
-      y: Math.max(10, 160 - view.sacredY * p.scale),
-    }));
-  }, [timeline.head, view.sacredY, view.nodes]);
+    const el = svgRef.current;
+    if (!el) return;
+    const apply = () => {
+      const next = { width: el.clientWidth, height: el.clientHeight };
+      if (next.width < 2 || next.height < 2) return;
+      setViewport((prev) =>
+        prev.width === next.width && prev.height === next.height ? prev : next,
+      );
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!focus) return;
+    setPan((p) => focusCamera(focus, p.scale, viewport));
+  }, [timeline.head, viewport.width, viewport.height, focus?.id, focus?.x, focus?.y]);
 
   const ticks = useMemo(() => {
     const maxRow = timeline.nodes.reduce((m, n) => Math.max(m, n.row), 0);
@@ -43,12 +72,21 @@ export function SacredTimeline({ timeline, selectedId, onSelect, prHeadShas, fai
 
   return (
     <svg
+      ref={svgRef}
       className="monitor-svg"
-      viewBox={`0 0 ${Math.max(view.width, 800)} ${Math.max(view.height, 360)}`}
+      viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+      preserveAspectRatio="xMidYMid meet"
       onWheel={(e) => {
         e.preventDefault();
-        const next = Math.min(2.2, Math.max(0.35, pan.scale + (e.deltaY > 0 ? -0.08 : 0.08)));
-        setPan((p) => ({ ...p, scale: next }));
+        const rect = e.currentTarget.getBoundingClientRect();
+        const mx = ((e.clientX - rect.left) / rect.width) * viewport.width;
+        const my = ((e.clientY - rect.top) / rect.height) * viewport.height;
+        setPan((p) => {
+          const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.scale + (e.deltaY > 0 ? -0.1 : 0.1)));
+          const gx = (mx - p.x) / p.scale;
+          const gy = (my - p.y) / p.scale;
+          return { scale: next, x: mx - gx * next, y: my - gy * next };
+        });
       }}
       onPointerDown={(e) => {
         if ((e.target as Element).closest(".node-hit")) return;
@@ -130,20 +168,28 @@ export function SacredTimeline({ timeline, selectedId, onSelect, prHeadShas, fai
           ))}
         </g>
 
-        {view.edges.map((edge) => (
-          <path
-            key={`${edge.from}-${edge.to}-${edge.kind}`}
-            d={edge.d}
-            fill="none"
-            stroke={edge.kind === "merge" ? "#c23b22" : edge.fromColumn === 0 && edge.toColumn === 0 ? "#f4c430" : "#e85d04"}
-            strokeWidth={edge.fromColumn === 0 && edge.toColumn === 0 ? 3.2 : 1.7}
-            strokeLinecap="round"
-            opacity={edge.kind === "merge" ? 0.75 : 0.95}
-            filter="url(#glow)"
-          />
-        ))}
+        {view.edges.map((edge) => {
+          const pending = edge.to === INCURSION_ID;
+          const sacred = !pending && edge.fromColumn === 0 && edge.toColumn === 0;
+          return (
+            <path
+              key={`${edge.from}-${edge.to}-${edge.kind}`}
+              d={edge.d}
+              fill="none"
+              stroke={pending ? "#e85d04" : edge.kind === "merge" ? "#c23b22" : sacred ? "#f4c430" : "#e85d04"}
+              strokeWidth={pending ? 1.8 : sacred ? 3.2 : 1.7}
+              strokeDasharray={pending ? "5 4" : undefined}
+              strokeLinecap="round"
+              opacity={pending ? 0.72 : edge.kind === "merge" ? 0.75 : 0.95}
+              filter="url(#glow)"
+            />
+          );
+        })}
 
         {view.nodes.map((node) => {
+          if (node.id === INCURSION_ID) {
+            return <IncursionOrb key={node.id} node={node} onOpen={() => onOpenReview?.()} />;
+          }
           const selected = node.id === selectedId;
           const isRemote = node.refs.some((r) => r.kind === "remote") && node.refs.every((r) => r.kind !== "branch");
           const isPr = prHeadShas?.has(node.id);
@@ -206,5 +252,38 @@ export function SacredTimeline({ timeline, selectedId, onSelect, prHeadShas, fai
         ))}
       </g>
     </svg>
+  );
+}
+
+/** Forming nexus: filled, blinking — a timeline event the TVA has not yet filed. */
+function IncursionOrb({ node, onOpen }: { node: ViewNode; onOpen: () => void }) {
+  const r = node.r;
+  return (
+    <g className="incursion-node" onClick={onOpen}>
+      <circle
+        cx={node.x}
+        cy={node.y}
+        r={r + 8}
+        fill="#e85d04"
+        opacity="0.28"
+        filter="url(#glow)"
+      >
+        <animate attributeName="opacity" values="0.12;0.4;0.12" dur="1.15s" repeatCount="indefinite" />
+      </circle>
+      <circle
+        cx={node.x}
+        cy={node.y}
+        r={r}
+        fill="url(#nexus)"
+        stroke="#e85d04"
+        strokeWidth="1.6"
+        filter="url(#glow)"
+      >
+        <animate attributeName="opacity" values="0.35;1;0.35" dur="1.15s" repeatCount="indefinite" />
+      </circle>
+      <circle className="node-hit" cx={node.x} cy={node.y} r={18}>
+        <title>Incursion — unfiled variance. Open the review desk.</title>
+      </circle>
+    </g>
   );
 }
