@@ -179,7 +179,7 @@ function RequestsPanel(props: DocketProps) {
         <p className="m-0 mb-2 text-[10px] uppercase tracking-[0.12em] text-tva-gold">Open request</p>
         <input className={`${fieldInput} mb-1`} placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <textarea className={`${fieldInput} mb-1`} rows={2} placeholder="Body" value={body} onChange={(e) => setBody(e.target.value)} />
-        <label className="mb-2 flex items-center gap-2 text-[11px] text-tva-muted">
+        <label className="mb-2 flex items-center gap-2.5 text-[11px] text-tva-muted">
           <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />
           Draft pull request
         </label>
@@ -513,11 +513,13 @@ function CanonPanel(props: DocketProps) {
             </select>
             <input className={`${fieldInput} mb-1`} placeholder="Release name" value={name} onChange={(e) => setName(e.target.value)} />
             <textarea className={`${fieldInput} mb-1`} rows={2} value={body} onChange={(e) => setBody(e.target.value)} />
-            <label className="mr-3 text-[11px] text-tva-muted">
-              <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} /> Draft
+            <label className="mr-3 inline-flex items-center gap-2.5 text-[11px] text-tva-muted">
+              <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />
+              Draft
             </label>
-            <label className="text-[11px] text-tva-muted">
-              <input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} /> Prerelease
+            <label className="inline-flex items-center gap-2.5 text-[11px] text-tva-muted">
+              <input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} />
+              Prerelease
             </label>
             <button
               type="button"

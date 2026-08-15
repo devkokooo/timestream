@@ -44,19 +44,23 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
-      <div className="w-[min(560px,100%)] border border-tva-gold/28 bg-[#1b1713] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-        <h2 className={panelTitle}>
-          <TvaTerm flavor="Choose identity" noun="Select an SSH key for GitHub" />
-        </h2>
-        <p className="mt-2 mb-3 text-xs text-tva-paper-dim">
-          Different GitHub accounts often need different keys. Timestream can start ssh-agent and remember this choice.
-        </p>
+      <div className="flex w-[min(560px,100%)] flex-col gap-4 border border-tva-gold/28 bg-[#1b1713] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+        <header className="flex flex-col gap-2">
+          <h2 className={panelTitle}>
+            <TvaTerm flavor="Choose identity" noun="Select an SSH key for GitHub" />
+          </h2>
+          <p className="m-0 text-xs text-tva-paper-dim">
+            Different GitHub accounts often need different keys. Timestream can start ssh-agent and remember this choice.
+          </p>
+        </header>
         {agent && !agent.running ? (
-          <div className="mb-3 border border-tva-stamp/40 bg-[#2a1814] px-3 py-2 text-xs text-[#f3c2b8]">
-            {agent.hint ?? "Windows OpenSSH agent is not running."}
+          <div className="flex flex-col gap-2 border border-tva-stamp/40 bg-[#2a1814] px-3 py-2.5">
+            <p className="m-0 text-xs leading-5 text-[#f3c2b8]">
+              {agent.hint ?? "Windows OpenSSH agent is not running."}
+            </p>
             <button
               type="button"
-              className={`${btn} ml-2`}
+              className={`${btn} self-start`}
               onClick={() => {
                 void sshAgentEnsure()
                   .then(setAgent)
@@ -67,36 +71,40 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
             </button>
           </div>
         ) : null}
-        <TvaScrollArea className="max-h-56" axis="y">
-          {keys.length === 0 ? (
-            <p className={emptyText}>No keys found in ~/.ssh. Browse for a private key.</p>
-          ) : (
-            keys.map((key) => (
-              <label
-                key={key.path}
-                className="mb-1 flex cursor-pointer items-start gap-2 border border-tva-gold/12 px-2 py-2 text-xs hover:bg-tva-orange/8"
-              >
-                <input
-                  type="radio"
-                  name="ssh-key"
-                  checked={selected === key.path}
-                  onChange={() => setSelected(key.path)}
-                />
-                <span>
-                  <span className="block text-tva-paper">{key.path.split("/").pop()}</span>
-                  <span className="block text-tva-muted">{key.comment || "no comment"}</span>
-                  <span className="block font-mono text-[10px] text-tva-muted" title="SSH fingerprint">
-                    {key.fingerprint}
-                  </span>
-                </span>
-              </label>
-            ))
-          )}
-        </TvaScrollArea>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
+          <span className={fieldLabel}>SSH keys</span>
+          <TvaScrollArea className="max-h-56" axis="y">
+            {keys.length === 0 ? (
+              <p className={emptyText}>No keys found in ~/.ssh. Browse for a private key.</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {keys.map((key) => (
+                  <label
+                    key={key.path}
+                    className="flex cursor-pointer items-start gap-2.5 border border-tva-gold/12 px-2.5 py-2 text-xs hover:bg-tva-orange/8"
+                  >
+                    <input
+                      type="radio"
+                      name="ssh-key"
+                      className="mt-0.5"
+                      checked={selected === key.path}
+                      onChange={() => setSelected(key.path)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-tva-paper">{key.path.split("/").pop()}</span>
+                      <span className="block text-tva-muted">{key.comment || "no comment"}</span>
+                      <span className="block font-mono text-[10px] text-tva-muted" title="SSH fingerprint">
+                        {key.fingerprint}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </TvaScrollArea>
           <button
             type="button"
-            className={btn}
+            className={`${btn} self-start`}
             onClick={async () => {
               const picked = await pickSshKey();
               if (picked) setSelected(picked.replaceAll("\\", "/"));
@@ -105,7 +113,7 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
             Browse…
           </button>
         </div>
-        <label className="mt-3 flex flex-col gap-1">
+        <label className="flex flex-col gap-1">
           <span className={fieldLabel}>Passphrase (optional)</span>
           <input
             type="password"
@@ -115,28 +123,37 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
             autoComplete="off"
           />
         </label>
-        <label className="mt-2 flex items-center gap-2 text-xs text-tva-paper-dim">
-          <input type="checkbox" checked={rememberKey} onChange={(e) => setRememberKey(e.target.checked)} />
-          Remember for this remote · Save this key for origin on this repo
-        </label>
-        <label className="mt-1 flex items-center gap-2 text-xs text-tva-paper-dim">
-          <input
-            type="checkbox"
-            checked={rememberDefault}
-            onChange={(e) => setRememberDefault(e.target.checked)}
-          />
-          Remember as default for github.com
-        </label>
-        <label className="mt-1 flex items-center gap-2 text-xs text-tva-paper-dim">
-          <input
-            type="checkbox"
-            checked={rememberPassphrase}
-            onChange={(e) => setRememberPassphrase(e.target.checked)}
-          />
-          Store passphrase in OS keychain
-        </label>
-        {error ? <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p> : null}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="flex flex-col gap-2">
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs text-tva-paper-dim">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={rememberKey}
+              onChange={(e) => setRememberKey(e.target.checked)}
+            />
+            <TvaTerm flavor="Remember for this remote" noun="Save this key for origin on this repo" />
+          </label>
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs text-tva-paper-dim">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={rememberDefault}
+              onChange={(e) => setRememberDefault(e.target.checked)}
+            />
+            <TvaTerm flavor="Remember as default" noun="Use this key for github.com" />
+          </label>
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs text-tva-paper-dim">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={rememberPassphrase}
+              onChange={(e) => setRememberPassphrase(e.target.checked)}
+            />
+            <TvaTerm flavor="Store passphrase" noun="Keep it in the OS keychain" />
+          </label>
+        </div>
+        {error ? <p className="m-0 text-xs text-[#ff8a6a]">{error}</p> : null}
+        <div className="flex justify-end gap-2">
           <button type="button" className={btn} onClick={onClose}>
             Cancel
           </button>
