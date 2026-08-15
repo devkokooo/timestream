@@ -18,13 +18,18 @@ import {
   switchBranch,
   unstageFile,
 } from "./lib/api";
+import { cn } from "./lib/cn";
 import {
   loadRecentRepos,
   rememberRepo,
   removeRecentRepo,
   type RecentRepo,
 } from "./lib/recentRepos";
+import { errorText } from "./lib/ui";
 import type { CommitDetail, DiffMode, FileDiff, RepoSummary, StatusPayload, Timeline } from "./lib/types";
+
+const appShell =
+  "flex h-full flex-col bg-[radial-gradient(1200px_500px_at_50%_-10%,rgba(232,93,4,0.16),transparent_55%),linear-gradient(180deg,#1c1814_0%,#120f0c_100%)]";
 
 export default function App() {
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
@@ -180,7 +185,7 @@ export default function App() {
 
   if (!repo || !timeline) {
     return (
-      <div className="app">
+      <div className={appShell}>
         <WelcomeGate
           recent={recent}
           onOpenRecent={(path) => loadAll(path)}
@@ -193,14 +198,17 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={appShell}>
       <BureauHeader
         repo={repo}
         onOpen={browse}
         onReload={() => loadAll(repo.path, true)}
       />
-      {error ? <div className="error" style={{ padding: "6px 18px" }}>{error}</div> : null}
-      <div className="workspace">
+      {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
+      <div
+        data-workspace
+        className="grid min-h-0 flex-1 overflow-hidden grid-cols-[260px_minmax(0,1fr)_320px] grid-rows-[minmax(240px,1fr)_auto]"
+      >
         <VariantRail
           timeline={timeline}
           busy={busy}
@@ -215,8 +223,11 @@ export default function App() {
             }
           }}
         />
-        <div className={`monitor-stage${diffOpen ? " diff-open" : ""}`}>
-          <div className="monitor" aria-hidden={diffOpen}>
+        <div className={cn("relative min-h-0 min-w-0 overflow-hidden", diffOpen && "diff-open")}>
+          <div
+            className="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-[radial-gradient(900px_280px_at_50%_20%,rgba(232,93,4,0.14),transparent_60%),linear-gradient(180deg,#1a1511,#100d0a)]"
+            aria-hidden={diffOpen}
+          >
             <SacredTimeline
               timeline={timeline}
               selectedId={selectedId}
@@ -224,7 +235,10 @@ export default function App() {
             />
           </div>
           <div
-            className="diff-pane"
+            className={cn(
+              "diff-pane absolute inset-0 z-10 flex translate-y-full flex-col overflow-hidden bg-[#16120e] pointer-events-none transition-transform duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+              diffOpen && "translate-y-0 pointer-events-auto",
+            )}
             aria-hidden={!diffOpen}
             onTransitionEnd={(e) => {
               if (e.propertyName !== "transform") return;

@@ -1,0 +1,396 @@
+/* Sacred Timeline SVG */
+.monitor-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.monitor-svg:active {
+  cursor: grabbing;
+}
+
+.node-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.ticks text,
+.ref-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--color-tva-muted);
+}
+
+.ref-label.head {
+  fill: var(--color-tva-gold-bright);
+}
+
+/* Diff viewer dense layout + token colors */
+.diff-body.tva-scroll > .tva-scroll-viewport {
+  padding: 8px 0 16px;
+}
+
+.diff-inline-frame,
+.diff-side-frame {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 100%;
+  user-select: text;
+}
+
+.diff-split-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.diff-side {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.diff-side.old {
+  border-right: 1px solid rgba(232, 184, 109, 0.14);
+}
+
+.diff-line {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 19px;
+  line-height: 19px;
+  box-sizing: border-box;
+  user-select: text;
+}
+
+.diff-gutter-row {
+  display: grid;
+  flex: none;
+  align-items: stretch;
+  font-size: 11px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #16120e;
+  border-right: 1px solid rgba(232, 184, 109, 0.1);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.diff-inline-frame .diff-gutter-row {
+  grid-template-columns: 44px 44px 18px;
+}
+
+.diff-side-frame .diff-gutter-row {
+  grid-template-columns: 44px;
+}
+
+.diff-ln,
+.diff-mark {
+  padding: 0 6px;
+  color: var(--color-tva-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.diff-code-scroll {
+  min-width: 0;
+  width: 100%;
+}
+
+.diff-code-scroll .tva-scroll-viewport {
+  max-width: 100%;
+}
+
+.diff-code-row,
+.diff-code-row * {
+  user-select: text;
+}
+
+.diff-code-row {
+  flex: 1 0 auto;
+  padding: 0 10px 0 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre;
+  tab-size: 4;
+  color: var(--color-tva-paper-dim);
+}
+
+.diff-code-row ::selection {
+  background: rgba(232, 93, 4, 0.3);
+}
+
+.diff-tok-italic {
+  font-style: italic;
+}
+
+.diff-tok-bold {
+  font-weight: 600;
+}
+
+.diff-line.addition {
+  background: rgba(143, 154, 98, 0.16);
+}
+
+.diff-line.deletion {
+  background: rgba(194, 59, 34, 0.16);
+}
+
+.diff-line.empty {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.diff-line.addition .diff-gutter-row {
+  background: linear-gradient(rgba(143, 154, 98, 0.16), rgba(143, 154, 98, 0.16)), #16120e;
+}
+
+.diff-line.deletion .diff-gutter-row {
+  background: linear-gradient(rgba(194, 59, 34, 0.16), rgba(194, 59, 34, 0.16)), #16120e;
+}
+
+.diff-line.empty .diff-gutter-row {
+  background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)), #16120e;
+}
+
+.diff-line.addition .diff-mark,
+.diff-line.addition .diff-code-row {
+  color: #c6d18d;
+}
+
+.diff-line.deletion .diff-mark,
+.diff-line.deletion .diff-code-row {
+  color: #ff8a6a;
+}
+
+/* TVA scroll overlay rails */
+.tva-scroll {
+  --tva-sb: 10px;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tva-scroll.fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tva-scroll.has-y {
+  padding-right: var(--tva-sb);
+}
+
+.tva-scroll.has-x {
+  padding-bottom: var(--tva-sb);
+}
+
+.tva-scroll-viewport {
+  min-width: 0;
+  min-height: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tva-scroll.fill .tva-scroll-viewport {
+  flex: 1;
+  min-height: 0;
+}
+
+.tva-scroll-viewport::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none;
+  background: transparent;
+}
+
+.tva-sb {
+  position: absolute;
+  z-index: 4;
+  background:
+    linear-gradient(180deg, rgba(232, 184, 109, 0.06), transparent 40%),
+    #1a1511;
+  box-shadow: inset 0 0 0 1px rgba(232, 184, 109, 0.12);
+}
+
+.tva-sb-y {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--tva-sb);
+}
+
+.tva-scroll.has-x .tva-sb-y {
+  bottom: var(--tva-sb);
+}
+
+.tva-sb-x {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--tva-sb);
+}
+
+.tva-scroll.has-y .tva-sb-x {
+  right: var(--tva-sb);
+}
+
+.tva-sb-thumb {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, var(--color-tva-orange-hot), var(--color-tva-orange) 55%, #a63f02);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 214, 140, 0.35),
+    0 0 0 1px rgba(244, 196, 48, 0.2);
+  cursor: grab;
+  touch-action: none;
+}
+
+.tva-sb-y .tva-sb-thumb {
+  right: 2px;
+  left: 2px;
+  width: auto;
+}
+
+.tva-sb-x .tva-sb-thumb {
+  top: 2px;
+  bottom: 2px;
+  height: auto;
+}
+
+.tva-sb-thumb:hover {
+  background: linear-gradient(180deg, #ffb347, var(--color-tva-orange-hot) 45%, var(--color-tva-orange));
+}
+
+.tva-sb-thumb:active {
+  cursor: grabbing;
+  background: var(--color-tva-gold-bright);
+  box-shadow: inset 0 0 0 1px rgba(26, 18, 12, 0.35);
+}
+
+.tva-sb-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--tva-sb);
+  height: var(--tva-sb);
+  background: #14100c;
+  box-shadow: inset 0 0 0 1px rgba(232, 184, 109, 0.1);
+  z-index: 5;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--color-tva-concrete-mid);
+  box-shadow: inset 0 0 0 1px rgba(232, 184, 109, 0.1);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-tva-orange-hot), var(--color-tva-orange));
+  border: 2px solid var(--color-tva-concrete-mid);
+  border-radius: 1px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #ffb347, var(--color-tva-orange-hot));
+}
+
+*::-webkit-scrollbar-corner {
+  background: #14100c;
+}
+
+/* Skeletons */
+@keyframes tva-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+
+.tva-bone {
+  display: block;
+  height: 10px;
+  border-radius: 1px;
+  background: linear-gradient(
+    100deg,
+    #2a221a 0%,
+    #2a221a 35%,
+    rgba(232, 184, 109, 0.28) 50%,
+    #2a221a 65%,
+    #2a221a 100%
+  );
+  background-size: 220% 100%;
+  animation: tva-shimmer 1.35s ease-in-out infinite;
+  box-shadow: inset 0 0 0 1px rgba(232, 184, 109, 0.08);
+}
+
+.tva-skeleton {
+  padding: 4px 0 8px;
+}
+
+.tva-skeleton-label {
+  margin: 12px 10px 0;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-tva-muted);
+}
+
+.bone-line {
+  height: 8px;
+  max-width: 100%;
+}
+
+.bone-badge {
+  flex: none;
+  width: 52px;
+  height: 8px;
+}
+
+.skeleton-file-list {
+  margin-top: 10px;
+}
+
+.skeleton-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px dashed rgba(232, 184, 109, 0.1);
+}
+
+.case-skeleton .tva-skeleton-label {
+  margin-left: 0;
+}
+
+.anomaly-skeleton {
+  padding: 4px 0 0;
+}
+
+.anomaly-skeleton .tva-bone {
+  height: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diff-pane {
+    transition: none;
+  }
+
+  .tva-bone {
+    animation: none;
+    background: #2a221a;
+  }
+}
