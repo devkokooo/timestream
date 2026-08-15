@@ -48,8 +48,10 @@ export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) 
           <button
             type="button"
             className={cn(
-              "border-0 bg-[#2d241c] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em] text-tva-paper-dim",
-              mode === "split" && "bg-tva-orange font-semibold text-tva-ink",
+              "border-0 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em]",
+              mode === "split"
+                ? "bg-tva-orange font-semibold text-tva-ink"
+                : "bg-[#2d241c] text-tva-paper-dim",
             )}
             aria-pressed={mode === "split"}
             onClick={() => onMode("split")}
@@ -59,8 +61,10 @@ export function DiffViewer({ file, diff, mode, error, onMode, onClose }: Props) 
           <button
             type="button"
             className={cn(
-              "border-0 border-l border-tva-gold/28 bg-[#2d241c] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em] text-tva-paper-dim",
-              mode === "inline" && "bg-tva-orange font-semibold text-tva-ink",
+              "border-0 border-l border-tva-gold/28 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em]",
+              mode === "inline"
+                ? "bg-tva-orange font-semibold text-tva-ink"
+                : "bg-[#2d241c] text-tva-paper-dim",
             )}
             aria-pressed={mode === "inline"}
             onClick={() => onMode("inline")}

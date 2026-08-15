@@ -236,12 +236,14 @@ export default function App() {
           </div>
           <div
             className={cn(
-              "diff-pane absolute inset-0 z-10 flex translate-y-full flex-col overflow-hidden bg-[#16120e] pointer-events-none transition-transform duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-              diffOpen && "translate-y-0 pointer-events-auto",
+              "diff-pane absolute inset-0 z-10 flex flex-col overflow-hidden bg-[#16120e] transition-[translate] duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+              diffOpen
+                ? "translate-y-0 pointer-events-auto"
+                : "translate-y-full pointer-events-none",
             )}
             aria-hidden={!diffOpen}
             onTransitionEnd={(e) => {
-              if (e.propertyName !== "transform") return;
+              if (e.propertyName !== "translate") return;
               if (e.target !== e.currentTarget) return;
               if (!diffOpen) {
                 setDiffMounted(false);
