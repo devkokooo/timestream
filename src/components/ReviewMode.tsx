@@ -8,6 +8,7 @@ import {
 import { composeCommitMessage } from "../lib/commitMessage";
 import { cn } from "../lib/cn";
 import { actionMark, actionMarkTitle, actionTone, fileDisplayName, fileDisplayPath } from "../lib/diffView";
+import { isTestFile } from "../lib/fileKind";
 import {
   actionColor,
   btn,
@@ -16,8 +17,10 @@ import {
   eyebrow,
   fieldInput,
   fieldLabel,
+  TEST_FILE_HEX,
 } from "../lib/ui";
 import type { FileChange, StatusPayload } from "../lib/types";
+import { FileKindIcon } from "./FileKindIcon";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
 import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
@@ -228,6 +231,7 @@ function Column({
               const mark = actionMark(item.status);
               const markTitle = actionMarkTitle(item.status);
               const selected = selectedPath === item.path;
+              const test = isTestFile(item.path);
               return (
                 <div
                   key={`${action}-${item.path}`}
@@ -241,17 +245,20 @@ function Column({
                     type="button"
                     title={fileDisplayPath(item)}
                     aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
-                    className="min-w-0 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
+                    className="flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
                     onClick={() => onOpen(side, item.path)}
                   >
-                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                      {fileDisplayName(item)}
-                    </span>
-                    {selected ? (
-                      <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
-                        {fileDisplayPath(item)}
+                    <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
+                    <span className="min-w-0 overflow-hidden">
+                      <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                        {fileDisplayName(item)}
                       </span>
-                    ) : null}
+                      {selected ? (
+                        <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
+                          {fileDisplayPath(item)}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                   <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
                     {mark}
