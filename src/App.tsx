@@ -57,6 +57,7 @@ import {
 import { defaultSettings } from "./lib/settingsRegistry";
 import type { SettingDef } from "./lib/settingsRegistry";
 import { errorText } from "./lib/ui";
+import { openNewArchiveWindow } from "./lib/windows";
 import type {
   AheadBehind,
   AppSettings,
@@ -263,6 +264,11 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setPaletteOpen(true);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        void newWindow();
         return;
       }
       if (e.key !== "Escape") return;
@@ -525,6 +531,10 @@ export default function App() {
     }
   }
 
+  function newWindow() {
+    void openNewArchiveWindow().catch((err) => setError(errMessage(err)));
+  }
+
   function closeFolder() {
     setBusy(false);
     setError(null);
@@ -578,6 +588,12 @@ export default function App() {
     { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
     { id: "docket", title: "Toggle case file", run: () => setDocketOpen((open) => !open) },
     { id: "settings", title: "Open settings", hint: "File", run: () => setSettingsOpen(true) },
+    {
+      id: "new-window",
+      title: "New window",
+      hint: "Ctrl+Shift+N",
+      run: newWindow,
+    },
     { id: "signin", title: "Sign in with GitHub", hint: "Clearance", run: () => setAuthOpen(true) },
     { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => setUser(null)) },
     { id: "open", title: "Open folder", hint: "File", run: () => void browse() },
@@ -662,6 +678,7 @@ export default function App() {
     <TitleBar
       title={repo?.name ?? "TIMESTREAM"}
       folderOpen={Boolean(repo)}
+      onNewWindow={newWindow}
       onOpenFolder={() => void browse()}
       onCloseFolder={closeFolder}
       onRescan={() => {

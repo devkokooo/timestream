@@ -6,6 +6,7 @@ import { cn } from "../lib/cn";
 interface Props {
   title: string;
   folderOpen: boolean;
+  onNewWindow: () => void;
   onOpenFolder: () => void;
   onCloseFolder: () => void;
   onRescan: () => void;
@@ -16,6 +17,7 @@ type MenuId = "file" | "view";
 
 interface MenuItemDef {
   label: string;
+  shortcut?: string;
   disabled?: boolean;
   onSelect: () => void;
 }
@@ -29,6 +31,7 @@ interface MenuDef {
 export function TitleBar({
   title,
   folderOpen,
+  onNewWindow,
   onOpenFolder,
   onCloseFolder,
   onRescan,
@@ -43,6 +46,7 @@ export function TitleBar({
       id: "file",
       label: "File",
       items: [
+        { label: "New Window", shortcut: "Ctrl+Shift+N", onSelect: onNewWindow },
         { label: "Open Archive…", onSelect: onOpenFolder },
         { label: "Close Folder", disabled: !folderOpen, onSelect: onCloseFolder },
         "separator",
@@ -182,6 +186,7 @@ function BarMenu({
               <MenuItem
                 key={item.label}
                 label={item.label}
+                shortcut={item.shortcut}
                 disabled={item.disabled}
                 onSelect={() => {
                   onClose();
@@ -209,10 +214,12 @@ function TimestreamMark() {
 
 function MenuItem({
   label,
+  shortcut,
   disabled,
   onSelect,
 }: {
   label: string;
+  shortcut?: string;
   disabled?: boolean;
   onSelect: () => void;
 }) {
@@ -221,10 +228,11 @@ function MenuItem({
       type="button"
       role="menuitem"
       disabled={disabled}
-      className="flex w-full items-center border-0 bg-transparent px-3 py-1.5 text-left text-[12px] text-tva-paper hover:bg-tva-orange/18 disabled:text-tva-muted disabled:hover:bg-transparent"
+      className="flex w-full items-center justify-between gap-6 border-0 bg-transparent px-3 py-1.5 text-left text-[12px] text-tva-paper hover:bg-tva-orange/18 disabled:text-tva-muted disabled:hover:bg-transparent"
       onClick={onSelect}
     >
-      {label}
+      <span>{label}</span>
+      {shortcut ? <span className="text-[10px] tracking-[0.08em] text-tva-muted">{shortcut}</span> : null}
     </button>
   );
 }
