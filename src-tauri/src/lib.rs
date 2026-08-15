@@ -4,8 +4,8 @@ mod git;
 mod graph;
 
 use commands::{
-    file_commit, get_branches, get_commit, get_file_diff, get_status, get_timeline, open_repository,
-    stage_file, switch_branch, unstage_file,
+    file_commit, get_branches, get_commit, get_file_diff, get_status, get_timeline,
+    get_worktree_diff, open_repository, stage_file, switch_branch, unstage_file,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -19,6 +19,7 @@ pub fn run() {
             get_status,
             get_commit,
             get_file_diff,
+            get_worktree_diff,
             get_branches,
             switch_branch,
             stage_file,

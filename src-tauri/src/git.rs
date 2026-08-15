@@ -154,6 +154,19 @@ pub fn load_file_diff(path: &Path, sha: &str, rel: &str) -> Result<FileDiff> {
     collect_file_diff(&diff, &rel)
 }
 
+/// Working-tree variance: `staged` compares index↔HEAD; otherwise workdir↔index
+/// (including untracked content).
+pub fn load_worktree_diff(path: &Path, rel: &str, staged: bool) -> Result<FileDiff> {
+    let repo = Repository::discover(path)?;
+    let rel = normalize_rel(rel)?;
+    let diff = if staged {
+        staged_diff(&repo)?
+    } else {
+        unstaged_diff(&repo)?
+    };
+    collect_file_diff(&diff, &rel)
+}
+
 pub fn list_branches(path: &Path) -> Result<Vec<BranchInfo>> {
     let repo = Repository::discover(path)?;
     let head_name = current_branch(&repo);
@@ -424,7 +437,7 @@ fn wt_status(st: Status) -> String {
 
 fn delta_status(status: git2::Delta) -> String {
     match status {
-        git2::Delta::Added => "added",
+        git2::Delta::Added | git2::Delta::Untracked => "added",
         git2::Delta::Deleted => "deleted",
         git2::Delta::Renamed | git2::Delta::Copied => "moved",
         _ => "modified",
@@ -473,6 +486,24 @@ fn diff_for_commit<'repo>(
     find_opts.renames(true);
     diff.find_similar(Some(&mut find_opts))?;
     Ok((commit, diff))
+}
+
+fn staged_diff<'repo>(repo: &'repo Repository) -> Result<git2::Diff<'repo>> {
+    let head_tree = repo.head().ok().and_then(|head| head.peel_to_tree().ok());
+    let mut opts = DiffOptions::new();
+    let mut diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))?;
+    let mut find_opts = git2::DiffFindOptions::new();
+    find_opts.renames(true);
+    diff.find_similar(Some(&mut find_opts))?;
+    Ok(diff)
+}
+
+fn unstaged_diff<'repo>(repo: &'repo Repository) -> Result<git2::Diff<'repo>> {
+    let mut opts = DiffOptions::new();
+    opts.include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .show_untracked_content(true);
+    Ok(repo.diff_index_to_workdir(None, Some(&mut opts))?)
 }
 
 struct DiffCollector {
@@ -962,5 +993,46 @@ mod tests {
         assert_eq!(moved_diff.status, "moved");
         assert_eq!(moved_diff.old_path.as_deref(), Some("old-name.txt"));
         assert!(load_file_diff(&h.path, &moved, "missing.txt").is_err());
+    }
+
+    #[test]
+    fn worktree_diff_covers_unstaged_staged_and_untracked() {
+        let mut h = Harness::new();
+        h.commit("keep.txt", "alpha\nbeta\n", "root");
+
+        fs::write(h.path.join("keep.txt"), "alpha\nBETA\n").unwrap();
+        let unstaged = load_worktree_diff(&h.path, "keep.txt", false).unwrap();
+        assert_eq!(unstaged.status, "modified");
+        assert!(unstaged.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "deletion" && line.text.contains("beta"))
+        }));
+        assert!(unstaged.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "addition" && line.text.contains("BETA"))
+        }));
+        assert!(load_worktree_diff(&h.path, "keep.txt", true).is_err());
+
+        stage_path(&h.path, "keep.txt").unwrap();
+        let staged = load_worktree_diff(&h.path, "keep.txt", true).unwrap();
+        assert_eq!(staged.status, "modified");
+        assert!(staged.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "addition" && line.text.contains("BETA"))
+        }));
+        assert!(load_worktree_diff(&h.path, "keep.txt", false).is_err());
+
+        fs::write(h.path.join("fresh.txt"), "brand new\n").unwrap();
+        let untracked = load_worktree_diff(&h.path, "fresh.txt", false).unwrap();
+        assert_eq!(untracked.status, "added");
+        assert!(untracked.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "addition" && line.text.contains("brand new"))
+        }));
+        assert!(load_worktree_diff(&h.path, "missing.txt", false).is_err());
     }
 }

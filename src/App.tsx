@@ -12,6 +12,7 @@ import {
   getFileDiff,
   getStatus,
   getTimeline,
+  getWorktreeDiff,
   openRepository,
   pickRepository,
   stageFile,
@@ -26,10 +27,40 @@ import {
   type RecentRepo,
 } from "./lib/recentRepos";
 import { errorText } from "./lib/ui";
-import type { CommitDetail, DiffMode, FileDiff, RepoSummary, StatusPayload, Timeline } from "./lib/types";
+import type {
+  CommitDetail,
+  DiffMode,
+  FileChange,
+  FileDiff,
+  RepoSummary,
+  StatusPayload,
+  Timeline,
+} from "./lib/types";
 
 const appShell =
   "flex h-full flex-col bg-[radial-gradient(1200px_500px_at_50%_-10%,rgba(232,93,4,0.16),transparent_55%),linear-gradient(180deg,#1c1814_0%,#120f0c_100%)]";
+
+type DiffTarget =
+  | { kind: "commit"; path: string }
+  | { kind: "staged"; path: string }
+  | { kind: "unstaged"; path: string };
+
+function statusFile(
+  status: StatusPayload | null,
+  target: DiffTarget | null,
+): FileChange | null {
+  if (!status || !target || target.kind === "commit") return null;
+  const list =
+    target.kind === "staged"
+      ? status.staged
+      : [...status.unstaged, ...status.untracked];
+  return list.find((file) => file.path === target.path) ?? null;
+}
+
+function targetsEqual(a: DiffTarget | null, b: DiffTarget | null): boolean {
+  if (!a || !b) return a === b;
+  return a.kind === b.kind && a.path === b.path;
+}
 
 export default function App() {
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
@@ -38,10 +69,10 @@ export default function App() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
-  const [diffPath, setDiffPath] = useState<string | null>(null);
+  const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffMounted, setDiffMounted] = useState(false);
-  const [diffMountPath, setDiffMountPath] = useState<string | null>(null);
+  const [diffMountTarget, setDiffMountTarget] = useState<DiffTarget | null>(null);
   const [diff, setDiff] = useState<FileDiff | null>(null);
   const [diffMode, setDiffMode] = useState<DiffMode>("split");
   const [diffError, setDiffError] = useState<string | null>(null);
@@ -94,37 +125,57 @@ export default function App() {
   }, [repo, selectedId]);
 
   useEffect(() => {
-    if (diffPath) {
+    if (diffTarget) {
       setDiffMounted(true);
-      setDiffMountPath(diffPath);
+      setDiffMountTarget(diffTarget);
     }
-  }, [diffPath]);
+  }, [diffTarget]);
 
   useEffect(() => {
-    if (!diffPath || !detail || detail.id !== selectedId) return;
-    const stillThere = detail.files.some((file) => file.path === diffPath);
+    if (!diffTarget || diffTarget.kind !== "commit") return;
+    if (!detail || detail.id !== selectedId) return;
+    const stillThere = detail.files.some((file) => file.path === diffTarget.path);
     if (!stillThere) {
       setDiffOpen(false);
-      setDiffPath(null);
+      setDiffTarget(null);
     }
-  }, [detail, diffPath, selectedId]);
+  }, [detail, diffTarget, selectedId]);
 
   useEffect(() => {
-    if (!diffPath) {
+    if (!diffTarget || diffTarget.kind === "commit") return;
+    if (!status) return;
+    if (!statusFile(status, diffTarget)) {
+      setDiffOpen(false);
+      setDiffTarget(null);
+    }
+  }, [status, diffTarget]);
+
+  useEffect(() => {
+    if (!diffTarget) {
       setDiff(null);
       setDiffError(null);
       return;
     }
-    if (!repo || !selectedId || !detail || detail.id !== selectedId) {
-      return;
-    }
-    if (!detail.files.some((file) => file.path === diffPath)) {
-      return;
-    }
+    if (!repo) return;
+
     let cancelled = false;
     setDiff(null);
     setDiffError(null);
-    getFileDiff(repo.path, selectedId, diffPath)
+
+    const request =
+      diffTarget.kind === "commit"
+        ? detail &&
+          detail.id === selectedId &&
+          detail.files.some((file) => file.path === diffTarget.path)
+          ? getFileDiff(repo.path, selectedId!, diffTarget.path)
+          : null
+        : statusFile(status, diffTarget)
+          ? getWorktreeDiff(repo.path, diffTarget.path, diffTarget.kind === "staged")
+          : null;
+
+    if (!request) return;
+
+    request
       .then((next) => {
         if (!cancelled) setDiff(next);
       })
@@ -137,29 +188,31 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [repo, selectedId, diffPath, detail]);
+  }, [repo, selectedId, diffTarget, detail, status]);
 
   const selectedNode =
     timeline?.nodes.find((n) => n.id === selectedId) ?? null;
-  const activeDiffPath = diffPath ?? diffMountPath;
+  const activeTarget = diffTarget ?? diffMountTarget;
   const selectedFile =
-    detail?.files.find((file) => file.path === activeDiffPath) ?? null;
+    activeTarget?.kind === "commit"
+      ? (detail?.files.find((file) => file.path === activeTarget.path) ?? null)
+      : statusFile(status, activeTarget);
   const visibleDiff =
     diff &&
-    activeDiffPath &&
-    (diff.path === activeDiffPath || diff.oldPath === activeDiffPath)
+    activeTarget &&
+    (diff.path === activeTarget.path || diff.oldPath === activeTarget.path)
       ? diff
       : null;
 
-  function toggleDiffFile(path: string) {
-    if (diffPath === path) {
+  function openDiff(target: DiffTarget) {
+    if (targetsEqual(diffTarget, target)) {
       setDiffOpen(false);
-      setDiffPath(null);
+      setDiffTarget(null);
       return;
     }
     setDiffMounted(true);
-    setDiffMountPath(path);
-    setDiffPath(path);
+    setDiffMountTarget(target);
+    setDiffTarget(target);
     if (diffOpen) return;
     setDiffOpen(false);
     requestAnimationFrame(() => {
@@ -169,7 +222,7 @@ export default function App() {
 
   function closeDiff() {
     setDiffOpen(false);
-    setDiffPath(null);
+    setDiffTarget(null);
   }
 
   async function browse() {
@@ -247,7 +300,7 @@ export default function App() {
               if (e.target !== e.currentTarget) return;
               if (!diffOpen) {
                 setDiffMounted(false);
-                setDiffMountPath(null);
+                setDiffMountTarget(null);
               }
             }}
           >
@@ -266,13 +319,21 @@ export default function App() {
         <CaseFile
           node={selectedNode}
           detail={detail}
-          selectedPath={diffPath}
-          onOpenFile={toggleDiffFile}
+          selectedPath={
+            diffTarget?.kind === "commit" ? diffTarget.path : null
+          }
+          onOpenFile={(path) => openDiff({ kind: "commit", path })}
           onSelectCommit={setSelectedId}
         />
         <AnomalyDock
           status={status}
           busy={busy}
+          selected={
+            diffTarget && diffTarget.kind !== "commit"
+              ? { side: diffTarget.kind, path: diffTarget.path }
+              : null
+          }
+          onOpenFile={(side, path) => openDiff({ kind: side, path })}
           onStage={async (rel) => setStatus(await stageFile(repo.path, rel))}
           onUnstage={async (rel) => setStatus(await unstageFile(repo.path, rel))}
           onCommit={async (message) => {

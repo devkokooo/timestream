@@ -3,6 +3,7 @@ import {
   useEffect,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { composeCommitMessage } from "../lib/commitMessage";
 import { cn } from "../lib/cn";
@@ -20,15 +21,27 @@ import type { FileChange, StatusPayload } from "../lib/types";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
 import { TvaScrollArea } from "./TvaScrollArea";
 
+export type AnomalySide = "staged" | "unstaged";
+
 interface Props {
   status: StatusPayload | null;
+  selected: { side: AnomalySide; path: string } | null;
+  onOpenFile: (side: AnomalySide, path: string) => void;
   onStage: (path: string) => void | Promise<void>;
   onUnstage: (path: string) => void | Promise<void>;
   onCommit: (message: string) => Promise<void>;
   busy: boolean;
 }
 
-export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Props) {
+export function AnomalyDock({
+  status,
+  selected,
+  onOpenFile,
+  onStage,
+  onUnstage,
+  onCommit,
+  busy,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -83,12 +96,15 @@ export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Prop
       </button>
 
       {open ? (
-        <div className="max-h-72 flex flex-row items-stretch bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#1b1713] max-[980px]:flex-col">
+        <div className="flex flex-row items-stretch bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#1b1713] max-[980px]:flex-col">
           <div className="flex min-w-0 flex-[1.17] flex-row items-stretch max-[980px]:flex-1">
             <Column
               title="UNFILED"
+              side="unstaged"
               items={unfiled}
               action="file"
+              selectedPath={selected?.side === "unstaged" ? selected.path : null}
+              onOpen={onOpenFile}
               onClick={onStage}
               onAll={() => runAll(unfiled.map((item) => item.path), onStage)}
               loading={loading}
@@ -96,8 +112,11 @@ export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Prop
             />
             <Column
               title="FILED (STAGED)"
+              side="staged"
               items={staged}
               action="unfile"
+              selectedPath={selected?.side === "staged" ? selected.path : null}
+              onOpen={onOpenFile}
               onClick={onUnstage}
               onAll={() => runAll(staged.map((item) => item.path), onUnstage)}
               loading={loading}
@@ -159,16 +178,22 @@ export function AnomalyDock({ status, onStage, onUnstage, onCommit, busy }: Prop
 
 function Column({
   title,
+  side,
   items,
   action,
+  selectedPath,
+  onOpen,
   onClick,
   onAll,
   loading,
   empty,
 }: {
   title: string;
+  side: AnomalySide;
   items: FileChange[];
   action: "file" | "unfile";
+  selectedPath: string | null;
+  onOpen: (side: AnomalySide, path: string) => void;
   onClick: (path: string) => void | Promise<void>;
   onAll: () => void;
   loading: boolean;
@@ -177,7 +202,7 @@ function Column({
   const verb = action === "file" ? "File" : "Unfile";
   return (
     <div className="flex min-w-0 flex-1 flex-col border-r border-tva-gold/12 py-3 pr-2.5 pl-3.5">
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">
           {title} <span className="text-tva-muted">{loading ? "…" : items.length}</span>
         </h3>
@@ -190,30 +215,43 @@ function Column({
           {verb} all
         </button>
       </div>
-      <TvaScrollArea className="max-h-[30vh]" axis="y">
+      <TvaScrollArea className="max-h-72" axis="y" viewportClassName="max-h-56">
         {loading ? <AnomalyColumnSkeleton /> : null}
         {!loading && items.length === 0 ? <div className={emptyText}>{empty}</div> : null}
         {!loading
           ? items.map((item) => {
               const kind = fileAction(item.status);
+              const selected = selectedPath === item.path;
               return (
-                <button
+                <div
                   key={`${action}-${item.path}`}
-                  type="button"
                   className={cn(
-                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 bg-transparent px-2 py-2 text-left font-mono text-xs text-tva-paper hover:bg-tva-orange/10 hover:text-tva-gold-bright min-h-10 group",
+                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 px-2 py-2 font-mono text-xs text-tva-paper min-h-10 group",
                     actionColor[kind],
+                    selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
                   )}
-                  onClick={() => void onClick(item.path)}
                 >
-                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                    {fileDisplayPath(item)}
-                  </span>
+                  <button
+                    type="button"
+                    className="min-w-0 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
+                    onClick={() => onOpen(side, item.path)}
+                  >
+                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                      {fileDisplayPath(item)}
+                    </span>
+                  </button>
                   <span className="shrink-0 text-[10px] tracking-[0.12em]">{actionLabel(kind)}</span>
-                  <span className="shrink-0 border border-tva-gold/35 px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold group-hover:border-tva-orange group-hover:text-tva-gold-bright">
+                  <button
+                    type="button"
+                    className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright"
+                    onClick={(e: ReactMouseEvent) => {
+                      e.stopPropagation();
+                      void onClick(item.path);
+                    }}
+                  >
                     {verb}
-                  </span>
-                </button>
+                  </button>
+                </div>
               );
             })
           : null}

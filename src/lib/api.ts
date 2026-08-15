@@ -39,6 +39,14 @@ export function getFileDiff(path: string, sha: string, rel: string): Promise<Fil
   return invoke("get_file_diff", { path, sha, rel });
 }
 
+export function getWorktreeDiff(
+  path: string,
+  rel: string,
+  staged: boolean,
+): Promise<FileDiff> {
+  return invoke("get_worktree_diff", { path, rel, staged });
+}
+
 export function getBranches(path: string): Promise<BranchInfo[]> {
   return invoke("get_branches", { path });
 }
