@@ -115,8 +115,8 @@ pub fn unstage_file(path: String, rel: String) -> Result<StatusPayload> {
 }
 
 #[tauri::command]
-pub fn file_commit(path: String, message: String) -> Result<String> {
-    commit_changes(&PathBuf::from(path), &message)
+pub fn file_commit(path: String, message: String, amend: Option<bool>) -> Result<String> {
+    commit_changes(&PathBuf::from(path), &message, amend.unwrap_or(false))
 }
 
 #[tauri::command]

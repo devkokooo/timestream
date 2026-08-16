@@ -205,6 +205,7 @@ export default function App() {
   const [cloneLog, setCloneLog] = useState<string[]>([]);
   const [cloning, setCloning] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [headFiling, setHeadFiling] = useState<{ summary: string; body: string } | null>(null);
   const [variantRailOpen, setVariantRailOpen] = useState(true);
   const [docketOpen, setDocketOpen] = useState(true);
   const pendingRemote = useRef<{
@@ -390,6 +391,25 @@ export default function App() {
       cancelled = true;
     };
   }, [repo?.path, selectedId]);
+
+  useEffect(() => {
+    if (!reviewOpen || !repo || !timeline?.head) {
+      setHeadFiling(null);
+      return;
+    }
+    const head = timeline.head;
+    let cancelled = false;
+    getCommit(repo.path, head)
+      .then((next) => {
+        if (!cancelled) setHeadFiling({ summary: next.summary, body: next.body });
+      })
+      .catch(() => {
+        if (!cancelled) setHeadFiling(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewOpen, repo, timeline?.head]);
 
   useEffect(() => {
     if (diffTarget) {
@@ -855,7 +875,10 @@ export default function App() {
           fetching={remoteOp === "fetch"}
           pulling={remoteOp === "pull"}
           pushing={remoteOp === "push"}
-          ahead={sync?.ahead ?? 0}
+          sync={sync}
+          onBranch={Boolean(repo.branch)}
+          hasHead={Boolean(timeline?.head ?? repo.head)}
+          headFiling={headFiling}
           onPush={() => void runRemote(pushBranch, undefined, "push")}
           onFetch={() => void runRemote(fetchRemote, undefined, "fetch")}
           onPull={() => void runRemote(pullFfOnly, undefined, "pull")}
@@ -867,8 +890,8 @@ export default function App() {
           onOpenFile={(side, path) => openDiff({ kind: side, path })}
           onStage={async (rel) => setStatus(await stageFile(repo.path, rel))}
           onUnstage={async (rel) => setStatus(await unstageFile(repo.path, rel))}
-          onCommit={async (message) => {
-            await fileCommit(repo.path, message);
+          onCommit={async (message, amend) => {
+            await fileCommit(repo.path, message, amend);
             await loadAll(repo.path, { keepSelection: true });
           }}
         >

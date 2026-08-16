@@ -107,8 +107,8 @@ export function unstageFile(path: string, rel: string): Promise<StatusPayload> {
   return invoke("unstage_file", { path, rel });
 }
 
-export function fileCommit(path: string, message: string): Promise<string> {
-  return invoke("file_commit", { path, message });
+export function fileCommit(path: string, message: string, amend = false): Promise<string> {
+  return invoke("file_commit", { path, message, amend });
 }
 
 export function createLocalTag(
