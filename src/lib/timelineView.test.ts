@@ -5,9 +5,11 @@ import {
   clipRiverX,
   columnTone,
   cullTimelineView,
+  diamondPoints,
   easeOutCubic,
   edgePath,
   focusCamera,
+  hasTag,
   INCURSION_ID,
   indexTimelineView,
   laneGapFor,
@@ -18,18 +20,18 @@ import {
   timelineLod,
   worldRect,
 } from "./timelineView";
-import { crowdedTipsTimeline, linearTimeline, longDivergedTimeline, manyBranchesTimeline, mixedRefTimeline } from "./fixtures";
+import { crowdedTipsTimeline, linearTimeline, longDivergedTimeline, manyBranchesTimeline, mixedRefTimeline, taggedTimeline } from "./fixtures";
 
 describe("laneGapFor", () => {
-  it("keeps generous spacing for a quiet timeline", () => {
-    expect(laneGapFor(1)).toBe(56);
-    expect(laneGapFor(3)).toBe(56);
+  it("keeps variant fibers close to the sacred river", () => {
+    expect(laneGapFor(1)).toBe(22);
+    expect(laneGapFor(3)).toBe(22);
   });
 
   it("compresses when many variants are on screen", () => {
-    expect(laneGapFor(8)).toBe(40);
+    expect(laneGapFor(8)).toBe(18);
     expect(laneGapFor(16)).toBeLessThan(laneGapFor(8));
-    expect(laneGapFor(24)).toBeGreaterThanOrEqual(22);
+    expect(laneGapFor(24)).toBeGreaterThanOrEqual(14);
   });
 });
 
@@ -41,6 +43,11 @@ describe("edgePath", () => {
 
   it("draws a curved spur when a variant leaves the river", () => {
     expect(edgePath(10, 40, 80, 90)).toContain("C");
+  });
+
+  it("peels a variant fiber late, near the child nexus", () => {
+    const d = edgePath(10, 40, 80, 62);
+    expect(d).toMatch(/C [\d.]+ 40,/);
   });
 });
 
@@ -85,6 +92,39 @@ describe("layoutTimelineView", () => {
     const xs = view.nodes.map((n) => n.x);
     expect(xs).toEqual([...xs].sort((a, b) => a - b));
     expect(view.width).toBeGreaterThan(view.nodes.at(-1)!.x);
+  });
+
+  it("keeps branch and tag tips hugging the sacred river like fibers", () => {
+    const view = layoutTimelineView(crowdedTipsTimeline());
+    const sacred = view.nodes.find((n) => n.id === "c")!;
+    const feature = view.nodes.find((n) => n.id === "d")!;
+    const hotfix = view.nodes.find((n) => n.id === "e")!;
+    expect(Math.abs(feature.y - sacred.y)).toBe(view.laneGap);
+    expect(Math.abs(hotfix.y - sacred.y)).toBe(view.laneGap);
+    expect(view.laneGap).toBeLessThanOrEqual(22);
+  });
+
+  it("stamps historic tags on the sacred river as close canon seals", () => {
+    const view = layoutTimelineView(taggedTimeline());
+    expect(assertViewConsistent(view)).toEqual([]);
+    const v1 = view.nodes.find((n) => n.id === "b")!;
+    const v2 = view.nodes.find((n) => n.id === "c")!;
+    const head = view.nodes.find((n) => n.id === "d")!;
+    const feature = view.nodes.find((n) => n.id === "e")!;
+    expect(hasTag(v1)).toBe(true);
+    expect(v1.y).toBe(view.sacredY);
+    expect(v2.y).toBe(view.sacredY);
+    expect(head.y).toBe(view.sacredY);
+    expect(Math.abs(feature.y - view.sacredY)).toBe(view.laneGap);
+
+    const tagLabels = view.labels.filter((l) => l.kind === "tag");
+    expect(tagLabels.map((l) => l.text).sort()).toEqual(["v-feat", "v1.0", "v2.0", "v3.0"]);
+    for (const label of tagLabels) {
+      const node = view.nodes.find((n) => label.id.startsWith(n.id))!;
+      expect(Math.abs(label.y - node.y)).toBeLessThanOrEqual(24);
+      expect(label.x).toBeGreaterThan(node.x);
+    }
+    expect(diamondPoints(10, 20, 6)).toBe("10,14 16,20 10,26 4,20");
   });
 
   it("nudges overlapping tip labels apart", () => {
@@ -216,18 +256,29 @@ describe("cullTimelineView", () => {
     expect(culled.nodes.length).toBeLessThan(30);
   });
 
-  it("LOD drops unlabeled nexuses when the frustum is dense", () => {
+  it("keeps the full fiber at a normal monitor zoom", () => {
+    expect(timelineLod(1.65, 14)).toEqual({ stride: 1, tipsOnly: false });
+    expect(timelineLod(1, 40)).toEqual({ stride: 1, tipsOnly: false });
+    expect(timelineLod(0.8, 80)).toEqual({ stride: 1, tipsOnly: false });
+  });
+
+  it("thins unlabeled nexuses only when zoomed far out over a long river", () => {
     const view = layoutTimelineView(longDivergedTimeline(400));
     expect(view.nodes.length).toBeGreaterThan(800);
     const index = indexTimelineView(view);
     const rect = { x: 0, y: 0, w: view.width, h: view.height };
     const full = cullTimelineView(view, rect, undefined, index);
     const lod = timelineLod(0.45, 200);
-    expect(lod.tipsOnly).toBe(true);
+    expect(lod.stride).toBeGreaterThan(1);
+    expect(lod.tipsOnly).toBe(false);
     const sparse = cullTimelineView(view, rect, undefined, index, lod);
-    expect(sparse.nodes.length).toBeLessThan(full.nodes.length / 8);
-    expect(sparse.nodes.every((n) => n.isHead || n.refs.length > 0)).toBe(true);
+    expect(sparse.nodes.length).toBeLessThan(full.nodes.length);
+    expect(sparse.nodes.length).toBeGreaterThan(full.nodes.length / 6);
     expect(sparse.nodes.some((n) => n.isHead)).toBe(true);
+    expect(sparse.nodes.some((n) => !n.isHead && n.refs.length === 0)).toBe(true);
+    expect(sparse.edges.some((e) => e.kind === "firstParent" && e.fromColumn === e.toColumn)).toBe(
+      true,
+    );
   });
 
   it("culls a 2_000-commit river to a monitor-sized frustum", () => {

@@ -3,7 +3,9 @@ import { quantizeRect, rectKey } from "../lib/cull";
 import {
   clipRiverX,
   cullTimelineView,
+  diamondPoints,
   focusCamera,
+  hasTag,
   INCURSION_ID,
   indexTimelineView,
   laneTones,
@@ -193,9 +195,9 @@ export function SacredTimeline({
     return ids;
   }, [selectedId, view.head]);
   const lod = useMemo(() => {
-    const slots = (rect.w / view.rowWidth) * Math.max(1, rect.h / view.laneGap);
-    return timelineLod(pan.scale, slots);
-  }, [pan.scale, rect.h, rect.w, view.laneGap, view.rowWidth]);
+    const visibleRows = rect.w / view.rowWidth;
+    return timelineLod(pan.scale, visibleRows);
+  }, [pan.scale, rect.w, view.rowWidth]);
   const culled = useMemo(
     () => cullTimelineView(view, rect, keepIds, index, lod),
     [index, keepIds, lod, rect, view],
@@ -270,6 +272,11 @@ export function SacredTimeline({
           <stop offset="0%" stopColor="#d4c19a" />
           <stop offset="50%" stopColor="#6b5d4d" />
           <stop offset="100%" stopColor="#3a332c" />
+        </radialGradient>
+        <radialGradient id="nexus-tag" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fff6d2" />
+          <stop offset="40%" stopColor="#e8b86d" />
+          <stop offset="100%" stopColor="#8a5a22" />
         </radialGradient>
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="4" result="b" />
@@ -353,7 +360,7 @@ export function SacredTimeline({
                     ? "#c23b22"
                     : REF_TONE_FILL[tone]
               }
-              strokeWidth={pending ? 1.8 : currentLane ? 3.2 : 1.7}
+              strokeWidth={pending ? 1.6 : currentLane ? 3.2 : 1.15}
               strokeDasharray={pending ? "5 4" : tone === "remote" ? "4 3" : undefined}
               strokeLinecap="round"
               opacity={pending ? 0.72 : edge.kind === "merge" ? 0.75 : tone === "remote" ? 0.55 : 0.95}
@@ -366,10 +373,23 @@ export function SacredTimeline({
             return <IncursionOrb key={node.id} node={node} onOpen={() => onOpenReview?.()} />;
           }
           const selected = node.id === selectedId;
-          const tone = node.isHead ? "current" : toneOf(node.column);
+          const tagged = hasTag(node);
+          const tone = node.isHead ? "current" : tagged ? "tag" : toneOf(node.column);
           const isPr = prHeadShas?.has(node.id);
           const failed = failingShas?.has(node.id);
-          const glow = node.isHead || selected;
+          const glow = node.isHead || selected || tagged;
+          const markR = selected ? node.r + 2 : tagged ? node.r + 1 : node.r;
+          const stroke = failed
+            ? "#c23b22"
+            : selected
+              ? "#fff6d2"
+              : node.isHead
+                ? REF_TONE_FILL.current
+                : tagged
+                  ? REF_TONE_FILL.tag
+                  : tone === "local"
+                    ? REF_TONE_FILL.local
+                    : "#2b2118";
           return (
             <g
               key={node.id}
@@ -399,25 +419,25 @@ export function SacredTimeline({
                   />
                 </circle>
               )}
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={selected ? node.r + 2 : node.r}
-                fill={`url(#nexus-${tone === "incursion" ? "local" : tone})`}
-                stroke={
-                  failed
-                    ? "#c23b22"
-                    : selected
-                      ? "#fff6d2"
-                      : node.isHead
-                        ? REF_TONE_FILL.current
-                        : tone === "local"
-                          ? REF_TONE_FILL.local
-                          : "#2b2118"
-                }
-                strokeWidth={failed || selected || node.isHead ? 2 : 1}
-                filter={glow ? "url(#glow)" : undefined}
-              />
+              {tagged ? (
+                <polygon
+                  points={diamondPoints(node.x, node.y, markR)}
+                  fill="url(#nexus-tag)"
+                  stroke={stroke}
+                  strokeWidth={failed || selected || node.isHead ? 2 : 1.2}
+                  filter={glow ? "url(#glow)" : undefined}
+                />
+              ) : (
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={markR}
+                  fill={`url(#nexus-${tone === "incursion" ? "local" : tone})`}
+                  stroke={stroke}
+                  strokeWidth={failed || selected || node.isHead ? 2 : 1}
+                  filter={glow ? "url(#glow)" : undefined}
+                />
+              )}
               {isPr ? (
                 <text x={node.x} y={node.y - node.r - 8} textAnchor="middle" className="ref-label" fill="#e85d04">
                   REQUEST
@@ -427,6 +447,7 @@ export function SacredTimeline({
               <circle className="node-hit" cx={node.x} cy={node.y} r={16}>
                 <title>
                   {node.shortId} — {node.summary}
+                  {tagged ? " — Canon tag" : ""}
                   {failed ? " — Checks failed" : ""}
                   {isPr ? " — Pull request" : ""}
                 </title>
@@ -458,6 +479,7 @@ export function SacredTimeline({
     >
       <span className="text-tva-gold-bright">NOW</span>
       <span className="text-tva-orange">LOCAL</span>
+      <span className="text-tva-gold">CANON</span>
       <span>UPSTREAM</span>
     </div>
     </div>

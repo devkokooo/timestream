@@ -32,13 +32,14 @@ export interface ViewEdge extends TimelineEdge {
   y2: number;
 }
 
-export type RefTone = "current" | "local" | "remote" | "incursion";
+export type RefTone = "current" | "local" | "remote" | "incursion" | "tag";
 
 export const REF_TONE_FILL: Record<RefTone, string> = {
   current: "#f4c430",
   local: "#e85d04",
   remote: "#9a8b74",
   incursion: "#e85d04",
+  tag: "#e8b86d",
 };
 
 export interface LabelSegment {
@@ -53,7 +54,7 @@ export interface ViewLabel {
   y: number;
   w: number;
   h: number;
-  kind: "ref" | "head" | "incursion";
+  kind: "ref" | "head" | "incursion" | "tag";
   segments: LabelSegment[];
 }
 
@@ -94,17 +95,18 @@ export interface LodPolicy {
 
 const DEFAULTS: ViewOptions = {
   rowWidth: 76,
-  laneGap: 56,
+  laneGap: 22,
   paddingX: 88,
   paddingY: 72,
   nodeRadius: 7,
 };
 
+/** Tight TVA fiber spacing — variants hug the sacred river instead of sitting on distant rails. */
 export function laneGapFor(laneCount: number): number {
-  if (laneCount <= 1) return 56;
-  if (laneCount <= 3) return 56;
-  if (laneCount <= 8) return 40;
-  return Math.max(22, Math.round(280 / laneCount));
+  if (laneCount <= 1) return 22;
+  if (laneCount <= 3) return 22;
+  if (laneCount <= 8) return 18;
+  return Math.max(14, Math.round(120 / laneCount));
 }
 
 export function yForColumn(
@@ -120,8 +122,9 @@ export function edgePath(x1: number, y1: number, x2: number, y2: number): string
   if (y1 === y2) {
     return `M ${x1} ${y1} L ${x2} ${y2}`;
   }
-  const dx = Math.max(28, (x2 - x1) / 2);
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+  const span = Math.max(x2 - x1, 16);
+  const peel = Math.min(36, Math.max(14, span * 0.38));
+  return `M ${x1} ${y1} C ${x2 - peel} ${y1}, ${x2 - peel * 0.35} ${y2}, ${x2} ${y2}`;
 }
 
 export type Camera = { x: number; y: number; scale: number };
@@ -160,7 +163,7 @@ export type WorldRect = CullRect;
 export function worldRect(
   camera: Camera,
   viewport: { width: number; height: number },
-  pad = 120,
+  pad = 200,
 ): WorldRect {
   const scale = camera.scale <= 0 ? 1 : camera.scale;
   return {
@@ -229,10 +232,14 @@ function pushEdge(map: Map<string, ViewEdge[]>, id: string, edge: ViewEdge): voi
   else map.set(id, [edge]);
 }
 
-/** Density LOD: zoomed-out or crowded frustums keep tips, not every nexus. */
-export function timelineLod(scale: number, visibleSlots: number): LodPolicy {
-  if (scale <= 0.55 || visibleSlots > 140) return { stride: 8, tipsOnly: true };
-  if (scale <= 0.8 || visibleSlots > 70) return { stride: 3, tipsOnly: false };
+/**
+ * Density LOD. Only thin unlabeled nexuses when the operator is zoomed far
+ * out over a long river — a normal monitor must keep the full fiber.
+ * `visibleRows` is horizontal extent (rect.w / rowWidth), not lane×row slots.
+ */
+export function timelineLod(scale: number, visibleRows: number): LodPolicy {
+  if (scale <= 0.45 && visibleRows > 64) return { stride: 3, tipsOnly: false };
+  if (scale <= 0.55 && visibleRows > 36) return { stride: 2, tipsOnly: false };
   return { stride: 1, tipsOnly: false };
 }
 
@@ -286,7 +293,6 @@ export function cullTimelineView(
   for (const e of edgePool) {
     const forced = Boolean(keepIds?.has(e.from) || keepIds?.has(e.to));
     if (!forced && !segmentHitsRect(e.x1, e.y1, e.x2, e.y2, rect)) continue;
-    if (lod?.tipsOnly && e.kind === "firstParent" && e.fromColumn === e.toColumn) continue;
     takeEdge(e);
   }
   if (keepIds && index) {
@@ -377,6 +383,19 @@ export function estimateLabelWidth(text: string): number {
   return Math.max(28, Math.round(text.length * 7.1 + 16));
 }
 
+export function tagNames(node: Pick<TimelineNode, "refs">): string[] {
+  return node.refs.filter((r) => r.kind === "tag").map((r) => r.name);
+}
+
+export function hasTag(node: Pick<TimelineNode, "refs">): boolean {
+  return node.refs.some((r) => r.kind === "tag");
+}
+
+/** Gold canon seal — tags are stamps on a nexus, not a variant fiber. */
+export function diamondPoints(cx: number, cy: number, r: number): string {
+  return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`;
+}
+
 export function refSegments(node: ViewNode): LabelSegment[] {
   if (node.id === INCURSION_ID) {
     return [{ text: "INCURSION", tone: "incursion" }];
@@ -386,7 +405,7 @@ export function refSegments(node: ViewNode): LabelSegment[] {
     segments.push({ text: "NOW", tone: "current" });
   }
   for (const ref of node.refs) {
-    if (ref.kind === "head") continue;
+    if (ref.kind === "head" || ref.kind === "tag") continue;
     if (ref.kind === "remote") {
       segments.push({ text: ref.name, tone: "remote" });
     } else if (node.isHead && ref.kind === "branch") {
@@ -411,24 +430,53 @@ export function columnTone(
   return "local";
 }
 
+function settleLabel(
+  placed: ViewLabel[],
+  seed: ViewLabel,
+  xNudges: number[],
+  yNudges: number[],
+): ViewLabel {
+  for (const dx of xNudges) {
+    for (const dy of yNudges) {
+      const next = { ...seed, x: seed.x + dx, y: seed.y + dy };
+      if (!placed.some((other) => boxesOverlap(next, other))) return next;
+    }
+  }
+  return seed;
+}
+
 export function placeLabels(nodes: ViewNode[]): ViewLabel[] {
   const placed: ViewLabel[] = [];
   const labeled = nodes.filter((n) => n.refs.length > 0 || n.isHead);
 
   for (const node of labeled) {
+    const tags = tagNames(node);
+    if (tags.length > 0) {
+      const text = tags.join(" · ");
+      const seed: ViewLabel = {
+        id: `${node.id}#tag`,
+        text,
+        x: node.x + node.r + 6,
+        y: node.y - 14,
+        w: estimateLabelWidth(text),
+        h: 13,
+        kind: "tag",
+        segments: tags.map((name) => ({ text: name, tone: "tag" as const })),
+      };
+      placed.push(settleLabel(placed, seed, [0, 12, 24, 36], [0, -10, 10]));
+    }
+
     const segments = refSegments(node);
     if (segments.length === 0) continue;
-
     const text = segments.map((s) => s.text).join(" · ");
-    const w = estimateLabelWidth(text);
-    const h = 16;
-    let candidate: ViewLabel = {
+    const away = node.side === "below" ? 1 : -1;
+    const seed: ViewLabel = {
       id: node.id,
       text,
       x: node.x + node.r + 10,
-      y: node.y - 22,
-      w,
-      h,
+      y: node.side === "below" ? node.y + 10 : node.y - 20,
+      w: estimateLabelWidth(text),
+      h: 16,
       kind:
         node.id === INCURSION_ID
           ? "incursion"
@@ -437,16 +485,9 @@ export function placeLabels(nodes: ViewNode[]): ViewLabel[] {
             : "ref",
       segments,
     };
-
-    const nudges = [0, -18, 18, -36, 36, 54, -54];
-    for (const dy of nudges) {
-      const next = { ...candidate, y: node.y - 22 + dy };
-      if (!placed.some((other) => boxesOverlap(next, other))) {
-        candidate = next;
-        break;
-      }
-    }
-    placed.push(candidate);
+    placed.push(
+      settleLabel(placed, seed, [0, 16, 32, 48], [0, 12 * away, 24 * away, -12 * away, 36 * away]),
+    );
   }
   return placed;
 }
