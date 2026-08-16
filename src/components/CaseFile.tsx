@@ -2,6 +2,8 @@ import { cn } from "../lib/cn";
 import {
   actionColor,
   emptyText,
+  fileRowPad,
+  fileRowSelected,
   panelTitle,
   stamp,
   stampGold,
@@ -158,9 +160,10 @@ function FileRow({
       title={fileDisplayPath(file)}
       aria-label={`${actionLabel(action)} · ${fileDisplayPath(file)}`}
       className={cn(
-        "flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent px-1 py-1.5 text-left font-mono text-xs hover:bg-tva-orange/8",
+        "flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent py-1.5 pr-1 text-left font-mono text-xs hover:bg-tva-orange/8",
+        fileRowPad,
         actionColor[action],
-        selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
+        selected && fileRowSelected,
       )}
       onClick={onOpen}
     >

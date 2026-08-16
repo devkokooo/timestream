@@ -20,6 +20,8 @@ import {
   eyebrow,
   fieldInput,
   fieldLabel,
+  fileRowPad,
+  fileRowSelected,
   TEST_FILE_HEX,
 } from "../lib/ui";
 import type { AheadBehind, FileChange, StatusPayload } from "../lib/types";
@@ -361,18 +363,20 @@ function Column({
             return (
               <div
                 className={cn(
-                  "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 px-2 py-2 font-mono text-xs min-h-10 group",
+                  "relative grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 py-2 pr-2 font-mono text-xs min-h-10 group hover:bg-tva-orange/8",
+                  fileRowPad,
                   actionColor[tone],
-                  selected && "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]",
+                  selected && fileRowSelected,
                 )}
               >
                 <button
                   type="button"
                   title={fileDisplayPath(item)}
                   aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
-                  className="flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-left text-inherit hover:text-tva-gold-bright"
+                  className="absolute inset-0 z-0 border-0 bg-transparent"
                   onClick={() => onOpen(side, item.path)}
-                >
+                />
+                <span className="pointer-events-none relative z-[1] flex min-w-0 items-center gap-1.5 text-inherit group-hover:text-tva-gold-bright">
                   <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
                   <span className="min-w-0 overflow-hidden">
                     <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
@@ -384,13 +388,13 @@ function Column({
                       </span>
                     ) : null}
                   </span>
-                </button>
-                <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
+                </span>
+                <span className="pointer-events-none relative z-[1] w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
                   {mark}
                 </span>
                 <button
                   type="button"
-                  className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold"
+                  className="relative z-[1] shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold"
                   onClick={(e: ReactMouseEvent) => {
                     e.stopPropagation();
                     void onClick(item.path);

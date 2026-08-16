@@ -8,6 +8,7 @@ import {
   btnStow,
   emptyText,
   eyebrow,
+  fileRowPad,
   panelTitle,
   stamp,
   stampGold,
@@ -236,7 +237,8 @@ function FileRow({ file, onOpen }: { file: FileChange; onOpen?: (path: string) =
     </>
   );
   const cls = cn(
-    "flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent px-1 py-1.5 text-left font-mono text-xs",
+    "flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent py-1.5 pr-1 text-left font-mono text-xs",
+    fileRowPad,
     actionColor[action],
   );
   if (!onOpen) {

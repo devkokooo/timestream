@@ -41,6 +41,11 @@ export const actionColor: Record<string, string> = {
   moved: "text-tva-orange-hot",
 };
 
+/** 3px selection bar, then padding before the file icon. */
+export const fileRowPad = "pl-3";
+export const fileRowSelected =
+  "bg-tva-orange/14 shadow-[inset_3px_0_0_var(--color-tva-orange)]";
+
 /** Specimen / test records — icon only. */
 export const TEST_FILE_HEX = "#E85D04";
 
