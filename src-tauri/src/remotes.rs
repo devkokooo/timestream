@@ -384,44 +384,79 @@ pub fn delete_remote_tag(path: &Path, remote_name: &str, tag: &str, auth: &GitAu
 }
 
 pub fn pull_ff_only(path: &Path, remote_name: &str, auth: &GitAuth) -> Result<AheadBehind> {
+    pull_ff_branch(path, remote_name, None, auth)
+}
+
+pub fn pull_ff_branch(
+    path: &Path,
+    remote_name: &str,
+    branch: Option<&str>,
+    auth: &GitAuth,
+) -> Result<AheadBehind> {
     let repo = Repository::discover(path)?;
     fetch_repo(&repo, remote_name, auth)?;
-    let status = ahead_behind_repo(&repo)?;
-    if status.behind == 0 {
-        return Ok(status);
-    }
-    if status.ahead > 0 {
-        return Err(AppError::msg(
-            "VARIANT_DIVERGED: local branch and origin have diverged — pull would not fast-forward",
-        ));
-    }
-    let head = repo.head()?;
-    if !head.is_branch() {
-        return Err(AppError::msg("cannot fast-forward a detached HEAD"));
-    }
-    let branch_name = head
-        .shorthand()
-        .ok_or_else(|| AppError::msg("HEAD has no name"))?
-        .to_string();
-    let branch = repo.find_branch(&branch_name, git2::BranchType::Local)?;
-    let upstream = branch
-        .upstream()
-        .map_err(|_| AppError::msg("no upstream is configured"))?;
-    let remote_oid = upstream
-        .get()
-        .target()
-        .ok_or_else(|| AppError::msg("upstream has no target"))?;
-    let annotated = repo.find_annotated_commit(remote_oid)?;
-    let (analysis, _) = repo.merge_analysis(&[&annotated])?;
-    if !analysis.is_fast_forward() {
-        return Err(AppError::msg(
-            "VARIANT_DIVERGED: local branch and origin have diverged — pull would not fast-forward",
-        ));
-    }
-    let obj = repo.find_object(remote_oid, None)?;
-    repo.checkout_tree(&obj, None)?;
-    repo.head()?.set_target(remote_oid, "ff-only pull")?;
+    let named = branch.and_then(|name| {
+        let name = name.trim_start_matches("origin/");
+        (!name.is_empty()).then(|| name.to_string())
+    });
+    let branch_name = match named.clone() {
+        Some(name) => name,
+        None => {
+            let head = repo.head()?;
+            if !head.is_branch() {
+                return Err(AppError::msg("cannot fast-forward a detached HEAD"));
+            }
+            head.shorthand()
+                .ok_or_else(|| AppError::msg("HEAD has no name"))?
+                .to_string()
+        }
+    };
+    fast_forward_branch(&repo, remote_name, &branch_name, named.is_some())?;
     ahead_behind_repo(&repo)
+}
+
+fn fast_forward_branch(
+    repo: &Repository,
+    remote_name: &str,
+    branch_name: &str,
+    required: bool,
+) -> Result<()> {
+    let remote_ref = format!("refs/remotes/{remote_name}/{branch_name}");
+    let Some(remote_oid) = repo.find_reference(&remote_ref).ok().and_then(|r| r.target()) else {
+        return if required {
+            Err(AppError::msg("no upstream is configured"))
+        } else {
+            Ok(())
+        };
+    };
+    let local_ref_name = format!("refs/heads/{branch_name}");
+    let Ok(mut local_ref) = repo.find_reference(&local_ref_name) else {
+        return Ok(());
+    };
+    let local_oid = local_ref
+        .target()
+        .ok_or_else(|| AppError::msg("branch has no target"))?;
+    let (ahead, behind) = repo.graph_ahead_behind(local_oid, remote_oid)?;
+    if behind == 0 {
+        return Ok(());
+    }
+    if ahead > 0 {
+        return Err(AppError::msg(
+            "VARIANT_DIVERGED: local branch and origin have diverged — pull would not fast-forward",
+        ));
+    }
+    let on_branch = repo
+        .head()
+        .ok()
+        .filter(|head| head.is_branch())
+        .and_then(|head| head.shorthand().map(|name| name == branch_name))
+        .unwrap_or(false);
+    if on_branch {
+        let obj = repo.find_object(remote_oid, None)?;
+        repo.checkout_tree(&obj, None)?;
+    }
+    local_ref.set_target(remote_oid, "ff-only pull")?;
+    Ok(())
 }
 
 pub(crate) fn split_progress_text(raw: &str) -> Vec<String> {
@@ -571,6 +606,7 @@ pub fn github_clone_url(owner: &str, name: &str, protocol: &str) -> String {
 mod tests {
     use super::*;
     use std::cell::Cell;
+    use std::path::Path;
 
     #[test]
     fn parses_ssh_scp_syntax() {
@@ -628,6 +664,158 @@ mod tests {
         assert_eq!(
             github_clone_url("acme", "app", "https"),
             "https://github.com/acme/app.git"
+        );
+    }
+
+    fn no_auth() -> GitAuth {
+        GitAuth {
+            token: None,
+            ssh_key: None,
+            passphrase: None,
+            use_agent: false,
+        }
+    }
+
+    fn write_commit(repo: &Repository, dir: &Path, file: &str, body: &str, msg: &str) -> git2::Oid {
+        let mut cfg = repo.config().unwrap();
+        cfg.set_str("user.name", "Analyst").unwrap();
+        cfg.set_str("user.email", "analyst@tva.local").unwrap();
+        std::fs::write(dir.join(file), body).unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new(file)).unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = git2::Signature::now("Analyst", "analyst@tva.local").unwrap();
+        let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
+        let parents: Vec<&git2::Commit> = parent.as_ref().into_iter().collect();
+        repo.commit(Some("HEAD"), &sig, &sig, msg, &tree, &parents)
+            .unwrap()
+    }
+
+    fn trunk_name(repo: &Repository) -> String {
+        repo.head()
+            .ok()
+            .and_then(|h| h.shorthand().map(str::to_string))
+            .unwrap_or_else(|| "master".into())
+    }
+
+    #[test]
+    fn fetch_and_ff_pull_after_remote_merge() {
+        let root = tempfile::TempDir::new().unwrap();
+        let origin_dir = root.path().join("origin");
+        let local_dir = root.path().join("local");
+        std::fs::create_dir_all(&origin_dir).unwrap();
+
+        let origin = Repository::init(&origin_dir).unwrap();
+        let first = write_commit(&origin, &origin_dir, "a.txt", "one", "root");
+        let trunk = trunk_name(&origin);
+
+        git2::build::RepoBuilder::new()
+            .clone(origin_dir.to_str().unwrap(), &local_dir)
+            .unwrap();
+        let local = Repository::open(&local_dir).unwrap();
+        {
+            let mut branch = local.find_branch(&trunk, git2::BranchType::Local).unwrap();
+            branch.set_upstream(Some(&format!("origin/{trunk}"))).unwrap();
+        }
+        assert_eq!(
+            local.head().unwrap().peel_to_commit().unwrap().id(),
+            first
+        );
+
+        let merged = write_commit(&origin, &origin_dir, "a.txt", "merged", "merge request");
+
+        let fetched = fetch(&local_dir, "origin", &no_auth()).unwrap();
+        assert_eq!(fetched.behind, 1, "fetch should see the merged tip");
+        assert_eq!(
+            local
+                .find_reference(&format!("refs/remotes/origin/{trunk}"))
+                .unwrap()
+                .target()
+                .unwrap(),
+            merged
+        );
+        assert_eq!(
+            local.head().unwrap().peel_to_commit().unwrap().id(),
+            first,
+            "fetch must not move HEAD"
+        );
+
+        let pulled = pull_ff_only(&local_dir, "origin", &no_auth()).unwrap();
+        assert_eq!(pulled.behind, 0);
+        assert_eq!(pulled.ahead, 0);
+        let local = Repository::open(&local_dir).unwrap();
+        assert_eq!(
+            local.head().unwrap().peel_to_commit().unwrap().id(),
+            merged
+        );
+        assert_eq!(
+            std::fs::read_to_string(local_dir.join("a.txt")).unwrap(),
+            "merged"
+        );
+    }
+
+    #[test]
+    fn pull_named_base_after_merge_while_on_variant() {
+        let root = tempfile::TempDir::new().unwrap();
+        let origin_dir = root.path().join("origin");
+        let local_dir = root.path().join("local");
+        std::fs::create_dir_all(&origin_dir).unwrap();
+
+        let origin = Repository::init(&origin_dir).unwrap();
+        let first = write_commit(&origin, &origin_dir, "a.txt", "one", "root");
+        let trunk = trunk_name(&origin);
+
+        git2::build::RepoBuilder::new()
+            .clone(origin_dir.to_str().unwrap(), &local_dir)
+            .unwrap();
+        let local = Repository::open(&local_dir).unwrap();
+        {
+            let mut branch = local.find_branch(&trunk, git2::BranchType::Local).unwrap();
+            branch.set_upstream(Some(&format!("origin/{trunk}"))).unwrap();
+        }
+        let feature_commit = local.find_commit(first).unwrap();
+        local.branch("pr-1", &feature_commit, false).unwrap();
+        local.set_head("refs/heads/pr-1").unwrap();
+        local
+            .checkout_head(Some(git2::build::CheckoutBuilder::new().safe()))
+            .unwrap();
+
+        let merged = write_commit(&origin, &origin_dir, "a.txt", "merged", "merge request");
+
+        let noop = pull_ff_only(&local_dir, "origin", &no_auth()).unwrap();
+        assert_eq!(noop.behind, 0);
+        let local = Repository::open(&local_dir).unwrap();
+        assert_eq!(
+            local
+                .find_reference(&format!("refs/heads/{trunk}"))
+                .unwrap()
+                .target()
+                .unwrap(),
+            first,
+            "pull of the current variant must not move the merged base"
+        );
+
+        pull_ff_branch(&local_dir, "origin", Some(&trunk), &no_auth()).unwrap();
+        let local = Repository::open(&local_dir).unwrap();
+        assert_eq!(
+            local.head().unwrap().shorthand(),
+            Some("pr-1"),
+            "stay on the variant after syncing the base"
+        );
+        assert_eq!(
+            local
+                .find_reference(&format!("refs/heads/{trunk}"))
+                .unwrap()
+                .target()
+                .unwrap(),
+            merged
+        );
+        assert_eq!(
+            std::fs::read_to_string(local_dir.join("a.txt")).unwrap(),
+            "one",
+            "worktree stays on the variant"
         );
     }
 }

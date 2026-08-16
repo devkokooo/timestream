@@ -274,7 +274,7 @@ pub fn push_branch(app: AppHandle, args: RemoteAuthArgs, branch: Option<String>)
 }
 
 #[tauri::command]
-pub fn pull_ff_only(app: AppHandle, args: RemoteAuthArgs) -> Result<AheadBehind> {
+pub fn pull_ff_only(app: AppHandle, args: RemoteAuthArgs, branch: Option<String>) -> Result<AheadBehind> {
     let path = PathBuf::from(&args.path);
     let remote = args.remote.clone().unwrap_or_else(|| "origin".into());
     apply_remember(&app, &args, &remote)?;
@@ -285,7 +285,10 @@ pub fn pull_ff_only(app: AppHandle, args: RemoteAuthArgs) -> Result<AheadBehind>
         args.key_path.as_deref(),
         args.passphrase.as_deref(),
     )?;
-    remotes::pull_ff_only(&path, &remote, &auth)
+    match branch.as_deref() {
+        Some(name) if !name.is_empty() => remotes::pull_ff_branch(&path, &remote, Some(name), &auth),
+        _ => remotes::pull_ff_only(&path, &remote, &auth),
+    }
 }
 
 fn emit_clone_log(app: &AppHandle, line: &str) {

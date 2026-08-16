@@ -61,6 +61,7 @@ interface HqModeProps {
   sacredBranch: string | null;
   timeline: Timeline | null;
   onCheckoutPr: (number: number) => void | Promise<void>;
+  onSyncAfterMerge: (base: string) => void | Promise<void>;
   onCreateTag: (name: string, sha: string, message?: string) => void;
   onPushTag: (name: string) => void;
   selectedSha: string | null;
@@ -623,9 +624,11 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                   onClick={() =>
                     void runDossier(method, async () => {
                       if (!props.signedIn || !props.owner || !props.repoName) return;
+                      const base = selected.baseRef;
                       await applyPull(
                         await githubMergePull(props.owner, props.repoName, selected.number, method),
                       );
+                      await props.onSyncAfterMerge(githubRefName(base));
                     })
                   }
                   title={

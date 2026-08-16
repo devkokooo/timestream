@@ -193,8 +193,8 @@ export function pushBranch(args: RemoteAuthArgs, branch?: string): Promise<Ahead
   return invoke("push_branch", { args, branch: branch ?? null });
 }
 
-export function pullFfOnly(args: RemoteAuthArgs): Promise<AheadBehind> {
-  return invoke("pull_ff_only", { args });
+export function pullFfOnly(args: RemoteAuthArgs, branch?: string): Promise<AheadBehind> {
+  return invoke("pull_ff_only", { args, branch: branch ?? null });
 }
 
 export function cloneRepository(

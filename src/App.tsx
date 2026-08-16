@@ -960,6 +960,9 @@ export default function App() {
           onCheckoutPr={async (number) => {
             await runRemote((args) => checkoutPullRequest(args, number));
           }}
+          onSyncAfterMerge={async (base) => {
+            await runRemote((args) => pullFfOnly(args, base), undefined, "pull");
+          }}
           onCreateTag={(name, sha, message) => {
             void createLocalTag(repo.path, name, sha, message)
               .then(() => loadAll(repo.path, { keepSelection: true }))
