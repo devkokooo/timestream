@@ -77,6 +77,11 @@ pub struct CommitDetail {
     pub author: String,
     pub email: String,
     pub timestamp: i64,
+    pub committer: String,
+    pub committer_email: String,
+    pub committer_timestamp: i64,
+    pub signed: bool,
+    pub signature_kind: Option<String>,
     pub parents: Vec<String>,
     pub files: Vec<FileChange>,
 }
@@ -136,8 +141,13 @@ pub fn load_commit(path: &Path, sha: &str) -> Result<CommitDetail> {
     let author_name = author.name().unwrap_or("unknown").to_string();
     let email = author.email().unwrap_or("").to_string();
     let timestamp = commit.time().seconds();
+    let committer = commit.committer();
     let parents: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
     let id = commit.id().to_string();
+    let (signed, signature_kind) = match repo.extract_signature(&commit.id(), None) {
+        Ok((sig, _)) => (true, Some(signature_kind_of(&sig))),
+        Err(_) => (false, None),
+    };
 
     Ok(CommitDetail {
         id: id.clone(),
@@ -147,9 +157,25 @@ pub fn load_commit(path: &Path, sha: &str) -> Result<CommitDetail> {
         author: author_name,
         email,
         timestamp,
+        committer: committer.name().unwrap_or("unknown").to_string(),
+        committer_email: committer.email().unwrap_or("").to_string(),
+        committer_timestamp: committer.when().seconds(),
+        signed,
+        signature_kind,
         parents,
         files,
     })
+}
+
+fn signature_kind_of(sig: &[u8]) -> String {
+    let text = std::str::from_utf8(sig).unwrap_or("");
+    if text.contains("SSH SIGNATURE") {
+        "ssh".into()
+    } else if text.contains("PGP SIGNATURE") || text.contains("PGP MESSAGE") {
+        "gpg".into()
+    } else {
+        "unknown".into()
+    }
 }
 
 pub fn load_file_diff(path: &Path, sha: &str, rel: &str) -> Result<FileDiff> {
@@ -893,7 +919,27 @@ mod tests {
 
         let detail = load_commit(&h.path, &tip).unwrap();
         assert_eq!(detail.summary, "second");
+        assert_eq!(detail.author, "Analyst");
+        assert_eq!(detail.committer, "Analyst");
+        assert_eq!(detail.committer_email, "analyst@tva.local");
+        assert!(!detail.signed);
+        assert!(detail.signature_kind.is_none());
         assert!(detail.files.iter().any(|f| f.path == "readme.txt"));
+    }
+
+    #[test]
+    fn load_commit_keeps_description_and_trailers() {
+        let mut h = Harness::new();
+        let tip = h.commit(
+            "readme.txt",
+            "filed",
+            "File the spur\n\nKeep the river gold.\n\nCo-authored-by: B-15 <b15@tva.local>\nSigned-off-by: Analyst <analyst@tva.local>\n",
+        );
+        let detail = load_commit(&h.path, &tip).unwrap();
+        assert_eq!(detail.summary, "File the spur");
+        assert!(detail.body.contains("Keep the river gold."));
+        assert!(detail.body.contains("Co-authored-by: B-15"));
+        assert!(detail.body.contains("Signed-off-by: Analyst"));
     }
 
     #[test]

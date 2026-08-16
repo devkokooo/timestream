@@ -174,6 +174,39 @@ export function worldRect(
   };
 }
 
+/** Monitor-pixel position of a world point under the current camera. */
+export function screenPoint(point: { x: number; y: number }, camera: Camera): { x: number; y: number } {
+  return { x: camera.x + point.x * camera.scale, y: camera.y + point.y * camera.scale };
+}
+
+export const TOOLTIP_GAP = 40;
+
+/**
+ * Anchor a constant-size slip on a nexus. Prefers above the orb; flips below
+ * when the card would clip the top of the monitor. `x`/`y` are the attach
+ * point — the card then translates by its own size (`-50%` / `-100%` or `0`).
+ */
+export function tooltipPlacement(
+  node: { x: number; y: number; r: number },
+  camera: Camera,
+  viewport: { width: number; height: number },
+  size: { w: number; h: number },
+  gap = TOOLTIP_GAP,
+  pad = 8,
+): { x: number; y: number; side: "above" | "below" } {
+  const origin = screenPoint(node, camera);
+  const lift = node.r * camera.scale + gap;
+  const half = size.w / 2;
+  const minX = pad + half;
+  const maxX = Math.max(minX, viewport.width - pad - half);
+  const x = Math.min(maxX, Math.max(minX, origin.x));
+  const aboveY = origin.y - lift;
+  if (aboveY - size.h >= pad) {
+    return { x, y: aboveY, side: "above" };
+  }
+  return { x, y: origin.y + lift, side: "below" };
+}
+
 function circleHitsRect(cx: number, cy: number, r: number, rect: WorldRect): boolean {
   const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
   const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));

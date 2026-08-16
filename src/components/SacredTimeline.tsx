@@ -13,12 +13,15 @@ import {
   lerpCamera,
   REF_TONE_FILL,
   timelineLod,
+  tooltipPlacement,
   worldRect,
   xInRect,
   type Camera,
   type ViewNode,
 } from "../lib/timelineView";
-import type { Timeline } from "../lib/types";
+import type { CommitDetail, Timeline } from "../lib/types";
+import { NexusDossier } from "./NexusDossier";
+import { NexusTooltip } from "./NexusTooltip";
 
 const DEFAULT_SCALE = 1.65;
 const MIN_SCALE = 0.45;
@@ -32,8 +35,14 @@ interface Props {
   onSelect: (id: string) => void;
   onOpenReview?: () => void;
   incursion?: boolean;
+  detail?: CommitDetail | null;
+  reviewers?: string[];
+  reviewDecision?: string | null;
+  checks?: string | null;
   prHeadShas?: Set<string>;
   failingShas?: Set<string>;
+  onSelectCommit?: (id: string) => void;
+  onOpenFile?: (path: string) => void;
 }
 
 export function SacredTimeline({
@@ -42,22 +51,53 @@ export function SacredTimeline({
   onSelect,
   onOpenReview,
   incursion = false,
+  detail,
+  reviewers,
+  reviewDecision,
+  checks,
   prHeadShas,
   failingShas,
+  onSelectCommit,
+  onOpenFile,
 }: Props) {
   const view = useMemo(() => layoutTimelineView(timeline, { incursion }), [timeline, incursion]);
   const index = useMemo(() => indexTimelineView(view), [view]);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const worldRef = useRef<SVGGElement | null>(null);
+  const tipRef = useRef<HTMLDivElement | null>(null);
+  const [dossierOpen, setDossierOpen] = useState(false);
   const [viewport, setViewport] = useState({ width: 800, height: 400 });
   const [pan, setPan] = useState<Camera>({ x: 0, y: 0, scale: DEFAULT_SCALE });
   const panRef = useRef(pan);
+  const viewportRef = useRef(viewport);
+  const selectedNodeRef = useRef<ViewNode | undefined>(undefined);
   const cullKeyRef = useRef("");
   const animRef = useRef<number | null>(null);
   const focusIdRef = useRef<string | undefined>(undefined);
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(
     null,
   );
+  viewportRef.current = viewport;
+
+  const selectedNode =
+    selectedId && selectedId !== INCURSION_ID ? index.nodeById.get(selectedId) : undefined;
+  selectedNodeRef.current = selectedNode;
+
+  const placeTip = useCallback((cam: Camera) => {
+    const el = tipRef.current;
+    const node = selectedNodeRef.current;
+    if (!el || !node) return;
+    const place = tooltipPlacement(node, cam, viewportRef.current, {
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+    });
+    el.dataset.side = place.side;
+    el.style.visibility = "visible";
+    el.style.transform =
+      place.side === "above"
+        ? `translate(${place.x}px, ${place.y}px) translate(-50%, -100%)`
+        : `translate(${place.x}px, ${place.y}px) translate(-50%, 0)`;
+  }, []);
 
   const focus =
     (selectedId ? index.nodeById.get(selectedId) : undefined) ??
@@ -77,7 +117,8 @@ export function SacredTimeline({
       "transform",
       `translate(${next.x} ${next.y}) scale(${next.scale})`,
     );
-  }, []);
+    placeTip(next);
+  }, [placeTip]);
 
   const writePan = useCallback((next: Camera) => {
     paintCamera(next);
@@ -145,6 +186,19 @@ export function SacredTimeline({
   useEffect(() => () => stopCameraAnim(), [stopCameraAnim]);
 
   useEffect(() => {
+    if (!selectedId) setDossierOpen(false);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!dossierOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDossierOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dossierOpen]);
+
+  useEffect(() => {
     if (!focus) return;
     const target = focusCamera(focus, panRef.current.scale, viewport);
     const first = focusIdRef.current === undefined;
@@ -171,7 +225,17 @@ export function SacredTimeline({
       "transform",
       `translate(${cam.x} ${cam.y}) scale(${cam.scale})`,
     );
+    placeTip(cam);
   });
+
+  useLayoutEffect(() => {
+    const el = tipRef.current;
+    if (!el) return;
+    placeTip(panRef.current);
+    const observer = new ResizeObserver(() => placeTip(panRef.current));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [placeTip, selectedId]);
 
   const ticks = useMemo(() => {
     const maxRow = view.maxRow;
@@ -445,12 +509,14 @@ export function SacredTimeline({
                 </text>
               ) : null}
               <circle className="node-hit" cx={node.x} cy={node.y} r={16}>
-                <title>
-                  {node.shortId} — {node.summary}
-                  {tagged ? " — Canon tag" : ""}
-                  {failed ? " — Checks failed" : ""}
-                  {isPr ? " — Pull request" : ""}
-                </title>
+                {selected ? null : (
+                  <title>
+                    {node.shortId} — {node.summary}
+                    {tagged ? " — Canon tag" : ""}
+                    {failed ? " — Checks failed" : ""}
+                    {isPr ? " — Pull request" : ""}
+                  </title>
+                )}
               </circle>
             </g>
           );
@@ -473,6 +539,33 @@ export function SacredTimeline({
         ))}
       </g>
     </svg>
+    {selectedNode && !dossierOpen ? (
+      <NexusTooltip
+        key={selectedNode.id}
+        node={selectedNode}
+        tipRef={tipRef}
+        body={detail?.id === selectedNode.id ? detail.body : null}
+        committer={detail?.id === selectedNode.id ? detail.committer : null}
+        filedAt={detail?.id === selectedNode.id ? detail.committerTimestamp : null}
+        isPr={prHeadShas?.has(selectedNode.id)}
+        failed={failingShas?.has(selectedNode.id)}
+        onExpand={() => setDossierOpen(true)}
+      />
+    ) : null}
+    {selectedNode && dossierOpen ? (
+      <NexusDossier
+        node={selectedNode}
+        detail={detail?.id === selectedNode.id ? detail : null}
+        reviewers={reviewers}
+        reviewDecision={reviewDecision}
+        checks={checks}
+        isPr={prHeadShas?.has(selectedNode.id)}
+        failed={failingShas?.has(selectedNode.id)}
+        onStow={() => setDossierOpen(false)}
+        onSelectCommit={onSelectCommit ?? onSelect}
+        onOpenFile={onOpenFile}
+      />
+    ) : null}
     <div
       className="pointer-events-none absolute bottom-2 left-3 flex items-center gap-3 font-mono text-[9px] tracking-[0.16em] text-tva-muted"
       aria-hidden
