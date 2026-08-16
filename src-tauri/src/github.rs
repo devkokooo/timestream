@@ -17,12 +17,14 @@ pub struct PullRequestSummary {
     pub head_ref: String,
     pub head_sha: String,
     pub base_ref: String,
+    pub base_sha: String,
     pub user_login: String,
     pub mergeable: Option<bool>,
     pub labels: Vec<String>,
     pub requested_reviewers: Vec<String>,
     pub ci_status: Option<String>,
     pub review_decision: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +87,27 @@ pub struct ReviewComment {
     pub user_login: String,
     pub diff_hunk: Option<String>,
     pub in_reply_to_id: Option<u64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullCommit {
+    pub sha: String,
+    pub short_id: String,
+    pub summary: String,
+    pub author: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullReview {
+    pub id: u64,
+    pub user_login: String,
+    pub body: String,
+    pub state: String,
+    pub submitted_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,15 +170,17 @@ pub struct PendingReviewComment {
 }
 
 async fn token() -> Result<String> {
-    auth::load_token()?.ok_or_else(|| AppError::msg("GITHUB_AUTH_REQUIRED"))
+    auth::valid_token()
+        .await?
+        .ok_or_else(|| AppError::msg("GITHUB_AUTH_REQUIRED"))
 }
 
-async fn request(
+async fn send_request(
     method: reqwest::Method,
     path: &str,
     body: Option<Value>,
+    token: &str,
 ) -> Result<reqwest::Response> {
-    let token = token().await?;
     let client = reqwest::Client::new();
     let mut req = client
         .request(method, format!("https://api.github.com{path}"))
@@ -166,11 +191,35 @@ async fn request(
     if let Some(body) = body {
         req = req.json(&body);
     }
-    let res = req.send().await?;
+    Ok(req.send().await?)
+}
+
+fn api_error(status: reqwest::StatusCode, text: String) -> AppError {
+    AppError::msg(format!("GitHub API {status}: {text}"))
+}
+
+async fn request(
+    method: reqwest::Method,
+    path: &str,
+    body: Option<Value>,
+) -> Result<reqwest::Response> {
+    let token = token().await?;
+    let res = send_request(method.clone(), path, body.clone(), &token).await?;
+    if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+        if let Ok(Some(next)) = auth::refresh_access_token().await {
+            let retry = send_request(method, path, body, &next).await?;
+            if !retry.status().is_success() {
+                let status = retry.status();
+                let text = retry.text().await.unwrap_or_default();
+                return Err(api_error(status, text));
+            }
+            return Ok(retry);
+        }
+    }
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        return Err(AppError::msg(format!("GitHub API {status}: {text}")));
+        return Err(api_error(status, text));
     }
     Ok(res)
 }
@@ -207,6 +256,7 @@ fn map_pr(v: &Value) -> PullRequestSummary {
         head_ref: head.get("ref").and_then(|x| x.as_str()).unwrap_or("").to_string(),
         head_sha: head.get("sha").and_then(|x| x.as_str()).unwrap_or("").to_string(),
         base_ref: base.get("ref").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        base_sha: base.get("sha").and_then(|x| x.as_str()).unwrap_or("").to_string(),
         user_login: v.get("user").map(login).unwrap_or_default(),
         mergeable: v.get("mergeable").and_then(|x| x.as_bool()),
         labels: labels(v),
@@ -217,7 +267,49 @@ fn map_pr(v: &Value) -> PullRequestSummary {
             .unwrap_or_default(),
         ci_status: None,
         review_decision: None,
+        created_at: created_at(v),
     }
+}
+
+fn created_at(v: &Value) -> String {
+    v.get("created_at")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoFeatures {
+    pub has_issues: bool,
+    pub has_pull_requests: bool,
+    pub archived: bool,
+    pub html_url: String,
+}
+
+fn map_repo_features(v: &Value) -> RepoFeatures {
+    let archived = v.get("archived").and_then(|x| x.as_bool()).unwrap_or(false);
+    let disabled = v.get("disabled").and_then(|x| x.as_bool()).unwrap_or(false);
+    let sealed = archived || disabled;
+    RepoFeatures {
+        has_issues: !sealed && v.get("has_issues").and_then(|x| x.as_bool()).unwrap_or(true),
+        has_pull_requests: !sealed
+            && v
+                .get("has_pull_requests")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(true),
+        archived,
+        html_url: v
+            .get("html_url")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+    }
+}
+
+pub async fn repo_features(owner: &str, repo: &str) -> Result<RepoFeatures> {
+    let raw: Value = get_json(&format!("/repos/{owner}/{repo}")).await?;
+    Ok(map_repo_features(&raw))
 }
 
 fn map_issue(v: &Value) -> IssueSummary {
@@ -387,11 +479,7 @@ pub async fn list_issue_comments(
             id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
             user_login: v.get("user").map(login).unwrap_or_default(),
             body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-            created_at: v
-                .get("created_at")
-                .and_then(|x| x.as_str())
-                .unwrap_or("")
-                .to_string(),
+            created_at: created_at(v),
         })
         .collect())
 }
@@ -413,11 +501,7 @@ pub async fn add_issue_comment(
         id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
         user_login: v.get("user").map(login).unwrap_or_default(),
         body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        created_at: v
-            .get("created_at")
-            .and_then(|x| x.as_str())
-            .unwrap_or("")
-            .to_string(),
+        created_at: created_at(&v),
     })
 }
 
@@ -557,25 +641,104 @@ pub async fn list_review_comments(
 ) -> Result<Vec<ReviewComment>> {
     let raw: Vec<Value> =
         get_json(&format!("/repos/{owner}/{repo}/pulls/{number}/comments")).await?;
+    Ok(raw.iter().map(map_review_comment).collect())
+}
+
+fn map_review_comment(v: &Value) -> ReviewComment {
+    ReviewComment {
+        id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
+        path: v.get("path").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        line: v.get("line").and_then(|x| x.as_u64()).map(|n| n as u32),
+        original_line: v
+            .get("original_line")
+            .and_then(|x| x.as_u64())
+            .map(|n| n as u32),
+        side: v.get("side").and_then(|x| x.as_str()).map(|s| s.to_string()),
+        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        user_login: v.get("user").map(login).unwrap_or_default(),
+        diff_hunk: v
+            .get("diff_hunk")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        in_reply_to_id: v.get("in_reply_to_id").and_then(|x| x.as_u64()),
+        created_at: created_at(v),
+    }
+}
+
+fn map_pull_commit(v: &Value) -> PullCommit {
+    let commit = v.get("commit").cloned().unwrap_or(json!({}));
+    let message = commit
+        .get("message")
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
+    let summary = message.lines().next().unwrap_or("").to_string();
+    let sha = v.get("sha").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let author = v
+        .get("author")
+        .map(login)
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            commit
+                .get("author")
+                .and_then(|a| a.get("name"))
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
+    let created = commit
+        .get("author")
+        .and_then(|a| a.get("date"))
+        .and_then(|d| d.as_str())
+        .or_else(|| {
+            commit
+                .get("committer")
+                .and_then(|a| a.get("date"))
+                .and_then(|d| d.as_str())
+        })
+        .unwrap_or("")
+        .to_string();
+    PullCommit {
+        sha: sha.clone(),
+        short_id: sha.chars().take(7).collect(),
+        summary,
+        author,
+        created_at: created,
+    }
+}
+
+fn map_review(v: &Value) -> PullReview {
+    PullReview {
+        id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
+        user_login: v.get("user").map(login).unwrap_or_default(),
+        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        state: v.get("state").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        submitted_at: v
+            .get("submitted_at")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+    }
+}
+
+pub async fn list_pull_commits(
+    owner: &str,
+    repo: &str,
+    number: u64,
+) -> Result<Vec<PullCommit>> {
+    let raw: Vec<Value> = get_json(&format!(
+        "/repos/{owner}/{repo}/pulls/{number}/commits?per_page=100"
+    ))
+    .await?;
+    Ok(raw.iter().map(map_pull_commit).collect())
+}
+
+pub async fn list_reviews(owner: &str, repo: &str, number: u64) -> Result<Vec<PullReview>> {
+    let raw: Vec<Value> =
+        get_json(&format!("/repos/{owner}/{repo}/pulls/{number}/reviews?per_page=100")).await?;
     Ok(raw
         .iter()
-        .map(|v| ReviewComment {
-            id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
-            path: v.get("path").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-            line: v.get("line").and_then(|x| x.as_u64()).map(|n| n as u32),
-            original_line: v
-                .get("original_line")
-                .and_then(|x| x.as_u64())
-                .map(|n| n as u32),
-            side: v.get("side").and_then(|x| x.as_str()).map(|s| s.to_string()),
-            body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-            user_login: v.get("user").map(login).unwrap_or_default(),
-            diff_hunk: v
-                .get("diff_hunk")
-                .and_then(|x| x.as_str())
-                .map(|s| s.to_string()),
-            in_reply_to_id: v.get("in_reply_to_id").and_then(|x| x.as_u64()),
-        })
+        .map(map_review)
+        .filter(|r| r.state != "PENDING")
         .collect())
 }
 
@@ -628,20 +791,7 @@ pub async fn reply_review_comment(
     )
     .await?;
     let v: Value = res.json().await?;
-    Ok(ReviewComment {
-        id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
-        path: v.get("path").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        line: v.get("line").and_then(|x| x.as_u64()).map(|n| n as u32),
-        original_line: v
-            .get("original_line")
-            .and_then(|x| x.as_u64())
-            .map(|n| n as u32),
-        side: v.get("side").and_then(|x| x.as_str()).map(|s| s.to_string()),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        user_login: v.get("user").map(login).unwrap_or_default(),
-        diff_hunk: None,
-        in_reply_to_id: Some(comment_id),
-    })
+    Ok(map_review_comment(&v))
 }
 
 pub async fn list_notifications() -> Result<Vec<NotificationItem>> {
@@ -760,9 +910,10 @@ mod tests {
             "state": "open",
             "draft": true,
             "html_url": "https://github.com/acme/app/pull/12",
+            "created_at": "2026-08-16T12:00:00Z",
             "user": { "login": "analyst" },
             "head": { "ref": "var-1", "sha": "abc" },
-            "base": { "ref": "main" },
+            "base": { "ref": "main", "sha": "def" },
             "labels": [{ "name": "bug" }],
             "requested_reviewers": [{ "login": "reviewer" }],
             "mergeable": true
@@ -771,7 +922,35 @@ mod tests {
         assert_eq!(pr.number, 12);
         assert!(pr.draft);
         assert_eq!(pr.head_ref, "var-1");
+        assert_eq!(pr.base_sha, "def");
+        assert_eq!(pr.created_at, "2026-08-16T12:00:00Z");
         assert_eq!(pr.labels, vec!["bug"]);
+    }
+
+    #[test]
+    fn maps_pull_commit_and_review() {
+        let commit = map_pull_commit(&json!({
+            "sha": "abcdef1234567890",
+            "author": { "login": "analyst" },
+            "commit": {
+                "message": "Fix river\n\nKeep it gold.",
+                "author": { "name": "Analyst", "date": "2026-08-16T13:00:00Z" }
+            }
+        }));
+        assert_eq!(commit.short_id, "abcdef1");
+        assert_eq!(commit.summary, "Fix river");
+        assert_eq!(commit.author, "analyst");
+        assert_eq!(commit.created_at, "2026-08-16T13:00:00Z");
+
+        let review = map_review(&json!({
+            "id": 9,
+            "user": { "login": "reviewer" },
+            "body": "Looks clear.",
+            "state": "APPROVED",
+            "submitted_at": "2026-08-16T14:00:00Z"
+        }));
+        assert_eq!(review.state, "APPROVED");
+        assert_eq!(review.submitted_at, "2026-08-16T14:00:00Z");
     }
 
     #[test]
@@ -788,5 +967,31 @@ mod tests {
             "pull_request": { "url": "x" }
         });
         assert!(map_issue(&v).pull_request);
+    }
+
+    #[test]
+    fn maps_repo_features_and_defaults_pulls_on() {
+        let features = map_repo_features(&json!({
+            "has_issues": false,
+            "archived": false,
+            "html_url": "https://github.com/acme/app"
+        }));
+        assert!(!features.has_issues);
+        assert!(features.has_pull_requests);
+        assert!(!features.archived);
+        assert_eq!(features.html_url, "https://github.com/acme/app");
+    }
+
+    #[test]
+    fn archived_repo_seals_issues_and_pulls() {
+        let features = map_repo_features(&json!({
+            "has_issues": true,
+            "has_pull_requests": true,
+            "archived": true,
+            "html_url": "https://github.com/acme/app"
+        }));
+        assert!(!features.has_issues);
+        assert!(!features.has_pull_requests);
+        assert!(features.archived);
     }
 }

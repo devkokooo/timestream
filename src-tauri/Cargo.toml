@@ -22,7 +22,9 @@ thiserror = "2"
 git2 = { version = "0.20", features = ["vendored-libgit2"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-keyring = "3"
+# keyring 3 has no default stores; without these it uses a mock that
+# cannot be read back from a new Entry (login succeeds, later API calls fail).
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native-sync-persistent", "crypto-rust"] }
 toml = "0.8"
 toml_edit = "0.22"
 dirs = "6"

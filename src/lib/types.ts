@@ -121,6 +121,24 @@ export interface BranchInfo {
   isHead: boolean;
 }
 
+export interface RangeCommit {
+  id: string;
+  shortId: string;
+  summary: string;
+  author: string;
+  timestamp: number;
+}
+
+export interface RangeCompare {
+  base: string;
+  head: string;
+  mergeBase: string | null;
+  ahead: number;
+  behind: number;
+  commits: RangeCommit[];
+  files: FileChange[];
+}
+
 export type HqTab = "requests" | "incidents" | "canon";
 export type RailTab = "variants" | "history" | "tags";
 
@@ -206,6 +224,13 @@ export interface AppSettings {
   };
 }
 
+export interface RepoFeatures {
+  hasIssues: boolean;
+  hasPullRequests: boolean;
+  archived: boolean;
+  htmlUrl: string;
+}
+
 export interface PullRequestSummary {
   number: number;
   title: string;
@@ -216,12 +241,14 @@ export interface PullRequestSummary {
   headRef: string;
   headSha: string;
   baseRef: string;
+  baseSha: string;
   userLogin: string;
   mergeable: boolean | null;
   labels: string[];
   requestedReviewers: string[];
   ciStatus: string | null;
   reviewDecision: string | null;
+  createdAt: string;
 }
 
 export interface IssueSummary {
@@ -274,6 +301,23 @@ export interface ReviewComment {
   userLogin: string;
   diffHunk: string | null;
   inReplyToId: number | null;
+  createdAt: string;
+}
+
+export interface PullCommit {
+  sha: string;
+  shortId: string;
+  summary: string;
+  author: string;
+  createdAt: string;
+}
+
+export interface PullReview {
+  id: number;
+  userLogin: string;
+  body: string;
+  state: string;
+  submittedAt: string;
 }
 
 export interface NotificationItem {

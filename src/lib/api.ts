@@ -16,10 +16,14 @@ import type {
   IssueComment,
   IssueSummary,
   NotificationItem,
+  PullCommit,
   PullRequestSummary,
+  PullReview,
+  RangeCompare,
   ReleaseSummary,
   RemoteAuthArgs,
   RemoteInfo,
+  RepoFeatures,
   RepoSearchHit,
   RepoSummary,
   ReviewComment,
@@ -85,6 +89,19 @@ export function getWorktreeDiff(
   staged: boolean,
 ): Promise<FileDiff> {
   return invoke("get_worktree_diff", { path, rel, staged });
+}
+
+export function compareRange(path: string, base: string, head: string): Promise<RangeCompare> {
+  return invoke("compare_range", { path, base, head });
+}
+
+export function getRangeFileDiff(
+  path: string,
+  base: string,
+  head: string,
+  rel: string,
+): Promise<FileDiff> {
+  return invoke("get_range_file_diff", { path, base, head, rel });
 }
 
 export function getBranches(path: string): Promise<BranchInfo[]> {
@@ -228,6 +245,10 @@ export function sshAddKey(path: string, passphrase?: string): Promise<SshAgentSt
   return invoke("ssh_add_key", { path, passphrase: passphrase ?? null });
 }
 
+export function githubRepoFeatures(owner: string, repo: string): Promise<RepoFeatures> {
+  return invoke("github_repo_features", { owner, repo });
+}
+
 export function githubListPulls(
   owner: string,
   repo: string,
@@ -351,6 +372,22 @@ export function githubListReviewComments(
   number: number,
 ): Promise<ReviewComment[]> {
   return invoke("github_list_review_comments", { owner, repo, number });
+}
+
+export function githubListPullCommits(
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<PullCommit[]> {
+  return invoke("github_list_pull_commits", { owner, repo, number });
+}
+
+export function githubListReviews(
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<PullReview[]> {
+  return invoke("github_list_reviews", { owner, repo, number });
 }
 
 export function githubSubmitReview(

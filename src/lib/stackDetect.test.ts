@@ -11,11 +11,13 @@ function pr(partial: Partial<PullRequestSummary> & Pick<PullRequestSummary, "num
     htmlUrl: "",
     headSha: "",
     userLogin: "analyst",
+    baseSha: "",
     mergeable: true,
     labels: [],
     requestedReviewers: [],
     ciStatus: null,
     reviewDecision: null,
+    createdAt: "",
     ...partial,
   };
 }

@@ -94,6 +94,30 @@ pub struct BranchInfo {
     pub is_head: bool,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RangeCommit {
+    pub id: String,
+    pub short_id: String,
+    pub summary: String,
+    pub author: String,
+    pub timestamp: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RangeCompare {
+    pub base: String,
+    pub head: String,
+    pub merge_base: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+    pub commits: Vec<RangeCommit>,
+    pub files: Vec<FileChange>,
+}
+
+const MAX_RANGE_COMMITS: usize = 250;
+
 pub fn open_repo(path: &Path) -> Result<RepoSummary> {
     let repo = Repository::discover(path)?;
     summary(&repo)
@@ -196,6 +220,105 @@ pub fn load_worktree_diff(path: &Path, rel: &str, staged: bool) -> Result<FileDi
         unstaged_diff(&repo)?
     };
     collect_file_diff(&diff, &rel)
+}
+
+pub fn compare_refs(path: &Path, base: &str, head: &str) -> Result<RangeCompare> {
+    let repo = Repository::discover(path)?;
+    let (base_commit, head_commit, merge_base, diff) = range_diff(&repo, base, head)?;
+    let (ahead, behind) = repo.graph_ahead_behind(head_commit.id(), base_commit.id())?;
+
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(git2::Sort::TIME)?;
+    revwalk.push(head_commit.id())?;
+    revwalk.hide(base_commit.id())?;
+
+    let mut commits = Vec::new();
+    for oid in revwalk {
+        let commit = repo.find_commit(oid?)?;
+        let id = commit.id().to_string();
+        commits.push(RangeCommit {
+            id: id.clone(),
+            short_id: short_oid(&id),
+            summary: commit.summary().unwrap_or("").to_string(),
+            author: commit.author().name().unwrap_or("unknown").to_string(),
+            timestamp: commit.time().seconds(),
+        });
+        if commits.len() >= MAX_RANGE_COMMITS {
+            break;
+        }
+    }
+    commits.sort_by(|a, b| a.timestamp.cmp(&b.timestamp).then_with(|| a.id.cmp(&b.id)));
+
+    let mut files = Vec::new();
+    diff.foreach(
+        &mut |delta, _| {
+            files.push(file_change_from_delta(&delta));
+            true
+        },
+        None,
+        None,
+        None,
+    )?;
+
+    Ok(RangeCompare {
+        base: base.to_string(),
+        head: head.to_string(),
+        merge_base: merge_base.map(|oid| oid.to_string()),
+        ahead: ahead as u32,
+        behind: behind as u32,
+        commits,
+        files,
+    })
+}
+
+pub fn load_range_file_diff(path: &Path, base: &str, head: &str, rel: &str) -> Result<FileDiff> {
+    let repo = Repository::discover(path)?;
+    let rel = normalize_rel(rel)?;
+    let (_base, _head, _merge_base, diff) = range_diff(&repo, base, head)?;
+    collect_file_diff(&diff, &rel)
+}
+
+fn resolve_commit<'repo>(repo: &'repo Repository, spec: &str) -> Result<git2::Commit<'repo>> {
+    let candidates = [
+        spec.to_string(),
+        format!("refs/heads/{spec}"),
+        format!("refs/remotes/origin/{spec}"),
+    ];
+    for candidate in candidates {
+        if let Ok(obj) = repo.revparse_single(&candidate) {
+            if let Ok(commit) = obj.peel_to_commit() {
+                return Ok(commit);
+            }
+        }
+    }
+    Err(AppError::msg(format!("unknown sequence '{spec}'")))
+}
+
+fn range_diff<'repo>(
+    repo: &'repo Repository,
+    base: &str,
+    head: &str,
+) -> Result<(
+    git2::Commit<'repo>,
+    git2::Commit<'repo>,
+    Option<git2::Oid>,
+    git2::Diff<'repo>,
+)> {
+    let base_commit = resolve_commit(repo, base)?;
+    let head_commit = resolve_commit(repo, head)?;
+    let merge_base = repo.merge_base(base_commit.id(), head_commit.id()).ok();
+    let old_tree = if let Some(oid) = merge_base {
+        Some(repo.find_commit(oid)?.tree()?)
+    } else {
+        Some(base_commit.tree()?)
+    };
+    let new_tree = head_commit.tree()?;
+    let mut opts = DiffOptions::new();
+    let mut diff = repo.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
+    let mut find_opts = git2::DiffFindOptions::new();
+    find_opts.renames(true);
+    diff.find_similar(Some(&mut find_opts))?;
+    Ok((base_commit, head_commit, merge_base, diff))
 }
 
 pub fn list_branches(path: &Path) -> Result<Vec<BranchInfo>> {
@@ -1322,5 +1445,64 @@ mod tests {
         h.commit("a.txt", "a", "root");
         let summary = create_branch(&h.path, "variant-x").unwrap();
         assert_eq!(summary.branch.as_deref(), Some("variant-x"));
+    }
+
+    #[test]
+    fn compare_refs_lists_exclusive_commits_and_three_dot_files() {
+        let mut h = Harness::new();
+        let root = h.commit("keep.txt", "alpha\nbeta\n", "root");
+        let trunk = h.trunk();
+        h.branch_from("variant", &root);
+        h.checkout("variant");
+        h.commit("keep.txt", "alpha\nBETA\n", "edit keep");
+        let tip = h.commit("spur.txt", "anomaly\n", "add spur");
+        h.checkout(&trunk);
+        h.commit("sacred.txt", "canon\n", "sacred tip");
+
+        let cmp = compare_refs(&h.path, &trunk, "variant").unwrap();
+        assert_eq!(cmp.ahead, 2);
+        assert_eq!(cmp.behind, 1);
+        assert_eq!(cmp.commits.len(), 2);
+        assert_eq!(
+            cmp.commits.iter().map(|c| c.summary.as_str()).collect::<Vec<_>>(),
+            vec!["edit keep", "add spur"]
+        );
+        assert_eq!(cmp.commits[1].id, tip);
+        assert!(cmp.merge_base.is_some());
+
+        let paths: Vec<_> = cmp.files.iter().map(|f| f.path.as_str()).collect();
+        assert!(paths.contains(&"keep.txt"));
+        assert!(paths.contains(&"spur.txt"));
+        assert!(!paths.contains(&"sacred.txt"));
+
+        let keep = load_range_file_diff(&h.path, &trunk, "variant", "keep.txt").unwrap();
+        assert_eq!(keep.status, "modified");
+        assert!(keep.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "deletion" && line.text.contains("beta"))
+        }));
+        assert!(keep.hunks.iter().any(|hunk| {
+            hunk.lines
+                .iter()
+                .any(|line| line.kind == "addition" && line.text.contains("BETA"))
+        }));
+
+        let added = load_range_file_diff(&h.path, &trunk, "variant", "spur.txt").unwrap();
+        assert_eq!(added.status, "added");
+        assert!(compare_refs(&h.path, &trunk, "missing-branch").is_err());
+        assert!(load_range_file_diff(&h.path, &trunk, "variant", "sacred.txt").is_err());
+    }
+
+    #[test]
+    fn compare_same_ref_is_empty() {
+        let mut h = Harness::new();
+        h.commit("a.txt", "a", "root");
+        let trunk = h.trunk();
+        let cmp = compare_refs(&h.path, &trunk, &trunk).unwrap();
+        assert_eq!(cmp.ahead, 0);
+        assert_eq!(cmp.behind, 0);
+        assert!(cmp.commits.is_empty());
+        assert!(cmp.files.is_empty());
     }
 }

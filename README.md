@@ -16,9 +16,19 @@ bun run tauri dev
 
 Requires Bun, Rust, and Windows C++ build tools (or the platform equivalent).
 
-## GitHub personal access token
+## Sign in with GitHub
 
-Sign-in stores the token in the OS keychain (never in `settings.toml`). A classic PAT covers every Timestream GitHub feature.
+Primary sign-in is a GitHub App device flow. Tokens (and refresh tokens) live in the OS keychain, never in `settings.toml`.
+
+1. [Register a GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app). In the app settings, check **Enable Device Flow** (Device Authorization Grant) and save. Sign-in returns 400 until this is on. Do not ship a client secret.
+2. Grant **only** these permissions: Contents, Pull requests, Issues, Actions, and Workflows (read and write); Checks and Members (read); Metadata (automatic). Email addresses (read) is optional.
+3. Install the app on the user or organization whose repositories Timestream should see.
+4. Build with `TIMESTREAM_GITHUB_CLIENT_ID` set to the app’s **client ID** (not the app ID).
+5. In Timestream, click **Sign in with GitHub**, then enter the device code at GitHub.
+
+### Personal access token (fallback)
+
+If the client ID is not configured, paste a token instead. A classic PAT covers every Timestream GitHub feature.
 
 1. Open [GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens/new?description=Timestream&scopes=repo,workflow,read:org).
 2. Name it `Timestream`, set an expiry, and enable **only** these scopes:

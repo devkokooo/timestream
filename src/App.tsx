@@ -952,6 +952,7 @@ export default function App() {
           repoName={origin?.nameOnHost ?? null}
           signedIn={Boolean(user)}
           onSignIn={() => setAuthOpen(true)}
+          repoPath={repo.path}
           currentBranch={repo.branch}
           sacredBranch={timeline?.sacredBranch ?? null}
           timeline={timeline}
