@@ -4,6 +4,7 @@ import { BureauHeader } from "./components/BureauHeader";
 import { CommandPalette, type PaletteCommand } from "./components/CommandPalette";
 import { DiffViewer } from "./components/DiffViewer";
 import { Docket } from "./components/Docket";
+import { HqMode } from "./components/HqMode";
 import { RailStrip } from "./components/RailStrip";
 import { ReviewMode } from "./components/ReviewMode";
 import { IdentityPicker, type IdentityChoice } from "./components/IdentityPicker";
@@ -67,7 +68,6 @@ import type {
   AppSettings,
   CommitDetail,
   DiffMode,
-  DocketTab,
   RailTab,
   FileChange,
   FileDiff,
@@ -195,7 +195,6 @@ export default function App() {
   const [sync, setSync] = useState<AheadBehind | null>(null);
   const [prs, setPrs] = useState<PullRequestSummary[]>([]);
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
-  const [docketTab, setDocketTab] = useState<DocketTab>("case");
   const [railTab, setRailTab] = useState<RailTab>("variants");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsFocus, setSettingsFocus] = useState<string | null>(null);
@@ -205,6 +204,7 @@ export default function App() {
   const [cloneLog, setCloneLog] = useState<string[]>([]);
   const [cloning, setCloning] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [hqOpen, setHqOpen] = useState(false);
   const [headFiling, setHeadFiling] = useState<{ summary: string; body: string } | null>(null);
   const [variantRailOpen, setVariantRailOpen] = useState(true);
   const [docketOpen, setDocketOpen] = useState(true);
@@ -218,11 +218,13 @@ export default function App() {
   const diffTargetRef = useRef<DiffTarget | null>(null);
   const loadedDiffKeyRef = useRef<string | null>(null);
   const reviewOpenRef = useRef(false);
+  const hqOpenRef = useRef(false);
   const paletteOpenRef = useRef(false);
   busyRef.current = busy;
   repoPathRef.current = repo?.path ?? null;
   diffTargetRef.current = diffTarget;
   reviewOpenRef.current = reviewOpen;
+  hqOpenRef.current = hqOpen;
   paletteOpenRef.current = paletteOpen;
 
   const loadAll = useCallback(async (path: string, options: LoadOptions = {}) => {
@@ -311,6 +313,10 @@ export default function App() {
         setDiffTarget((target) => (target && target.kind !== "commit" ? null : target));
         setDiffMounted(false);
         setDiffMountTarget(null);
+        return;
+      }
+      if (hqOpenRef.current) {
+        setHqOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -570,6 +576,7 @@ export default function App() {
       closeReview();
       return;
     }
+    setHqOpen(false);
     setDiffOpen(false);
     if (diffTarget?.kind === "commit") {
       setDiffTarget(null);
@@ -577,6 +584,19 @@ export default function App() {
       setDiffMountTarget(null);
     }
     setReviewOpen(true);
+  }
+
+  function closeHq() {
+    setHqOpen(false);
+  }
+
+  function toggleHq() {
+    if (hqOpen) {
+      closeHq();
+      return;
+    }
+    if (reviewOpen) closeReview();
+    setHqOpen(true);
   }
 
   async function browse() {
@@ -612,7 +632,7 @@ export default function App() {
     setPrs([]);
     setReviewComments([]);
     setReviewOpen(false);
-    setDocketTab("case");
+    setHqOpen(false);
     setRailTab("variants");
   }
 
@@ -673,6 +693,7 @@ export default function App() {
   const commands: PaletteCommand[] = [
     { id: "palette", title: "Show command palette", hint: "Ctrl+Shift+P", run: () => setPaletteOpen(true) },
     { id: "review", title: "Open review mode", hint: "Temporal anomalies", run: () => { if (!reviewOpen) toggleReview(); } },
+    { id: "hq", title: "Open HQ desk", hint: "Pull requests, issues, releases", run: () => { if (!hqOpen) toggleHq(); } },
     { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
     {
       id: "ledger",
@@ -707,7 +728,7 @@ export default function App() {
       run: newWindow,
     },
     { id: "signin", title: "Sign in with GitHub", hint: "Clearance", run: () => setAuthOpen(true) },
-    { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => setUser(null)) },
+    { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => { setUser(null); setHqOpen(false); }) },
     { id: "open", title: "Open folder", hint: "File", run: () => void browse() },
     { id: "close-folder", title: "Close folder", hint: "File", run: closeFolder },
     { id: "rescan", title: "Rescan", hint: "View", run: () => repo && void loadAll(repo.path, { keepSelection: true }) },
@@ -875,6 +896,9 @@ export default function App() {
         anomalyLoading={status == null}
         reviewOpen={reviewOpen}
         onToggleReview={toggleReview}
+        user={user}
+        hqOpen={hqOpen}
+        onToggleHq={toggleHq}
       />
       {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
       {reviewOpen ? (
@@ -922,6 +946,28 @@ export default function App() {
             />
           ) : null}
         </ReviewMode>
+      ) : hqOpen ? (
+        <HqMode
+          owner={origin?.owner ?? null}
+          repoName={origin?.nameOnHost ?? null}
+          signedIn={Boolean(user)}
+          onSignIn={() => setAuthOpen(true)}
+          currentBranch={repo.branch}
+          sacredBranch={timeline?.sacredBranch ?? null}
+          timeline={timeline}
+          selectedSha={selectedId}
+          onCheckoutPr={async (number) => {
+            await runRemote((args) => checkoutPullRequest(args, number));
+          }}
+          onCreateTag={(name, sha, message) => {
+            void createLocalTag(repo.path, name, sha, message)
+              .then(() => loadAll(repo.path, { keepSelection: true }))
+              .catch((err) => setError(errMessage(err)));
+          }}
+          onPushTag={(name) => {
+            void runRemote((args) => pushTag(args, name));
+          }}
+        />
       ) : (
       <div
         data-workspace
@@ -943,7 +989,6 @@ export default function App() {
           onStow={() => setVariantRailOpen(false)}
           onSelectTag={(id) => {
             setSelectedId(id);
-            setDocketTab("case");
             setDocketOpen(true);
           }}
           onCheckout={async (name) => {
@@ -1039,8 +1084,6 @@ export default function App() {
         </div>
         {docketOpen ? (
         <Docket
-          tab={docketTab}
-          onTab={setDocketTab}
           node={selectedNode}
           detail={detail}
           selectedPath={diffTarget?.kind === "commit" ? diffTarget.path : null}
@@ -1054,27 +1097,10 @@ export default function App() {
             openDiff({ kind: "commit", path });
           }}
           onSelectCommit={setSelectedId}
-          owner={origin?.owner ?? null}
-          repoName={origin?.nameOnHost ?? null}
-          signedIn={Boolean(user)}
-          currentBranch={repo.branch}
-          sacredBranch={timeline.sacredBranch}
-          timeline={timeline}
           selectedSha={selectedId}
           checksBySha={Object.fromEntries(
             prs.filter((p) => p.ciStatus).map((p) => [p.headSha, p.ciStatus!]),
           )}
-          onCheckoutPr={async (number) => {
-            await runRemote((args) => checkoutPullRequest(args, number));
-          }}
-          onCreateTag={(name, sha, message) => {
-            void createLocalTag(repo.path, name, sha, message)
-              .then(() => loadAll(repo.path, { keepSelection: true }))
-              .catch((err) => setError(errMessage(err)));
-          }}
-          onPushTag={(name) => {
-            void runRemote((args) => pushTag(args, name));
-          }}
           onStow={() => setDocketOpen(false)}
         />
         ) : (

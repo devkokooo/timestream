@@ -1,6 +1,6 @@
 import { btn, btnPrimary, eyebrow } from "../lib/ui";
 import { HintMark, TvaTerm } from "./TvaTerm";
-import type { RemoteInfo, RepoSummary } from "../lib/types";
+import type { GithubUser, RemoteInfo, RepoSummary } from "../lib/types";
 
 interface Props {
   repo: RepoSummary;
@@ -9,6 +9,9 @@ interface Props {
   anomalyLoading: boolean;
   reviewOpen: boolean;
   onToggleReview: () => void;
+  user: GithubUser | null;
+  hqOpen: boolean;
+  onToggleHq: () => void;
 }
 
 export function BureauHeader({
@@ -18,6 +21,9 @@ export function BureauHeader({
   anomalyLoading,
   reviewOpen,
   onToggleReview,
+  user,
+  hqOpen,
+  onToggleHq,
 }: Props) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-tva-gold/22 bg-linear-to-b from-[#2a231c] to-[#1a1612] px-[18px] py-2.5">
@@ -56,7 +62,20 @@ export function BureauHeader({
             onPrimary={reviewOpen || anomalyCount > 0}
           />
         </button>
-        <HintMark label="Sacred Timeline is the default branch graph. Dispatch, pull, and push live on the review desk." />
+        <button
+          type="button"
+          className={hqOpen ? btnPrimary : btn}
+          onClick={onToggleHq}
+          aria-pressed={hqOpen}
+          title="Pull requests, issues, and releases"
+        >
+          <TvaTerm
+            flavor={user ? `@${user.login}` : "GitHub"}
+            noun="HQ desk"
+            onPrimary={hqOpen}
+          />
+        </button>
+        <HintMark label="Sacred Timeline is the default branch graph. Dispatch, pull, and push live on the review desk. HQ desk holds GitHub requests, incidents, and canon." />
       </div>
     </header>
   );
