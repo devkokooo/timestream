@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPrDocket, docketAction, includeReview } from "./prDocket";
-import type { IssueComment, PullCommit, PullRequestSummary, PullReview, ReviewComment } from "./types";
+import { buildIssueDocket, buildPrDocket, docketAction, includeReview } from "./prDocket";
+import type { IssueComment, IssueSummary, PullCommit, PullRequestSummary, PullReview, ReviewComment } from "./types";
 
 function pull(partial: Partial<PullRequestSummary> = {}): PullRequestSummary {
   return {
@@ -85,6 +85,7 @@ describe("buildPrDocket", () => {
 
   it("names conversation actions", () => {
     expect(docketAction({ kind: "opened", at: "", id: "o", user: "a", body: "" })).toBe("opened this request");
+    expect(docketAction({ kind: "incident", at: "", id: "i", user: "a", body: "" })).toBe("opened this incident");
     expect(docketAction({ kind: "comment", at: "", id: "c", user: "a", body: "" })).toBe("left a comment");
     expect(docketAction({ kind: "review", at: "", id: "r", user: "a", body: "", state: "APPROVED" })).toBe("approved");
     expect(
@@ -96,5 +97,32 @@ describe("buildPrDocket", () => {
     expect(includeReview({ id: 1, userLogin: "a", body: "", state: "PENDING", submittedAt: "" })).toBe(false);
     expect(includeReview({ id: 2, userLogin: "a", body: "", state: "COMMENTED", submittedAt: "" })).toBe(false);
     expect(includeReview({ id: 3, userLogin: "a", body: "", state: "APPROVED", submittedAt: "" })).toBe(true);
+  });
+});
+
+describe("buildIssueDocket", () => {
+  it("orders the incident and comments by time", () => {
+    const issue: IssueSummary = {
+      number: 4,
+      title: "River leak",
+      body: "Keep the gold.",
+      state: "open",
+      htmlUrl: "",
+      userLogin: "analyst",
+      labels: [],
+      assignees: [],
+      milestone: null,
+      pullRequest: false,
+      createdAt: "2026-08-16T10:00:00Z",
+    };
+    const comments: IssueComment[] = [
+      { id: 2, userLogin: "reviewer", body: "second note", createdAt: "2026-08-16T12:00:00Z" },
+      { id: 1, userLogin: "reviewer", body: "first note", createdAt: "2026-08-16T11:00:00Z" },
+    ];
+    const docket = buildIssueDocket(issue, comments);
+    expect(docket.map((item) => item.kind)).toEqual(["incident", "comment", "comment"]);
+    expect(docket[0].summary).toBe("River leak");
+    expect(docket[1].body).toBe("first note");
+    expect(docket[2].body).toBe("second note");
   });
 });

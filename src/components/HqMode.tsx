@@ -25,7 +25,7 @@ import {
 } from "../lib/api";
 import { cn } from "../lib/cn";
 import { compareSpecs, githubRefName, matchingPull, sameGitRef } from "../lib/prCompare";
-import { buildPrDocket, docketAction, type DocketEntry } from "../lib/prDocket";
+import { buildIssueDocket, buildPrDocket, docketAction, type DocketEntry } from "../lib/prDocket";
 import { formatLocalDateTime, formatRelativeTime } from "../lib/relativeTime";
 import { detectStacks } from "../lib/stackDetect";
 import { btn, btnPrimary, emptyText, eyebrow, fieldInput, fieldLabel, fileRowPad, fileRowSelected, stamp, stampGold } from "../lib/ui";
@@ -60,7 +60,7 @@ interface HqModeProps {
   currentBranch: string | null;
   sacredBranch: string | null;
   timeline: Timeline | null;
-  onCheckoutPr: (number: number) => void;
+  onCheckoutPr: (number: number) => void | Promise<void>;
   onCreateTag: (name: string, sha: string, message?: string) => void;
   onPushTag: (name: string) => void;
   selectedSha: string | null;
@@ -234,6 +234,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
   const [issueComments, setIssueComments] = useState<IssueComment[]>([]);
   const [pullCommits, setPullCommits] = useState<PullCommit[]>([]);
   const [reviews, setReviews] = useState<PullReview[]>([]);
+  const [acting, setActing] = useState<string | null>(null);
   const [head, setHead] = useState(props.currentBranch ?? "");
   const [base, setBase] = useState(props.sacredBranch ?? "main");
   const stacks = useMemo(() => detectStacks(prs), [prs]);
@@ -270,6 +271,24 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  async function runDossier(id: string, work: () => Promise<void>) {
+    if (acting) return;
+    setActing(id);
+    setError(null);
+    try {
+      await work();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function applyPull(next: PullRequestSummary) {
+    setSelected(next);
+    await reload();
   }
 
   useEffect(() => {
@@ -395,7 +414,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                 >
                   <span className="min-w-0">
                     <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-tva-paper">
-                      #{pr.number} {pr.title}
+                      <span className="text-tva-muted">#{pr.number}</span> {pr.title}
                     </span>
                     <span className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-tva-muted">
                       {pr.headRef} → {pr.baseRef}
@@ -429,7 +448,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
             selected && sameGitRef(selected.headRef, head) && sameGitRef(selected.baseRef, base) ? (
               <div>
                 <h3 className="m-0 text-sm text-tva-paper">
-                  #{selected.number} {selected.title}
+                  <span className="text-tva-muted">#{selected.number}</span> {selected.title}
                 </h3>
                 <p className="mt-3 mb-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold">
                   Docket · Conversation
@@ -438,11 +457,22 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                 <ReviewForm
                   onSubmit={async (event, reviewBody) => {
                     if (!props.signedIn || !props.owner || !props.repoName) return;
-                    await githubSubmitReview(props.owner, props.repoName, selected.number, {
-                      body: reviewBody,
-                      event,
-                      comments: [],
-                    });
+                    // Conversation notes use the issues comments API so GitHub
+                    // attributes them "with Timestream", same as incidents.
+                    if (event === "COMMENT") {
+                      await githubAddIssueComment(
+                        props.owner,
+                        props.repoName,
+                        selected.number,
+                        reviewBody,
+                      );
+                    } else {
+                      await githubSubmitReview(props.owner, props.repoName, selected.number, {
+                        body: reviewBody,
+                        event,
+                        comments: [],
+                      });
+                    }
                     await reloadConversation(selected.number, selected.headSha);
                   }}
                 />
@@ -511,79 +541,147 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
               {selected.headRef} → {selected.baseRef}
               {selected.ciStatus ? ` · ${selected.ciStatus}` : ""}
             </p>
+            {error ? <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p> : null}
             <div className="mt-3 flex flex-col gap-1">
-              <button type="button" className={btn} onClick={() => props.onCheckoutPr(selected.number)}>
-                Check out pull request
-              </button>
-              <button
-                type="button"
-                className={btn}
-                onClick={async () => {
-                  if (!props.signedIn || !props.owner || !props.repoName) return;
-                  await githubUpdatePull(props.owner, props.repoName, selected.number, {
-                    draft: !selected.draft,
-                  });
-                  await reload();
-                }}
-              >
-                {selected.draft ? "Mark ready" : "Convert to draft"}
-              </button>
-              <button
-                type="button"
-                className={btn}
-                onClick={async () => {
-                  if (!props.signedIn || !props.owner || !props.repoName) return;
-                  await githubUpdatePull(props.owner, props.repoName, selected.number, {
-                    state: selected.state === "open" ? "closed" : "open",
-                  });
-                  await reload();
-                }}
-              >
-                {selected.state === "open" ? "Close" : "Reopen"}
-              </button>
+              <TransmitButton
+                active={acting === "checkout"}
+                disabled={Boolean(acting)}
+                idleClass={`${btn} w-full`}
+                onClick={() =>
+                  void runDossier("checkout", async () => {
+                    await props.onCheckoutPr(selected.number);
+                  })
+                }
+                title="Check out pull request"
+                label="Checking out…"
+                flavor="Local"
+                noun="Check out pull request"
+                busyNoun="Checking out…"
+              />
+              <TransmitButton
+                active={acting === "draft"}
+                disabled={Boolean(acting) || selected.state !== "open"}
+                idleClass={`${btn} w-full`}
+                onClick={() =>
+                  void runDossier("draft", async () => {
+                    if (!props.signedIn || !props.owner || !props.repoName) return;
+                    await applyPull(
+                      await githubUpdatePull(props.owner, props.repoName, selected.number, {
+                        draft: !selected.draft,
+                      }),
+                    );
+                  })
+                }
+                title={selected.draft ? "Mark ready for review" : "Convert to draft"}
+                label={selected.draft ? "Publishing…" : "Sealing…"}
+                flavor={selected.draft ? "Publish" : "Seal"}
+                noun={selected.draft ? "Mark ready" : "Convert to draft"}
+                busyNoun={selected.draft ? "Publishing…" : "Sealing…"}
+              />
+              <TransmitButton
+                active={acting === "state"}
+                disabled={Boolean(acting)}
+                idleClass={`${btn} w-full`}
+                onClick={() =>
+                  void runDossier("state", async () => {
+                    if (!props.signedIn || !props.owner || !props.repoName) return;
+                    await applyPull(
+                      await githubUpdatePull(props.owner, props.repoName, selected.number, {
+                        state: selected.state === "open" ? "closed" : "open",
+                      }),
+                    );
+                  })
+                }
+                title={selected.state === "open" ? "Close pull request" : "Reopen pull request"}
+                label={selected.state === "open" ? "Closing…" : "Reopening…"}
+                flavor={selected.state === "open" ? "Archive" : "Restore"}
+                noun={selected.state === "open" ? "Close" : "Reopen"}
+                busyNoun={selected.state === "open" ? "Closing…" : "Reopening…"}
+              />
             </div>
             <p className="mt-4 mb-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold">
               Restore · Merge pull request
             </p>
             <div className="flex flex-col gap-1">
-              {["merge", "squash", "rebase"].map((method) => (
-                <button
+              {(
+                [
+                  ["merge", "Merge", "Merging…"],
+                  ["squash", "Squash", "Squashing…"],
+                  ["rebase", "Rebase", "Rebasing…"],
+                ] as const
+              ).map(([method, noun, busyNoun]) => (
+                <TransmitButton
                   key={method}
-                  type="button"
-                  className={btnPrimary}
-                  onClick={async () => {
-                    if (!props.signedIn || !props.owner || !props.repoName) return;
-                    await githubMergePull(props.owner, props.repoName, selected.number, method);
-                    await reload();
-                  }}
-                >
-                  {method}
-                </button>
+                  active={acting === method}
+                  disabled={
+                    Boolean(acting) ||
+                    selected.draft ||
+                    selected.state !== "open" ||
+                    selected.mergeable === false
+                  }
+                  idleClass={`${btnPrimary} w-full`}
+                  onClick={() =>
+                    void runDossier(method, async () => {
+                      if (!props.signedIn || !props.owner || !props.repoName) return;
+                      await applyPull(
+                        await githubMergePull(props.owner, props.repoName, selected.number, method),
+                      );
+                    })
+                  }
+                  title={
+                    selected.draft
+                      ? "Draft requests cannot be merged"
+                      : selected.mergeable === false
+                        ? "Resolve conflicts before merging"
+                        : selected.state !== "open"
+                          ? "Request is not open"
+                          : `${noun} pull request`
+                  }
+                  label={busyNoun}
+                  flavor="Restore"
+                  noun={noun}
+                  busyNoun={busyNoun}
+                  onPrimary
+                />
               ))}
             </div>
             <p className="mt-4 mb-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold">
               Integrity · Checks
             </p>
-            {checks.map((run) => (
-              <div key={run.id} className="flex items-center justify-between gap-2 text-[11px] text-tva-paper-dim">
-                <span>
-                  {run.name} · {run.conclusion ?? run.status}
-                </span>
-                {run.conclusion === "failure" ? (
-                  <button
-                    type="button"
-                    className={btn}
-                    title="Re-run GitHub Actions job"
-                    onClick={() => {
-                      if (!props.signedIn || !props.owner || !props.repoName) return;
-                      void githubRerunJob(props.owner, props.repoName, run.id);
-                    }}
-                  >
-                    Re-run
-                  </button>
-                ) : null}
-              </div>
-            ))}
+            {checks.length === 0 ? (
+              <p className={cn(emptyText, "mt-1")}>No check runs on this tip.</p>
+            ) : (
+              checks.map((run) => (
+                <div key={run.id} className="mt-1 flex items-center justify-between gap-2 text-[11px] text-tva-paper-dim">
+                  <span>
+                    {run.name} · {run.conclusion ?? run.status}
+                  </span>
+                  {run.conclusion === "failure" ? (
+                    <TransmitButton
+                      active={acting === `rerun-${run.id}`}
+                      disabled={Boolean(acting)}
+                      idleClass={btn}
+                      onClick={() =>
+                        void runDossier(`rerun-${run.id}`, async () => {
+                          if (!props.signedIn || !props.owner || !props.repoName) return;
+                          await githubRerunJob(props.owner, props.repoName, run.id);
+                          setChecks(
+                            await githubListChecks(props.owner, props.repoName, selected.headSha).catch(
+                              () => checks,
+                            ),
+                          );
+                        })
+                      }
+                      title="Re-run GitHub Actions job"
+                      label="Re-running…"
+                      flavor="Retry"
+                      noun="Re-run"
+                      busyNoun="Re-running…"
+                    />
+                  ) : null}
+                </div>
+              ))
+            )}
           </TvaScrollArea>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col px-[18px] pt-4">
@@ -635,18 +733,20 @@ function DocketItem({ entry, now }: { entry: DocketEntry; now: number }) {
   const mark =
     entry.kind === "opened"
       ? "REQUEST"
-      : entry.kind === "commits"
-        ? "LEDGER"
-        : entry.kind === "review" && entry.state === "APPROVED"
-          ? "CLEAR"
-          : entry.kind === "review" && entry.state === "CHANGES_REQUESTED"
-            ? "FLAG"
-            : entry.kind === "review"
-              ? "NOTE"
-              : entry.kind === "reviewComment"
-                ? "LINE"
-                : "NOTE";
-  const gold = mark === "CLEAR" || mark === "REQUEST";
+      : entry.kind === "incident"
+        ? "INCIDENT"
+        : entry.kind === "commits"
+          ? "LEDGER"
+          : entry.kind === "review" && entry.state === "APPROVED"
+            ? "CLEAR"
+            : entry.kind === "review" && entry.state === "CHANGES_REQUESTED"
+              ? "FLAG"
+              : entry.kind === "review"
+                ? "NOTE"
+                : entry.kind === "reviewComment"
+                  ? "LINE"
+                  : "NOTE";
+  const gold = mark === "CLEAR" || mark === "REQUEST" || mark === "INCIDENT";
   const action = docketAction(entry);
 
   return (
@@ -660,7 +760,7 @@ function DocketItem({ entry, now }: { entry: DocketEntry; now: number }) {
         </p>
         <span className={cn(stamp, gold && stampGold)}>{mark}</span>
       </div>
-      {entry.kind === "opened" && entry.summary ? (
+      {(entry.kind === "opened" || entry.kind === "incident") && entry.summary ? (
         <p className="m-0 mt-1.5 text-[12px] text-tva-paper">{entry.summary}</p>
       ) : null}
       {entry.kind === "commits"
@@ -677,7 +777,7 @@ function DocketItem({ entry, now }: { entry: DocketEntry; now: number }) {
         <p className="m-0 mt-1.5 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-tva-paper-dim">
           {entry.body}
         </p>
-      ) : entry.kind === "opened" ? (
+      ) : entry.kind === "opened" || entry.kind === "incident" ? (
         <p className={cn(emptyText, "mt-1.5")}>No description.</p>
       ) : null}
     </div>
@@ -690,6 +790,7 @@ function ReviewForm({ onSubmit }: { onSubmit: (event: string, body: string) => P
 
   async function submit(event: string) {
     if (sending) return;
+    if (event === "COMMENT" && !body.trim()) return;
     setSending(event);
     try {
       await onSubmit(event, body);
@@ -723,7 +824,7 @@ function ReviewForm({ onSubmit }: { onSubmit: (event: string, body: string) => P
         />
         <TransmitButton
           active={sending === "COMMENT"}
-          disabled={Boolean(sending)}
+          disabled={Boolean(sending) || !body.trim()}
           idleClass={btn}
           onClick={() => void submit("COMMENT")}
           title="Comment"
@@ -758,6 +859,7 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
   const [body, setBody] = useState("");
   const [note, setNote] = useState("");
   const [filing, setFiling] = useState(false);
+  const [commenting, setCommenting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const issuesOpen = props.features?.hasIssues !== false;
 
@@ -845,7 +947,7 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
                   onClick={() => setSelected(issue)}
                 >
                   <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-tva-paper">
-                    #{issue.number} {issue.title}
+                    <span className="text-tva-muted">#{issue.number}</span> {issue.title}
                   </span>
                   <span className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-tva-muted">
                     {issue.labels.join(", ") || "unlabeled"}
@@ -899,14 +1001,12 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
           {selected ? (
             <div className="border-t border-tva-gold/16 pt-4">
               <h3 className="m-0 text-sm text-tva-paper">
-                #{selected.number} {selected.title}
+                <span className="text-tva-muted">#{selected.number}</span> {selected.title}
               </h3>
-              <p className="text-xs text-tva-paper-dim">{selected.body || "No description."}</p>
-              {comments.map((c) => (
-                <p key={c.id} className="text-[11px] text-tva-paper-dim">
-                  {c.userLogin}: {c.body}
-                </p>
-              ))}
+              <p className="mt-3 mb-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold">
+                Docket · Conversation
+              </p>
+              <DocketFeed entries={buildIssueDocket(selected, comments)} />
               <textarea
                 className={`${fieldInput} mt-2`}
                 rows={2}
@@ -914,19 +1014,31 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Comment"
               />
-              <button
-                type="button"
-                className={`${btn} mt-1`}
-                onClick={async () => {
-                  if (!props.owner || !props.repoName || !note.trim()) return;
-                  await githubAddIssueComment(props.owner, props.repoName, selected.number, note);
-                  setNote("");
-                  const next = await githubListIssueComments(props.owner, props.repoName, selected.number);
-                  setComments(next);
+              <TransmitButton
+                active={commenting}
+                disabled={!note.trim()}
+                idleClass={`${btn} mt-1`}
+                onClick={() => {
+                  void (async () => {
+                    if (!props.owner || !props.repoName || !note.trim() || commenting) return;
+                    setCommenting(true);
+                    try {
+                      await githubAddIssueComment(props.owner, props.repoName, selected.number, note);
+                      setNote("");
+                      setComments(await githubListIssueComments(props.owner, props.repoName, selected.number));
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : String(err));
+                    } finally {
+                      setCommenting(false);
+                    }
+                  })();
                 }}
-              >
-                Comment
-              </button>
+                title="Comment"
+                label="Filing…"
+                flavor="Note"
+                noun="Comment"
+                busyNoun="Filing…"
+              />
             </div>
           ) : issuesOpen ? (
             <p className={cn(emptyText, "mt-2")}>Select an incident from the left rail.</p>
