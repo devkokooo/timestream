@@ -1,5 +1,5 @@
 import { cn } from "../lib/cn";
-import { btnStow, panelTitle, stamp, stampGold } from "../lib/ui";
+import { stamp, stampGold } from "../lib/ui";
 import { threatCopy } from "../lib/timelineView";
 import type { Timeline, VariantDossier } from "../lib/types";
 import { TvaVirtualList } from "./TvaVirtualList";
@@ -7,44 +7,35 @@ import { TvaVirtualList } from "./TvaVirtualList";
 interface Props {
   timeline: Timeline;
   onCheckout: (name: string) => void;
-  onStow: () => void;
   busy: boolean;
   prByBranch?: Record<string, number>;
   aheadBehind?: { ahead: number; behind: number } | null;
 }
 
-export function VariantRail({ timeline, onCheckout, onStow, busy, prByBranch, aheadBehind }: Props) {
+export function VariantRail({ timeline, onCheckout, busy, prByBranch, aheadBehind }: Props) {
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713] p-0">
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-3.5 pb-2">
-        <h2 className={cn(panelTitle, "m-0")}>VARIANT DOSSIERS</h2>
-        <button type="button" className={btnStow} onClick={onStow}>
-          Stow
-        </button>
-      </div>
-      <TvaVirtualList
-        className="min-h-0 flex-1"
-        axis="y"
-        fill
-        viewportClassName="px-3 pb-5"
-        count={timeline.dossiers.length}
-        estimateSize={() => 88}
-        getItemKey={(index) => timeline.dossiers[index].name}
-      >
-        {(index) => {
-          const d = timeline.dossiers[index];
-          return (
-            <DossierCard
-              dossier={d}
-              onCheckout={onCheckout}
-              busy={busy}
-              prNumber={prByBranch?.[d.name]}
-              sync={d.isHead ? aheadBehind : null}
-            />
-          );
-        }}
-      </TvaVirtualList>
-    </aside>
+    <TvaVirtualList
+      className="min-h-0 flex-1"
+      axis="y"
+      fill
+      viewportClassName="px-3 py-3"
+      count={timeline.dossiers.length}
+      estimateSize={() => 88}
+      getItemKey={(index) => timeline.dossiers[index].name}
+    >
+      {(index) => {
+        const d = timeline.dossiers[index];
+        return (
+          <DossierCard
+            dossier={d}
+            onCheckout={onCheckout}
+            busy={busy}
+            prNumber={prByBranch?.[d.name]}
+            sync={d.isHead ? aheadBehind : null}
+          />
+        );
+      }}
+    </TvaVirtualList>
   );
 }
 

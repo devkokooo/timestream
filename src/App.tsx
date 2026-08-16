@@ -11,7 +11,7 @@ import { SacredTimeline } from "./components/SacredTimeline";
 import { SettingsPage } from "./components/SettingsPage";
 import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
-import { VariantRail } from "./components/VariantRail";
+import { LeftRail } from "./components/LeftRail";
 import { WelcomeGate } from "./components/WelcomeGate";
 import {
   aheadBehind,
@@ -67,6 +67,7 @@ import type {
   CommitDetail,
   DiffMode,
   DocketTab,
+  RailTab,
   FileChange,
   FileDiff,
   GithubUser,
@@ -193,6 +194,7 @@ export default function App() {
   const [prs, setPrs] = useState<PullRequestSummary[]>([]);
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
   const [docketTab, setDocketTab] = useState<DocketTab>("case");
+  const [railTab, setRailTab] = useState<RailTab>("variants");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsFocus, setSettingsFocus] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -575,6 +577,7 @@ export default function App() {
     setReviewComments([]);
     setReviewOpen(false);
     setDocketTab("case");
+    setRailTab("variants");
   }
 
   async function runClone(
@@ -629,6 +632,15 @@ export default function App() {
     { id: "palette", title: "Show command palette", hint: "Ctrl+Shift+P", run: () => setPaletteOpen(true) },
     { id: "review", title: "Open review mode", hint: "Temporal anomalies", run: () => { if (!reviewOpen) toggleReview(); } },
     { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
+    {
+      id: "seals",
+      title: "Show canon seals",
+      hint: "Tags",
+      run: () => {
+        setRailTab("tags");
+        setVariantRailOpen(true);
+      },
+    },
     { id: "docket", title: "Toggle case file", run: () => setDocketOpen((open) => !open) },
     { id: "settings", title: "Open settings", hint: "File", run: () => setSettingsOpen(true) },
     {
@@ -751,6 +763,7 @@ export default function App() {
         repo
           ? () => {
               setReviewOpen(false);
+              setRailTab("variants");
               setVariantRailOpen(true);
             }
           : undefined
@@ -854,12 +867,20 @@ export default function App() {
         }}
       >
         {variantRailOpen ? (
-        <VariantRail
+        <LeftRail
+          tab={railTab}
+          onTab={setRailTab}
           timeline={timeline}
+          selectedId={selectedId}
           busy={busy}
           prByBranch={prByBranch}
           aheadBehind={sync}
           onStow={() => setVariantRailOpen(false)}
+          onSelectTag={(id) => {
+            setSelectedId(id);
+            setDocketTab("case");
+            setDocketOpen(true);
+          }}
           onCheckout={async (name) => {
             try {
               setBusy(true);
@@ -872,7 +893,11 @@ export default function App() {
           }}
         />
         ) : (
-          <RailStrip label="VARIANTS" side="start" onExpand={() => setVariantRailOpen(true)} />
+          <RailStrip
+            label={railTab === "tags" ? "SEALS" : "VARIANTS"}
+            side="start"
+            onExpand={() => setVariantRailOpen(true)}
+          />
         )}
         <div className={cn("relative min-h-0 min-w-0 overflow-hidden", diffOpen && "diff-open")}>
           <div

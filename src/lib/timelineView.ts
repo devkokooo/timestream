@@ -391,6 +391,39 @@ export function hasTag(node: Pick<TimelineNode, "refs">): boolean {
   return node.refs.some((r) => r.kind === "tag");
 }
 
+export interface TimelineTag {
+  name: string;
+  id: string;
+  shortId: string;
+  summary: string;
+  author: string;
+  timestamp: number;
+  isHead: boolean;
+  isSacred: boolean;
+}
+
+/** Every tag on the graph, newest first — one row per seal, even if they share a nexus. */
+export function listTimelineTags(timeline: Pick<Timeline, "nodes">): TimelineTag[] {
+  const tags: TimelineTag[] = [];
+  for (const n of timeline.nodes) {
+    for (const r of n.refs) {
+      if (r.kind !== "tag") continue;
+      tags.push({
+        name: r.name,
+        id: n.id,
+        shortId: n.shortId,
+        summary: n.summary,
+        author: n.author,
+        timestamp: n.timestamp,
+        isHead: n.isHead,
+        isSacred: n.column === 0,
+      });
+    }
+  }
+  tags.sort((a, b) => b.timestamp - a.timestamp || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return tags;
+}
+
 /** Gold canon seal — tags are stamps on a nexus, not a variant fiber. */
 export function diamondPoints(cx: number, cy: number, r: number): string {
   return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`;

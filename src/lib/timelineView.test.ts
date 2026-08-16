@@ -11,6 +11,7 @@ import {
   focusCamera,
   hasTag,
   INCURSION_ID,
+  listTimelineTags,
   indexTimelineView,
   laneGapFor,
   laneTones,
@@ -312,5 +313,35 @@ describe("clipRiverX", () => {
     expect(clip!.x).toBeGreaterThanOrEqual(24);
     expect(clip!.x + clip!.width).toBeLessThanOrEqual(view.width - 24 + 1);
     expect(clipRiverX(view, { x: view.width + 50, y: 0, w: 10, h: 10 })).toBeNull();
+  });
+});
+
+describe("listTimelineTags", () => {
+  it("returns no seals when the timeline has no tags", () => {
+    expect(listTimelineTags(linearTimeline())).toEqual([]);
+  });
+
+  it("lists every tag with its nexus, newest first", () => {
+    const tags = listTimelineTags(taggedTimeline());
+    expect(tags.map((t) => t.name)).toEqual(["v-feat", "v3.0", "v2.0", "v1.0"]);
+    expect(tags.map((t) => t.id)).toEqual(["e", "d", "c", "b"]);
+    expect(tags.find((t) => t.name === "v3.0")).toMatchObject({
+      shortId: "d",
+      summary: "tip",
+      isHead: true,
+      isSacred: true,
+    });
+    expect(tags.find((t) => t.name === "v-feat")).toMatchObject({
+      isSacred: false,
+      isHead: false,
+    });
+  });
+
+  it("emits one row per seal when a nexus carries several tags", () => {
+    const timeline = taggedTimeline();
+    const tip = timeline.nodes.find((n) => n.id === "d")!;
+    tip.refs = [...tip.refs, { name: "v3.0-rc", kind: "tag" }];
+    const names = listTimelineTags(timeline).filter((t) => t.id === "d").map((t) => t.name);
+    expect(names).toEqual(["v3.0", "v3.0-rc"]);
   });
 });
