@@ -121,7 +121,7 @@ export interface BranchInfo {
   isHead: boolean;
 }
 
-export type DocketTab = "case" | "requests" | "incidents" | "canon";
+export type HqTab = "requests" | "incidents" | "canon";
 export type RailTab = "variants" | "history" | "tags";
 
 export interface GithubUser {
