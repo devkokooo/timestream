@@ -431,6 +431,21 @@
   height: 14px;
 }
 
+@keyframes tva-jumble-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.68;
+  }
+}
+
+.tva-jumble {
+  animation: tva-jumble-flicker 0.16s steps(2) infinite;
+  text-shadow: 0 0 8px rgba(232, 184, 109, 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .diff-pane {
     transition: none;
@@ -439,5 +454,9 @@
   .tva-bone {
     animation: none;
     background: #2a221a;
+  }
+
+  .tva-jumble {
+    animation: none;
   }
 }
