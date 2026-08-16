@@ -57,6 +57,7 @@ pub fn run() {
             ssh_add_key,
             github_repo_features,
             github_list_pulls,
+            github_list_pull_counts,
             github_get_pull,
             github_create_pull,
             github_update_pull,

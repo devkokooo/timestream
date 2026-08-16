@@ -8,8 +8,8 @@ use crate::git::{
 };
 use crate::github::{
     self, CheckRunSummary, CreateIssue, CreatePullRequest, CreateRelease, IssueComment,
-    IssueSummary, NotificationItem, PullCommit, PullRequestSummary, PullReview, ReleaseSummary,
-    RepoFeatures,
+    IssueSummary, NotificationItem, PullCommit, PullCounts, PullRequestSummary, PullReview,
+    ReleaseSummary, RepoFeatures,
     RepoSearchHit, ReviewComment, SubmitReview,
 };
 use crate::graph::Timeline;
@@ -446,6 +446,11 @@ pub async fn github_list_pulls(
     filter: String,
 ) -> Result<Vec<PullRequestSummary>> {
     github::list_pulls(&owner, &repo, &filter).await
+}
+
+#[tauri::command]
+pub async fn github_list_pull_counts(owner: String, repo: String) -> Result<PullCounts> {
+    github::list_pull_counts(&owner, &repo).await
 }
 
 #[tauri::command]

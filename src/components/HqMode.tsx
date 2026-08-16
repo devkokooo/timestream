@@ -11,6 +11,7 @@ import {
   githubListIssueComments,
   githubListIssues,
   githubListPullCommits,
+  githubListPullCounts,
   githubListPulls,
   githubListReleases,
   githubListReviewComments,
@@ -38,6 +39,7 @@ import type {
   IssueComment,
   IssueSummary,
   PullCommit,
+  PullCounts,
   PullRequestSummary,
   PullReview,
   ReleaseSummary,
@@ -225,6 +227,7 @@ function HqListPane({
 function RequestsPanel(props: HqModeProps & FeatureDesk) {
   const [filter, setFilter] = useState("open");
   const [prs, setPrs] = useState<PullRequestSummary[]>([]);
+  const [counts, setCounts] = useState<PullCounts>({ open: 0, closed: 0 });
   const [selected, setSelected] = useState<PullRequestSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -269,7 +272,18 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
     if (!props.signedIn || !props.owner || !props.repoName || !pullsOpen) return;
     try {
       setError(null);
-      setPrs(await githubListPulls(props.owner, props.repoName, filter));
+      const [next, nextCounts] = await Promise.all([
+        githubListPulls(props.owner, props.repoName, filter),
+        githubListPullCounts(props.owner, props.repoName).catch(() => null),
+      ]);
+      setPrs(next);
+      if (nextCounts) {
+        setCounts(nextCounts);
+      } else if (filter === "closed") {
+        setCounts((prev) => ({ ...prev, closed: next.length }));
+      } else if (filter === "open") {
+        setCounts((prev) => ({ ...prev, open: next.length }));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -364,13 +378,37 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
           empty={pullsOpen ? "No requests in this filter." : "Requests are sealed on this origin."}
           filters={
             pullsOpen ? (
-              <>
-                {["open", "mine", "review", "draft"].map((item) => (
-                  <button key={item} type="button" className={btn} onClick={() => setFilter(item)}>
-                    {item}
-                  </button>
-                ))}
-              </>
+              <div className="flex w-full flex-col gap-1">
+                <div className="flex flex-wrap gap-1">
+                  {(["open", "closed"] as const).map((item) => {
+                    const active = item === "closed" ? filter === "closed" : filter !== "closed";
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        className={cn(btn, active && "border-tva-orange text-tva-gold")}
+                        onClick={() => setFilter(item)}
+                      >
+                        {item} <span className="text-tva-muted">{counts[item]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {filter !== "closed" ? (
+                  <div className="flex flex-wrap gap-1">
+                    {["mine", "review", "draft"].map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={cn(btn, filter === item && "border-tva-orange text-tva-gold")}
+                        onClick={() => setFilter(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             ) : undefined
           }
           extra={
@@ -424,6 +462,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     {pr.draft ? <span className={stamp} title="Draft pull request">DRAFT</span> : null}
+                    {pr.state === "closed" ? <span className={stamp} title="Closed pull request">CLOSED</span> : null}
                     {pr.mergeable === false ? <span className={stamp} title="Merge conflict">CONFLICT</span> : null}
                   </span>
                 </button>

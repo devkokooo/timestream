@@ -17,6 +17,7 @@ import type {
   IssueSummary,
   NotificationItem,
   PullCommit,
+  PullCounts,
   PullRequestSummary,
   PullReview,
   RangeCompare,
@@ -255,6 +256,10 @@ export function githubListPulls(
   filter: string,
 ): Promise<PullRequestSummary[]> {
   return invoke("github_list_pulls", { owner, repo, filter });
+}
+
+export function githubListPullCounts(owner: string, repo: string): Promise<PullCounts> {
+  return invoke("github_list_pull_counts", { owner, repo });
 }
 
 export function githubGetPull(

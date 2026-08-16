@@ -234,6 +234,11 @@ export interface RepoFeatures {
   htmlUrl: string;
 }
 
+export interface PullCounts {
+  open: number;
+  closed: number;
+}
+
 export interface PullRequestSummary {
   number: number;
   title: string;

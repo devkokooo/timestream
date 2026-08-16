@@ -384,6 +384,42 @@ pub struct RepoFeatures {
     pub html_url: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullCounts {
+    pub open: u64,
+    pub closed: u64,
+}
+
+const PULL_COUNTS_QUERY: &str = "query($owner: String!, $name: String!) { \
+    repository(owner: $owner, name: $name) { \
+        open: pullRequests(states: OPEN) { totalCount } \
+        closed: pullRequests(states: [CLOSED, MERGED]) { totalCount } \
+    } }";
+
+fn map_pull_counts(data: &Value) -> PullCounts {
+    let repo = data.get("repository");
+    PullCounts {
+        open: repo
+            .and_then(|r| r.pointer("/open/totalCount"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        closed: repo
+            .and_then(|r| r.pointer("/closed/totalCount"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+    }
+}
+
+pub async fn list_pull_counts(owner: &str, repo: &str) -> Result<PullCounts> {
+    let data = graphql(
+        PULL_COUNTS_QUERY,
+        json!({ "owner": owner, "name": repo }),
+    )
+    .await?;
+    Ok(map_pull_counts(&data))
+}
+
 fn map_repo_features(v: &Value) -> RepoFeatures {
     let archived = v.get("archived").and_then(|x| x.as_bool()).unwrap_or(false);
     let disabled = v.get("disabled").and_then(|x| x.as_bool()).unwrap_or(false);
@@ -1171,5 +1207,18 @@ mod tests {
         assert!(!features.has_issues);
         assert!(!features.has_pull_requests);
         assert!(features.archived);
+    }
+
+    #[test]
+    fn maps_pull_counts_from_graphql() {
+        let counts = map_pull_counts(&json!({
+            "repository": {
+                "open": { "totalCount": 12 },
+                "closed": { "totalCount": 340 }
+            }
+        }));
+        assert_eq!(counts.open, 12);
+        assert_eq!(counts.closed, 340);
+        assert_eq!(map_pull_counts(&json!({})).open, 0);
     }
 }
