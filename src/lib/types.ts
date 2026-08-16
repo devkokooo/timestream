@@ -262,6 +262,7 @@ export interface IssueSummary {
   assignees: string[];
   milestone: string | null;
   pullRequest: boolean;
+  createdAt: string;
 }
 
 export interface IssueComment {

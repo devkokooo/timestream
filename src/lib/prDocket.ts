@@ -1,6 +1,6 @@
-import type { IssueComment, PullCommit, PullRequestSummary, PullReview, ReviewComment } from "./types";
+import type { IssueComment, IssueSummary, PullCommit, PullRequestSummary, PullReview, ReviewComment } from "./types";
 
-export type DocketKind = "opened" | "commits" | "comment" | "review" | "reviewComment";
+export type DocketKind = "opened" | "incident" | "commits" | "comment" | "review" | "reviewComment";
 
 export interface DocketCommit {
   shortId: string;
@@ -34,6 +34,7 @@ export function includeReview(review: PullReview): boolean {
 
 export function docketAction(entry: DocketEntry): string {
   if (entry.kind === "opened") return "opened this request";
+  if (entry.kind === "incident") return "opened this incident";
   if (entry.kind === "commits") {
     const count = entry.commits?.length ?? 0;
     return count === 1 ? "added 1 commit" : `added ${count} commits`;
@@ -106,6 +107,29 @@ export function buildPrDocket(
   return collapseCommitRuns(
     entries.sort((a, b) => docketTime(a.at) - docketTime(b.at) || a.id.localeCompare(b.id)),
   );
+}
+
+export function buildIssueDocket(issue: IssueSummary, comments: IssueComment[]): DocketEntry[] {
+  const entries: DocketEntry[] = [
+    {
+      kind: "incident",
+      at: issue.createdAt,
+      id: `incident-${issue.number}`,
+      user: issue.userLogin,
+      body: issue.body,
+      summary: issue.title,
+    },
+  ];
+  for (const comment of comments) {
+    entries.push({
+      kind: "comment",
+      at: comment.createdAt,
+      id: `comment-${comment.id}`,
+      user: comment.userLogin,
+      body: comment.body,
+    });
+  }
+  return entries.sort((a, b) => docketTime(a.at) - docketTime(b.at) || a.id.localeCompare(b.id));
 }
 
 export function collapseCommitRuns(entries: DocketEntry[]): DocketEntry[] {

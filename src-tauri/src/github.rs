@@ -40,6 +40,7 @@ pub struct IssueSummary {
     pub assignees: Vec<String>,
     pub milestone: Option<String>,
     pub pull_request: bool,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -228,6 +229,101 @@ async fn get_json<T: for<'de> Deserialize<'de>>(path: &str) -> Result<T> {
     Ok(request(reqwest::Method::GET, path, None).await?.json().await?)
 }
 
+fn graphql_errors(body: &Value) -> Option<String> {
+    let errors = body.get("errors")?.as_array()?;
+    if errors.is_empty() {
+        return None;
+    }
+    let msg = errors
+        .iter()
+        .filter_map(|err| err.get("message").and_then(|m| m.as_str()))
+        .collect::<Vec<_>>()
+        .join("; ");
+    Some(msg)
+}
+
+fn graphql_data(body: Value) -> Result<Value> {
+    if let Some(msg) = graphql_errors(&body) {
+        return Err(AppError::msg(format!("GitHub GraphQL: {msg}")));
+    }
+    body.get("data")
+        .cloned()
+        .ok_or_else(|| AppError::msg("GitHub GraphQL: empty data"))
+}
+
+fn pull_id_from_repo(data: &Value) -> Option<String> {
+    data.pointer("/repository/pullRequest/id")
+        .and_then(|v| v.as_str())
+        .filter(|id| !id.is_empty())
+        .map(|id| id.to_string())
+}
+
+fn pull_id_mutation(name: &str) -> String {
+    format!(
+        "mutation($id: ID!) {{ {name}(input: {{ pullRequestId: $id }}) {{ pullRequest {{ number }} }} }}"
+    )
+}
+
+fn draft_mutation(draft: bool) -> &'static str {
+    if draft {
+        "convertPullRequestToDraft"
+    } else {
+        "markPullRequestReadyForReview"
+    }
+}
+
+fn state_mutation(open: bool) -> &'static str {
+    if open {
+        "reopenPullRequest"
+    } else {
+        "closePullRequest"
+    }
+}
+
+fn merge_method_enum(method: &str) -> &'static str {
+    match method {
+        "squash" => "SQUASH",
+        "rebase" => "REBASE",
+        _ => "MERGE",
+    }
+}
+
+const PULL_ID_QUERY: &str = "query($owner: String!, $name: String!, $number: Int!) { \
+    repository(owner: $owner, name: $name) { pullRequest(number: $number) { id } } }";
+
+const MERGE_MUTATION: &str = "mutation($id: ID!, $method: PullRequestMergeMethod) { \
+    mergePullRequest(input: { pullRequestId: $id, mergeMethod: $method }) { \
+        pullRequest { number } } }";
+
+async fn graphql(query: &str, variables: Value) -> Result<Value> {
+    let res = request(
+        reqwest::Method::POST,
+        "/graphql",
+        Some(json!({ "query": query, "variables": variables })),
+    )
+    .await?;
+    graphql_data(res.json().await?)
+}
+
+async fn pull_node_id(owner: &str, repo: &str, number: u64) -> Result<String> {
+    let data = graphql(
+        PULL_ID_QUERY,
+        json!({ "owner": owner, "name": repo, "number": number }),
+    )
+    .await?;
+    pull_id_from_repo(&data).ok_or_else(|| AppError::msg("GitHub GraphQL: pull request not found"))
+}
+
+async fn mutate_pull(owner: &str, repo: &str, number: u64, query: &str, extra: Value) -> Result<()> {
+    let id = pull_node_id(owner, repo, number).await?;
+    let mut variables = extra;
+    if let Some(obj) = variables.as_object_mut() {
+        obj.insert("id".into(), json!(id));
+    }
+    graphql(query, variables).await?;
+    Ok(())
+}
+
 fn login(v: &Value) -> String {
     v.get("login").and_then(|x| x.as_str()).unwrap_or("").to_string()
 }
@@ -332,6 +428,7 @@ fn map_issue(v: &Value) -> IssueSummary {
             .and_then(|t| t.as_str())
             .map(|s| s.to_string()),
         pull_request: v.get("pull_request").is_some(),
+        created_at: created_at(v),
     }
 }
 
@@ -386,19 +483,61 @@ pub async fn create_pull(
     Ok(map_pr(&res.json().await?))
 }
 
+fn take_draft(patch: &mut Value) -> Option<bool> {
+    patch
+        .as_object_mut()
+        .and_then(|obj| obj.remove("draft"))
+        .and_then(|v| v.as_bool())
+}
+
+fn take_state(patch: &mut Value) -> Option<String> {
+    patch
+        .as_object_mut()
+        .and_then(|obj| obj.remove("state"))
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+}
+
+fn pull_patch_has_fields(patch: &Value) -> bool {
+    patch.as_object().is_some_and(|obj| !obj.is_empty())
+}
+
 pub async fn update_pull(
     owner: &str,
     repo: &str,
     number: u64,
-    patch: Value,
+    mut patch: Value,
 ) -> Result<PullRequestSummary> {
-    let res = request(
-        reqwest::Method::PATCH,
-        &format!("/repos/{owner}/{repo}/pulls/{number}"),
-        Some(patch),
-    )
-    .await?;
-    Ok(map_pr(&res.json().await?))
+    // REST ready_for_review / convert_to_draft fail for GitHub App tokens.
+    if let Some(draft) = take_draft(&mut patch) {
+        mutate_pull(
+            owner,
+            repo,
+            number,
+            &pull_id_mutation(draft_mutation(draft)),
+            json!({}),
+        )
+        .await?;
+    }
+    if let Some(state) = take_state(&mut patch) {
+        mutate_pull(
+            owner,
+            repo,
+            number,
+            &pull_id_mutation(state_mutation(state == "open")),
+            json!({}),
+        )
+        .await?;
+    }
+    if pull_patch_has_fields(&patch) {
+        let res = request(
+            reqwest::Method::PATCH,
+            &format!("/repos/{owner}/{repo}/pulls/{number}"),
+            Some(patch),
+        )
+        .await?;
+        return Ok(map_pr(&res.json().await?));
+    }
+    get_pull(owner, repo, number).await
 }
 
 pub async fn merge_pull(
@@ -407,14 +546,12 @@ pub async fn merge_pull(
     number: u64,
     method: &str,
 ) -> Result<PullRequestSummary> {
-    let merge_method = match method {
-        "squash" | "rebase" | "merge" => method,
-        _ => "merge",
-    };
-    request(
-        reqwest::Method::PUT,
-        &format!("/repos/{owner}/{repo}/pulls/{number}/merge"),
-        Some(json!({ "merge_method": merge_method })),
+    mutate_pull(
+        owner,
+        repo,
+        number,
+        MERGE_MUTATION,
+        json!({ "method": merge_method_enum(method) }),
     )
     .await?;
     get_pull(owner, repo, number).await
@@ -928,6 +1065,29 @@ mod tests {
     }
 
     #[test]
+    fn pull_mutations_use_graphql() {
+        let mut patch = json!({ "draft": true, "state": "closed" });
+        assert_eq!(take_draft(&mut patch), Some(true));
+        assert_eq!(take_state(&mut patch).as_deref(), Some("closed"));
+        assert!(!pull_patch_has_fields(&patch));
+        assert_eq!(draft_mutation(true), "convertPullRequestToDraft");
+        assert_eq!(draft_mutation(false), "markPullRequestReadyForReview");
+        assert_eq!(state_mutation(false), "closePullRequest");
+        assert_eq!(state_mutation(true), "reopenPullRequest");
+        assert_eq!(merge_method_enum("squash"), "SQUASH");
+        assert_eq!(merge_method_enum("rebase"), "REBASE");
+        assert_eq!(merge_method_enum("merge"), "MERGE");
+        assert!(pull_id_mutation("markPullRequestReadyForReview").contains("markPullRequestReadyForReview"));
+
+        let data = json!({ "repository": { "pullRequest": { "id": "PR_kwDO" } } });
+        assert_eq!(pull_id_from_repo(&data).as_deref(), Some("PR_kwDO"));
+        assert!(graphql_data(json!({
+            "errors": [{ "message": "Resource not accessible by integration" }]
+        }))
+        .is_err());
+    }
+
+    #[test]
     fn maps_pull_commit_and_review() {
         let commit = map_pull_commit(&json!({
             "sha": "abcdef1234567890",
@@ -964,9 +1124,12 @@ mod tests {
             "user": { "login": "analyst" },
             "labels": [],
             "assignees": [],
+            "created_at": "2026-08-16T10:00:00Z",
             "pull_request": { "url": "x" }
         });
-        assert!(map_issue(&v).pull_request);
+        let issue = map_issue(&v);
+        assert!(issue.pull_request);
+        assert_eq!(issue.created_at, "2026-08-16T10:00:00Z");
     }
 
     #[test]
