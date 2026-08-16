@@ -213,7 +213,7 @@ pub fn auth_for(
         return Ok(auth);
     }
     Ok(GitAuth {
-        token: auth::load_token()?,
+        token: tauri::async_runtime::block_on(auth::valid_token())?,
         ssh_key: None,
         passphrase: None,
         use_agent: false,

@@ -15,7 +15,6 @@ import {
   actionColor,
   btn,
   btnPrimary,
-  btnTransmit,
   emptyText,
   eyebrow,
   fieldInput,
@@ -27,8 +26,7 @@ import {
 import type { AheadBehind, FileChange, StatusPayload } from "../lib/types";
 import { FileKindIcon } from "./FileKindIcon";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
-import { TvaJumble } from "./TvaJumble";
-import { TvaTerm } from "./TvaTerm";
+import { TransmitButton } from "./TransmitButton";
 import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
 
@@ -78,6 +76,7 @@ export function ReviewMode({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [amend, setAmend] = useState(false);
+  const [filing, setFiling] = useState(false);
   const loading = status == null;
   const staged = status?.staged ?? [];
   const unfiled = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
@@ -108,11 +107,16 @@ export function ReviewMode({
   }
 
   async function submit() {
-    if (!canFile) return;
-    await onCommit(message, amend);
-    setTitle("");
-    setBody("");
-    setAmend(false);
+    if (!canFile || filing) return;
+    setFiling(true);
+    try {
+      await onCommit(message, amend);
+      setTitle("");
+      setBody("");
+      setAmend(false);
+    } finally {
+      setFiling(false);
+    }
   }
 
   return (
@@ -213,13 +217,18 @@ export function ReviewMode({
               ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
               : "File at least one record before submitting"}
         </p>
-        <button className={btnPrimary} type="submit" disabled={!canFile}>
-          {amend ? (
-            <TvaTerm flavor="Revise last filing" noun="Amend" onPrimary />
-          ) : (
-            "File variant"
-          )}
-        </button>
+        <TransmitButton
+          active={filing}
+          disabled={!canFile}
+          idleClass={btnPrimary}
+          onClick={() => void submit()}
+          title={amend ? "Amend last filing" : "File variant"}
+          label={amend ? "Revising…" : "Filing…"}
+          flavor={amend ? "Revise last filing" : "File variant"}
+          noun={amend ? "Amend" : "File variant"}
+          busyNoun={amend ? "Revising…" : "Filing…"}
+          onPrimary
+        />
         <div className="mt-auto flex flex-col gap-2 border-t border-tva-gold/16 pt-3">
           <TransmitButton
             active={fetching}
@@ -258,47 +267,6 @@ export function ReviewMode({
         </div>
       </form>
     </div>
-  );
-}
-
-function TransmitButton({
-  active,
-  disabled,
-  idleClass,
-  onClick,
-  title,
-  label,
-  flavor,
-  noun,
-  busyNoun,
-  onPrimary,
-}: {
-  active: boolean;
-  disabled: boolean;
-  idleClass: string;
-  onClick: () => void;
-  title: string;
-  label: string;
-  flavor: string;
-  noun: string;
-  busyNoun: string;
-  onPrimary?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className={active ? btnTransmit : idleClass}
-      disabled={disabled || active}
-      onClick={onClick}
-      title={active ? label : title}
-      aria-busy={active}
-    >
-      {active ? (
-        <TvaJumble label={label} noun={busyNoun} />
-      ) : (
-        <TvaTerm flavor={flavor} noun={noun} onPrimary={onPrimary} />
-      )}
-    </button>
   );
 }
 

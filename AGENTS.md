@@ -16,7 +16,7 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 | `src-tauri/src/graph.rs` | Lane assignment, edges, branch topology. Pure. Heavily tested. |
 | `src-tauri/src/git.rs` | Open repo, walk history, status, diff, checkout, stage, commit, tags |
 | `src-tauri/src/remotes.rs` | libgit2 remotes, fetch, ff-only pull, push, clone, ahead/behind |
-| `src-tauri/src/auth.rs` | GitHub device flow + PAT; OS keychain |
+| `src-tauri/src/auth.rs` | GitHub App device flow + PAT; OS keychain |
 | `src-tauri/src/ssh.rs` | SSH key listing, ssh-agent, ssh-add |
 | `src-tauri/src/settings.rs` | Versioned `settings.toml` |
 | `src-tauri/src/github.rs` | GitHub REST: PRs, issues, releases, checks, reviews |
@@ -41,11 +41,33 @@ Do not look like GitHub, GitKraken, or a generic dark IDE.
 - Layout must stay consistent for: linear history, many simultaneous branches, and branches that diverge for dozens of commits
 - Never rewrite published history. Local amend of unpublished HEAD is allowed. No force-push. Checkout / stage / commit / amend unpublished HEAD / ff-only pull only
 - Never shell out to `git`. OpenSSH `ssh-agent` / `ssh-add` are allowed (they are not git)
-- Secrets (OAuth tokens, SSH passphrases) live in the OS keychain, never in `settings.toml`
+- Secrets (GitHub App tokens, PATs, SSH passphrases) live in the OS keychain, never in `settings.toml`
 
-## GitHub personal access token
+## GitHub App
 
-Document and request **only** scopes that match implemented GitHub features. Device flow in `auth.rs` already asks for `repo read:org workflow` — keep PAT docs, OAuth scopes, and this list in lockstep. When you add a GitHub API, update this section, `README.md`, and the AuthDialog hint.
+Primary sign-in is a GitHub App user-to-server **device flow** (no client secret in the binary). Bake the public client ID at compile time with `TIMESTREAM_GITHUB_CLIENT_ID`. When you add a GitHub API, update this section, `README.md`, and the AuthDialog hint.
+
+Register the app, enable **Device Authorization Grant**, and install it on each user or organization whose repos Timestream should see. User tokens only cover the intersection of the user's access and the app installation.
+
+**App permissions** (lockstep with shipped features):
+
+| Permission | Access | Used for |
+| --- | --- | --- |
+| Contents | Read and write | Clone, fetch, push, tags, releases |
+| Pull requests | Read and write | List / create / update / merge PRs, reviews, review comments |
+| Issues | Read and write | Issues and issue comments |
+| Actions | Read and write | Rerun jobs |
+| Workflows | Read and write | Push workflow files |
+| Checks | Read | Check runs |
+| Metadata | Read | Automatic; repo listing |
+| Members | Read | Search org repos |
+| Email addresses | Read | Optional; `whoami` name/email |
+
+Do **not** request administration, secrets, codespaces, pages, discussions, or delete-repo.
+
+## GitHub personal access token (fallback)
+
+Use a PAT only when the GitHub App client ID is not configured, or the user prefers a token.
 
 **Classic PAT** (covers every shipped feature, including Checks API and the notification inbox):
 

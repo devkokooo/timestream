@@ -1,14 +1,16 @@
 use crate::auth::{self, DeviceLoginBegin, GithubUser};
 use crate::error::Result;
 use crate::git::{
-    checkout_branch, commit_changes, create_branch, create_tag, delete_tag, list_branches,
-    load_commit, load_file_diff, load_status, load_timeline_opts, load_worktree_diff, open_repo,
-    stage_path, unstage_path, BranchInfo, CommitDetail, FileDiff, RepoSummary, StatusPayload,
+    checkout_branch, commit_changes, compare_refs, create_branch, create_tag, delete_tag,
+    list_branches, load_commit, load_file_diff, load_range_file_diff, load_status,
+    load_timeline_opts, load_worktree_diff, open_repo, stage_path, unstage_path, BranchInfo,
+    CommitDetail, FileDiff, RangeCompare, RepoSummary, StatusPayload,
 };
 use crate::github::{
     self, CheckRunSummary, CreateIssue, CreatePullRequest, CreateRelease, IssueComment,
-    IssueSummary, NotificationItem, PullRequestSummary, ReleaseSummary, RepoSearchHit,
-    ReviewComment, SubmitReview,
+    IssueSummary, NotificationItem, PullCommit, PullRequestSummary, PullReview, ReleaseSummary,
+    RepoFeatures,
+    RepoSearchHit, ReviewComment, SubmitReview,
 };
 use crate::graph::Timeline;
 use crate::remotes::{self, AheadBehind, GitAuth, RemoteInfo};
@@ -87,6 +89,21 @@ pub fn get_file_diff(path: String, sha: String, rel: String) -> Result<FileDiff>
 #[tauri::command]
 pub fn get_worktree_diff(path: String, rel: String, staged: bool) -> Result<FileDiff> {
     load_worktree_diff(&PathBuf::from(path), &rel, staged)
+}
+
+#[tauri::command]
+pub fn compare_range(path: String, base: String, head: String) -> Result<RangeCompare> {
+    compare_refs(&PathBuf::from(path), &base, &head)
+}
+
+#[tauri::command]
+pub fn get_range_file_diff(
+    path: String,
+    base: String,
+    head: String,
+    rel: String,
+) -> Result<FileDiff> {
+    load_range_file_diff(&PathBuf::from(path), &base, &head, &rel)
 }
 
 #[tauri::command]
@@ -415,6 +432,11 @@ pub fn ssh_add_key(path: String, passphrase: Option<String>) -> Result<SshAgentS
 }
 
 #[tauri::command]
+pub async fn github_repo_features(owner: String, repo: String) -> Result<RepoFeatures> {
+    github::repo_features(&owner, &repo).await
+}
+
+#[tauri::command]
 pub async fn github_list_pulls(
     owner: String,
     repo: String,
@@ -553,6 +575,24 @@ pub async fn github_list_review_comments(
     number: u64,
 ) -> Result<Vec<ReviewComment>> {
     github::list_review_comments(&owner, &repo, number).await
+}
+
+#[tauri::command]
+pub async fn github_list_pull_commits(
+    owner: String,
+    repo: String,
+    number: u64,
+) -> Result<Vec<PullCommit>> {
+    github::list_pull_commits(&owner, &repo, number).await
+}
+
+#[tauri::command]
+pub async fn github_list_reviews(
+    owner: String,
+    repo: String,
+    number: u64,
+) -> Result<Vec<PullReview>> {
+    github::list_reviews(&owner, &repo, number).await
 }
 
 #[tauri::command]
