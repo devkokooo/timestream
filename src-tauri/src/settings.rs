@@ -72,6 +72,8 @@ pub struct SshIdentity {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TimelineSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     #[serde(default = "default_true", alias = "show_upstream_refs")]
     pub show_upstream_refs: bool,
 }
@@ -79,6 +81,7 @@ pub struct TimelineSettings {
 impl Default for TimelineSettings {
     fn default() -> Self {
         Self {
+            enabled: true,
             show_upstream_refs: true,
         }
     }
@@ -196,6 +199,7 @@ fn apply_known(doc: &mut toml_edit::DocumentMut, settings: &AppSettings) {
     }
     doc["ssh"]["bindings"] = bindings_array(&settings.ssh.bindings);
     doc["ssh"]["identities"] = identities_array(&settings.ssh.identities);
+    doc["timeline"]["enabled"] = toml_edit::value(settings.timeline.enabled);
     doc["timeline"]["show_upstream_refs"] = toml_edit::value(settings.timeline.show_upstream_refs);
 }
 
@@ -248,8 +252,22 @@ mod tests {
     fn default_has_schema_version() {
         let s = AppSettings::default();
         assert_eq!(s.version, SETTINGS_VERSION);
+        assert!(s.timeline.enabled);
         assert!(s.timeline.show_upstream_refs);
         assert_eq!(s.github.clone_protocol, "https");
+    }
+
+    #[test]
+    fn missing_timeline_enabled_defaults_on() {
+        let raw = r#"
+version = 1
+[timeline]
+show_upstream_refs = false
+"#;
+        let parsed: AppSettings = toml::from_str(raw).unwrap();
+        let migrated = parsed.migrate();
+        assert!(migrated.timeline.enabled);
+        assert!(!migrated.timeline.show_upstream_refs);
     }
 
     #[test]

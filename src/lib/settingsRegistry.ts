@@ -70,6 +70,19 @@ export const SETTINGS_REGISTRY: SettingDef[] = [
     set: (s) => s,
   },
   {
+    key: "timeline.enabled",
+    title: "Show Sacred Timeline",
+    flavor: "Chronomonitor",
+    description: "Draw the commit-graph visualization. Turn off to reduce render lag; rails and the case file stay available.",
+    category: "Timeline",
+    kind: "boolean",
+    get: (s) => s.timeline.enabled,
+    set: (s, value) => ({
+      ...s,
+      timeline: { ...s.timeline, enabled: Boolean(value) },
+    }),
+  },
+  {
     key: "timeline.show_upstream_refs",
     title: "Show upstream refs",
     flavor: "Upstream spurs",
@@ -101,6 +114,6 @@ export function defaultSettings(): AppSettings {
     version: 1,
     github: { cloneProtocol: "https" },
     ssh: { agentAutostart: true, defaultKey: null, bindings: [], identities: [] },
-    timeline: { showUpstreamRefs: true },
+    timeline: { enabled: true, showUpstreamRefs: true },
   };
 }
