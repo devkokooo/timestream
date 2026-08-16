@@ -1,10 +1,12 @@
 import {
   useCallback,
+  useEffect,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { canReviseLastFiling } from "../lib/amendFiling";
 import { composeCommitMessage } from "../lib/commitMessage";
 import { cn } from "../lib/cn";
 import { actionMark, actionMarkTitle, actionTone, fileDisplayName, fileDisplayPath } from "../lib/diffView";
@@ -20,7 +22,7 @@ import {
   fieldLabel,
   TEST_FILE_HEX,
 } from "../lib/ui";
-import type { FileChange, StatusPayload } from "../lib/types";
+import type { AheadBehind, FileChange, StatusPayload } from "../lib/types";
 import { FileKindIcon } from "./FileKindIcon";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
 import { TvaJumble } from "./TvaJumble";
@@ -36,12 +38,15 @@ interface Props {
   onOpenFile: (side: AnomalySide, path: string) => void;
   onStage: (path: string) => void | Promise<void>;
   onUnstage: (path: string) => void | Promise<void>;
-  onCommit: (message: string) => Promise<void>;
+  onCommit: (message: string, amend: boolean) => Promise<void>;
   busy: boolean;
   fetching?: boolean;
   pulling?: boolean;
   pushing?: boolean;
-  ahead?: number;
+  sync?: AheadBehind | null;
+  onBranch?: boolean;
+  hasHead?: boolean;
+  headFiling?: { summary: string; body: string } | null;
   onPush: () => void;
   onFetch: () => void;
   onPull: () => void;
@@ -59,7 +64,10 @@ export function ReviewMode({
   fetching = false,
   pulling = false,
   pushing = false,
-  ahead = 0,
+  sync = null,
+  onBranch = false,
+  hasHead = false,
+  headFiling = null,
   onPush,
   onFetch,
   onPull,
@@ -67,12 +75,25 @@ export function ReviewMode({
 }: Props) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [amend, setAmend] = useState(false);
   const loading = status == null;
   const staged = status?.staged ?? [];
   const unfiled = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
   const message = composeCommitMessage(title, body);
   const hasSubject = Boolean(title.trim());
-  const canFile = !busy && staged.length > 0 && hasSubject;
+  const canRevise = canReviseLastFiling(sync, onBranch, hasHead);
+  const ahead = sync?.ahead ?? 0;
+  const canFile = !busy && hasSubject && (amend ? canRevise : staged.length > 0);
+
+  useEffect(() => {
+    if (amend && !canRevise) setAmend(false);
+  }, [amend, canRevise]);
+
+  useEffect(() => {
+    if (!amend || !headFiling) return;
+    setTitle((current) => (current.trim() ? current : headFiling.summary.slice(0, 72)));
+    setBody((current) => (current.trim() ? current : headFiling.body));
+  }, [amend, headFiling]);
 
   const runAll = useCallback(async (paths: string[], act: (path: string) => void | Promise<void>) => {
     for (const path of paths) {
@@ -80,11 +101,16 @@ export function ReviewMode({
     }
   }, []);
 
+  function toggleAmend(checked: boolean) {
+    setAmend(checked);
+  }
+
   async function submit() {
     if (!canFile) return;
-    await onCommit(message);
+    await onCommit(message, amend);
     setTitle("");
     setBody("");
+    setAmend(false);
   }
 
   return (
@@ -164,13 +190,33 @@ export function ReviewMode({
             placeholder="Optional case note for this filing"
           />
         </label>
+        <label className="flex items-center gap-2.5 text-[11px] text-tva-muted">
+          <input
+            type="checkbox"
+            checked={amend}
+            disabled={!canRevise}
+            onChange={(e) => toggleAmend(e.target.checked)}
+          />
+          Revise last filing
+        </label>
+        {!canRevise && hasHead && onBranch ? (
+          <p className="m-0 text-[11px] text-tva-muted">Last filing already uploaded to HQ</p>
+        ) : null}
         <p className="m-0 text-[11px] text-tva-muted">
-          {staged.length
-            ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
-            : "File at least one record before submitting"}
+          {amend
+            ? staged.length
+              ? `${staged.length} record${staged.length === 1 ? "" : "s"} will fold into the last filing`
+              : "Case note only — no new records staged"
+            : staged.length
+              ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
+              : "File at least one record before submitting"}
         </p>
         <button className={btnPrimary} type="submit" disabled={!canFile}>
-          File variant
+          {amend ? (
+            <TvaTerm flavor="Revise last filing" noun="Amend" onPrimary />
+          ) : (
+            "File variant"
+          )}
         </button>
         <div className="mt-auto flex flex-col gap-2 border-t border-tva-gold/16 pt-3">
           <TransmitButton
@@ -197,7 +243,7 @@ export function ReviewMode({
           />
           <TransmitButton
             active={pushing}
-            disabled={busy || !hasSubject}
+            disabled={busy}
             idleClass={ahead > 0 ? btnPrimary : btn}
             onClick={onPush}
             title="Push branch"

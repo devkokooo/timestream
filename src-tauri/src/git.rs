@@ -265,26 +265,86 @@ pub fn unstage_path(path: &Path, rel: &str) -> Result<StatusPayload> {
     status_of(&repo)
 }
 
-pub fn commit_changes(path: &Path, message: &str) -> Result<String> {
+pub fn commit_changes(path: &Path, message: &str, amend: bool) -> Result<String> {
     let message = message.trim();
     if message.is_empty() {
         return Err(AppError::msg("a case note is required"));
     }
     let repo = Repository::discover(path)?;
     let status = status_of(&repo)?;
-    if status.staged.is_empty() {
+    if !amend && status.staged.is_empty() {
         return Err(AppError::msg("nothing staged to file"));
     }
-    let sig = repo
+    let committer = repo
         .signature()
         .or_else(|_| Signature::now("Timestream", "timestream@local"))?;
     let mut index = repo.index()?;
     let tree_id = index.write_tree()?;
     let tree = repo.find_tree(tree_id)?;
+
+    if amend {
+        return amend_head(&repo, message, &tree, &committer);
+    }
+
     let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
     let parents: Vec<&git2::Commit> = parent.as_ref().into_iter().collect();
-    let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)?;
+    let oid = repo.commit(Some("HEAD"), &committer, &committer, message, &tree, &parents)?;
     Ok(oid.to_string())
+}
+
+fn amend_head(
+    repo: &Repository,
+    message: &str,
+    tree: &git2::Tree,
+    committer: &Signature,
+) -> Result<String> {
+    let head_ref = repo
+        .head()
+        .map_err(|_| AppError::msg("nothing to revise"))?;
+    if !head_ref.is_branch() {
+        return Err(AppError::msg("cannot revise a detached HEAD"));
+    }
+    let ref_name = head_ref
+        .name()
+        .ok_or_else(|| AppError::msg("HEAD has no name"))?
+        .to_string();
+    ensure_head_unpublished(repo)?;
+    let head = head_ref.peel_to_commit()?;
+    let author = head.author();
+    let parents: Vec<git2::Commit> = head.parents().collect();
+    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+    let oid = repo.commit(None, &author, committer, message, tree, &parent_refs)?;
+    repo.reference(&ref_name, oid, true, "revise last filing")?;
+    Ok(oid.to_string())
+}
+
+fn ensure_head_unpublished(repo: &Repository) -> Result<()> {
+    let head = repo
+        .head()
+        .map_err(|_| AppError::msg("nothing to revise"))?;
+    if !head.is_branch() {
+        return Err(AppError::msg("cannot revise a detached HEAD"));
+    }
+    let local = head
+        .target()
+        .ok_or_else(|| AppError::msg("HEAD has no target"))?;
+    let branch = git2::Branch::wrap(head);
+    match branch.upstream() {
+        Ok(up) => {
+            let remote_oid = up
+                .get()
+                .target()
+                .ok_or_else(|| AppError::msg("upstream has no target"))?;
+            let (ahead, _) = repo.graph_ahead_behind(local, remote_oid)?;
+            if ahead == 0 {
+                return Err(AppError::msg(
+                    "cannot revise a filing that has already been uploaded",
+                ));
+            }
+            Ok(())
+        }
+        Err(_) => Ok(()),
+    }
 }
 
 fn summary(repo: &Repository) -> Result<RepoSummary> {
@@ -981,12 +1041,99 @@ mod tests {
         assert!(staged.staged.iter().any(|f| f.path == "anomaly.txt"));
         assert!(staged.untracked.is_empty());
 
-        let sha = commit_changes(&h.path, "file the anomaly").unwrap();
+        let sha = commit_changes(&h.path, "file the anomaly", false).unwrap();
         let tl = load_timeline(&h.path).unwrap();
         assert_invariants(&tl);
         assert_eq!(tl.nodes.len(), 2);
         assert_eq!(tl.head.as_deref(), Some(sha.as_str()));
         assert!(load_status(&h.path).unwrap().staged.is_empty());
+    }
+
+    #[test]
+    fn amend_folds_staged_file_into_unpublished_head() {
+        let mut h = Harness::new();
+        let root = h.commit("a.txt", "a", "root");
+        let first = h.commit("b.txt", "b", "incomplete filing");
+        fs::write(h.path.join("left-out.txt"), "oops").unwrap();
+        stage_path(&h.path, "left-out.txt").unwrap();
+
+        let sha = commit_changes(&h.path, "complete filing", true).unwrap();
+        assert_ne!(sha, first);
+        let head = h.repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(head.id().to_string(), sha);
+        assert_eq!(head.parent_id(0).unwrap().to_string(), root);
+        assert_eq!(head.message().unwrap(), "complete filing");
+        assert!(head.tree().unwrap().get_name("left-out.txt").is_some());
+        assert!(h.repo.find_commit(git2::Oid::from_str(&first).unwrap()).is_ok());
+
+        let tl = load_timeline(&h.path).unwrap();
+        assert_invariants(&tl);
+        assert_eq!(tl.head.as_deref(), Some(sha.as_str()));
+        assert!(!tl.nodes.iter().any(|n| n.id == first));
+        assert!(load_status(&h.path).unwrap().staged.is_empty());
+    }
+
+    #[test]
+    fn amend_allows_message_only_when_unpublished() {
+        let mut h = Harness::new();
+        let first = h.commit("a.txt", "a", "typo filing");
+        let sha = commit_changes(&h.path, "fixed filing", true).unwrap();
+        assert_ne!(sha, first);
+        let head = h.repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(head.id().to_string(), sha);
+        assert_eq!(head.message().unwrap(), "fixed filing");
+        assert!(head.tree().unwrap().get_name("a.txt").is_some());
+    }
+
+    #[test]
+    fn amend_rejects_published_head() {
+        let mut h = Harness::new();
+        let tip = h.commit("a.txt", "a", "root");
+        let trunk = h.trunk();
+        let oid = git2::Oid::from_str(&tip).unwrap();
+        h.repo
+            .remote("origin", "https://example.com/tva/archive.git")
+            .unwrap();
+        h.repo
+            .reference(
+                &format!("refs/remotes/origin/{trunk}"),
+                oid,
+                true,
+                "test remote",
+            )
+            .unwrap();
+        let mut branch = h
+            .repo
+            .find_branch(&trunk, git2::BranchType::Local)
+            .unwrap();
+        branch
+            .set_upstream(Some(&format!("origin/{trunk}")))
+            .unwrap();
+
+        let err = commit_changes(&h.path, "revise", true).unwrap_err();
+        assert!(
+            err.to_string().contains("already been uploaded"),
+            "{err}"
+        );
+        assert_eq!(
+            h.repo.head().unwrap().peel_to_commit().unwrap().id().to_string(),
+            tip
+        );
+    }
+
+    #[test]
+    fn amend_rejects_empty_repo_and_detached_head() {
+        let empty = Harness::new();
+        let err = commit_changes(&empty.path, "revise", true).unwrap_err();
+        assert!(err.to_string().contains("nothing to revise"), "{err}");
+
+        let mut h = Harness::new();
+        let tip = h.commit("a.txt", "a", "root");
+        h.repo
+            .set_head_detached(git2::Oid::from_str(&tip).unwrap())
+            .unwrap();
+        let err = commit_changes(&h.path, "revise", true).unwrap_err();
+        assert!(err.to_string().contains("detached HEAD"), "{err}");
     }
 
     #[test]

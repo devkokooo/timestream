@@ -39,7 +39,7 @@ Do not look like GitHub, GitKraken, or a generic dark IDE.
 - Local-first working tree, plus optional GitHub remotes in v2 (clone / fetch / ff-only pull / push)
 - Graph input is refs + reachable commits (local branches, tags, optional remote-tracking refs). Default branch is the Sacred Timeline; others are variants
 - Layout must stay consistent for: linear history, many simultaneous branches, and branches that diverge for dozens of commits
-- Never rewrite history. No force-push. Checkout / stage / commit / ff-only pull only
+- Never rewrite published history. Local amend of unpublished HEAD is allowed. No force-push. Checkout / stage / commit / amend unpublished HEAD / ff-only pull only
 - Never shell out to `git`. OpenSSH `ssh-agent` / `ssh-add` are allowed (they are not git)
 - Secrets (OAuth tokens, SSH passphrases) live in the OS keychain, never in `settings.toml`
 
@@ -103,5 +103,5 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 - Keep graph math in Rust; keep presentation math in `timelineView.ts`
 - IPC types in `src/lib/types.ts` must match `#[derive(Serialize)]` structs
-- No secrets in the repo. No force-push or history rewrite helpers
+- No secrets in the repo. No force-push or published-history rewrite helpers
 - Prefer small modules and table-driven tests over snapshots of SVG markup
