@@ -424,6 +424,30 @@ export function listTimelineTags(timeline: Pick<Timeline, "nodes">): TimelineTag
   return tags;
 }
 
+/** Local branch checked out at HEAD, if any. */
+export function currentBranchName(timeline: Pick<Timeline, "dossiers">): string | null {
+  return timeline.dossiers.find((d) => d.isHead && !d.isUpstream)?.name ?? null;
+}
+
+/** Ancestors of HEAD (current branch log), newest first. Skips unmerged variant tips. */
+export function listBranchHistory(timeline: Pick<Timeline, "nodes" | "head">): TimelineNode[] {
+  if (!timeline.head) return [];
+  const byId = new Map(timeline.nodes.map((n) => [n.id, n]));
+  const keep = new Set<string>();
+  const stack = [timeline.head];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (keep.has(id)) continue;
+    const node = byId.get(id);
+    if (!node) continue;
+    keep.add(id);
+    for (const parent of node.parents) stack.push(parent);
+  }
+  return timeline.nodes
+    .filter((n) => keep.has(n.id))
+    .sort((a, b) => b.row - a.row || b.timestamp - a.timestamp || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
 /** Gold canon seal — tags are stamps on a nexus, not a variant fiber. */
 export function diamondPoints(cx: number, cy: number, r: number): string {
   return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`;
