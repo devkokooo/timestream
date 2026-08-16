@@ -106,6 +106,11 @@ export interface CommitDetail {
   author: string;
   email: string;
   timestamp: number;
+  committer: string;
+  committerEmail: string;
+  committerTimestamp: number;
+  signed: boolean;
+  signatureKind: string | null;
   parents: string[];
   files: FileChange[];
 }

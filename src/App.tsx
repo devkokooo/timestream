@@ -974,12 +974,18 @@ export default function App() {
               timeline={timeline}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              detail={detail?.id === selectedId ? detail : null}
+              reviewers={prs.find((p) => p.headSha === selectedId)?.requestedReviewers}
+              reviewDecision={prs.find((p) => p.headSha === selectedId)?.reviewDecision}
+              checks={prs.find((p) => p.headSha === selectedId)?.ciStatus}
               incursion={varianceCount > 0}
               onOpenReview={() => {
                 if (!reviewOpen) toggleReview();
               }}
               prHeadShas={prHeadShas}
               failingShas={failingShas}
+              onSelectCommit={setSelectedId}
+              onOpenFile={(path) => openDiff({ kind: "commit", path })}
             />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">

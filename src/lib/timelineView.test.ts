@@ -20,7 +20,10 @@ import {
   layoutTimelineView,
   lerpCamera,
   placeLabels,
+  screenPoint,
   timelineLod,
+  TOOLTIP_GAP,
+  tooltipPlacement,
   worldRect,
 } from "./timelineView";
 import { crowdedTipsTimeline, linearTimeline, longDivergedTimeline, manyBranchesTimeline, mixedRefTimeline, taggedTimeline } from "./fixtures";
@@ -60,6 +63,39 @@ describe("focusCamera", () => {
     expect(cam.x + 100 * cam.scale).toBe(200);
     expect(cam.y + 50 * cam.scale).toBe(100);
     expect(cam.scale).toBe(2);
+  });
+});
+
+describe("screenPoint", () => {
+  it("maps a world nexus through pan and scale", () => {
+    expect(screenPoint({ x: 100, y: 50 }, { x: 20, y: 10, scale: 2 })).toEqual({ x: 220, y: 110 });
+  });
+});
+
+describe("tooltipPlacement", () => {
+  const node = { x: 200, y: 160, r: 7 };
+  const cam = { x: 0, y: 0, scale: 1 };
+  const viewport = { width: 400, height: 300 };
+  const size = { w: 240, h: 88 };
+
+  it("sits above the nexus when the monitor has room", () => {
+    const place = tooltipPlacement(node, cam, viewport, size);
+    expect(place.side).toBe("above");
+    expect(place.x).toBe(200);
+    expect(place.y).toBe(160 - 7 - TOOLTIP_GAP);
+  });
+
+  it("flips below when the slip would clip the top of the monitor", () => {
+    const place = tooltipPlacement({ x: 100, y: 20, r: 7 }, cam, viewport, size);
+    expect(place.side).toBe("below");
+    expect(place.y).toBe(20 + 7 + TOOLTIP_GAP);
+  });
+
+  it("clamps horizontally so a wide slip stays on the monitor", () => {
+    const left = tooltipPlacement({ x: 4, y: 120, r: 7 }, cam, viewport, size);
+    expect(left.x).toBe(8 + 120);
+    const right = tooltipPlacement({ x: 396, y: 120, r: 7 }, cam, viewport, size);
+    expect(right.x).toBe(400 - 8 - 120);
   });
 });
 

@@ -41,6 +41,69 @@
   text-transform: uppercase;
 }
 
+/* Selected-nexus dossier slip */
+.nexus-tip {
+  visibility: hidden;
+  animation: nexus-tip-in 180ms ease-out;
+}
+
+.nexus-tip-card {
+  border: 1px solid color-mix(in srgb, var(--color-tva-gold) 48%, transparent);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.07) 2px,
+      rgba(0, 0, 0, 0.07) 3px
+    ),
+    linear-gradient(180deg, #3a2a16, #1e1914);
+  box-shadow:
+    inset 0 0 0 1px rgba(244, 196, 48, 0.12),
+    0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+.nexus-tip-caret {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: #3a2a16;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--color-tva-gold) 50%, transparent));
+}
+
+.nexus-tip[data-side="below"] .nexus-tip-caret {
+  top: auto;
+  bottom: 100%;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+  filter: drop-shadow(0 -1px 0 color-mix(in srgb, var(--color-tva-gold) 50%, transparent));
+}
+
+@keyframes nexus-tip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.nexus-dossier {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.06) 2px,
+      rgba(0, 0, 0, 0.06) 3px
+    ),
+    linear-gradient(180deg, #2c2218, #16120e);
+  box-shadow: inset 0 0 0 1px rgba(232, 184, 109, 0.18);
+}
+
 /* Diff viewer dense layout + token colors */
 .diff-body.tva-scroll > .tva-scroll-viewport {
   padding: 0 0 16px;
