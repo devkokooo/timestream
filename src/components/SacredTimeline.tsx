@@ -546,6 +546,7 @@ export function SacredTimeline({
         tipRef={tipRef}
         body={detail?.id === selectedNode.id ? detail.body : null}
         committer={detail?.id === selectedNode.id ? detail.committer : null}
+        committerEmail={detail?.id === selectedNode.id ? detail.committerEmail : null}
         filedAt={detail?.id === selectedNode.id ? detail.committerTimestamp : null}
         isPr={prHeadShas?.has(selectedNode.id)}
         failed={failingShas?.has(selectedNode.id)}

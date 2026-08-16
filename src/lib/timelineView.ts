@@ -430,6 +430,7 @@ export interface TimelineTag {
   shortId: string;
   summary: string;
   author: string;
+  email: string;
   timestamp: number;
   isHead: boolean;
   isSacred: boolean;
@@ -447,6 +448,7 @@ export function listTimelineTags(timeline: Pick<Timeline, "nodes">): TimelineTag
         shortId: n.shortId,
         summary: n.summary,
         author: n.author,
+        email: n.email,
         timestamp: n.timestamp,
         isHead: n.isHead,
         isSacred: n.column === 0,

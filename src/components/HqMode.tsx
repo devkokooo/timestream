@@ -45,6 +45,7 @@ import type {
   ReviewComment,
   Timeline,
 } from "../lib/types";
+import { PersonName } from "./PersonName";
 import { PrCompare } from "./PrCompare";
 import { HintMark, TvaTerm } from "./TvaTerm";
 import { TransmitButton } from "./TransmitButton";
@@ -418,7 +419,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                       <span className="text-tva-muted">#{pr.number}</span> {pr.title}
                     </span>
                     <span className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-tva-muted">
-                      {pr.headRef} → {pr.baseRef}
+                      <PersonName name={pr.userLogin} login={pr.userLogin} /> · {pr.headRef} → {pr.baseRef}
                     </span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
@@ -756,7 +757,8 @@ function DocketItem({ entry, now }: { entry: DocketEntry; now: number }) {
     <div className="mb-2 border border-tva-gold/16 bg-[#1b1713] p-2.5">
       <div className="flex items-start justify-between gap-2">
         <p className="m-0 font-mono text-[11px] text-tva-paper">
-          {entry.user} {action} <DocketWhen at={entry.at} now={now} />
+          <PersonName name={entry.user} login={entry.user} email={entry.email} /> {action}{" "}
+          <DocketWhen at={entry.at} now={now} />
           {entry.kind === "reviewComment" && entry.path
             ? ` · ${entry.path}${entry.line != null ? `:${entry.line}` : ""}`
             : ""}
@@ -953,7 +955,7 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
                     <span className="text-tva-muted">#{issue.number}</span> {issue.title}
                   </span>
                   <span className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-tva-muted">
-                    {issue.labels.join(", ") || "unlabeled"}
+                    <PersonName name={issue.userLogin} login={issue.userLogin} /> · {issue.labels.join(", ") || "unlabeled"}
                   </span>
                 </button>
               );

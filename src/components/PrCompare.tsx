@@ -17,6 +17,7 @@ import {
 } from "../lib/ui";
 import type { CommitDetail, DiffMode, FileChange, FileDiff, RangeCompare, Timeline } from "../lib/types";
 import { DiffViewer } from "./DiffViewer";
+import { PersonName } from "./PersonName";
 import { FileKindIcon } from "./FileKindIcon";
 import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
@@ -482,7 +483,9 @@ function CommitEventCard({
           </span>
           {commit.summary}
         </div>
-        <div className="mt-1 text-[10px] tracking-[0.12em] text-tva-muted">{commit.author}</div>
+        <div className="mt-1 text-[10px] tracking-[0.12em] text-tva-muted">
+          <PersonName name={commit.author} email={commit.email} />
+        </div>
       </button>
       {open ? (
         <div className="border-t border-tva-gold/16 px-2.5 pt-2.5 pb-2.5">

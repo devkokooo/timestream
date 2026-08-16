@@ -98,6 +98,7 @@ pub struct PullCommit {
     pub short_id: String,
     pub summary: String,
     pub author: String,
+    pub email: String,
     pub created_at: String,
 }
 
@@ -834,11 +835,24 @@ fn map_pull_commit(v: &Value) -> PullCommit {
         })
         .unwrap_or("")
         .to_string();
+    let email = commit
+        .get("author")
+        .and_then(|a| a.get("email"))
+        .and_then(|e| e.as_str())
+        .or_else(|| {
+            commit
+                .get("committer")
+                .and_then(|a| a.get("email"))
+                .and_then(|e| e.as_str())
+        })
+        .unwrap_or("")
+        .to_string();
     PullCommit {
         sha: sha.clone(),
         short_id: sha.chars().take(7).collect(),
         summary,
         author,
+        email,
         created_at: created,
     }
 }
@@ -1094,12 +1108,13 @@ mod tests {
             "author": { "login": "analyst" },
             "commit": {
                 "message": "Fix river\n\nKeep it gold.",
-                "author": { "name": "Analyst", "date": "2026-08-16T13:00:00Z" }
+                "author": { "name": "Analyst", "email": "analyst@tva.local", "date": "2026-08-16T13:00:00Z" }
             }
         }));
         assert_eq!(commit.short_id, "abcdef1");
         assert_eq!(commit.summary, "Fix river");
         assert_eq!(commit.author, "analyst");
+        assert_eq!(commit.email, "analyst@tva.local");
         assert_eq!(commit.created_at, "2026-08-16T13:00:00Z");
 
         let review = map_review(&json!({

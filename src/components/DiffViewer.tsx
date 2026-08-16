@@ -27,6 +27,7 @@ import {
   stampChrome,
 } from "../lib/ui";
 import type { DiffHunk, DiffLine, DiffMode, FileChange, FileDiff, ReviewComment } from "../lib/types";
+import { PersonName } from "./PersonName";
 import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
 
@@ -251,7 +252,7 @@ export function DiffViewer({
             .filter((c) => !file || c.path === file.path || c.path === diff?.path)
             .map((c) => (
               <p key={c.id} className="m-0 mb-1 text-[11px] text-tva-paper-dim" title="Pull request review comment">
-                L{c.line ?? "?"} {c.userLogin}: {c.body}
+                L{c.line ?? "?"} <PersonName name={c.userLogin} login={c.userLogin} />: {c.body}
               </p>
             ))}
           {onAddComment ? (

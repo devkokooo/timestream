@@ -2,6 +2,7 @@ import { cn } from "../lib/cn";
 import { emptyText, stamp, stampGold } from "../lib/ui";
 import { currentBranchName, listBranchHistory } from "../lib/timelineView";
 import type { Timeline, TimelineNode } from "../lib/types";
+import { PersonName } from "./PersonName";
 import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
 
@@ -77,8 +78,9 @@ function EventCard({
         </span>
       </div>
       <div className="mt-1.5 font-mono text-[11px] leading-snug text-tva-paper">{node.summary}</div>
-      <div className="mt-1 text-[10px] tracking-[0.12em] text-tva-muted">
-        {node.author} · {formatWhen(node.timestamp)}
+      <div className="mt-1 flex items-center gap-1 text-[10px] tracking-[0.12em] text-tva-muted">
+        <PersonName name={node.author} email={node.email} />
+        <span>· {formatWhen(node.timestamp)}</span>
       </div>
     </button>
   );

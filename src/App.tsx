@@ -59,6 +59,7 @@ import {
   removeRecentRepo,
   type RecentRepo,
 } from "./lib/recentRepos";
+import { GithubUserProvider } from "./lib/githubUserContext";
 import { defaultSettings } from "./lib/settingsRegistry";
 import type { SettingDef } from "./lib/settingsRegistry";
 import { btn, errorText } from "./lib/ui";
@@ -852,6 +853,7 @@ export default function App() {
 
   if (!repo || !timeline) {
     return (
+      <GithubUserProvider user={user}>
       <div className={appShell}>
         {titleBar}
         <WelcomeGate
@@ -883,10 +885,12 @@ export default function App() {
         {statusBar}
         {overlays}
       </div>
+      </GithubUserProvider>
     );
   }
 
   return (
+    <GithubUserProvider user={user}>
     <div className={appShell}>
       {titleBar}
       <BureauHeader
@@ -1115,5 +1119,6 @@ export default function App() {
       {statusBar}
       {overlays}
     </div>
+    </GithubUserProvider>
   );
 }

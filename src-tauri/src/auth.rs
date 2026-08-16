@@ -31,6 +31,10 @@ pub struct GithubUser {
     pub login: String,
     pub name: Option<String>,
     pub avatar_url: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub emails: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -59,15 +63,49 @@ struct GithubApiUser {
     login: String,
     name: Option<String>,
     avatar_url: String,
+    #[serde(default)]
+    email: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GithubApiEmail {
+    email: String,
 }
 
 impl From<GithubApiUser> for GithubUser {
     fn from(user: GithubApiUser) -> Self {
-        Self {
-            login: user.login,
-            name: user.name,
-            avatar_url: user.avatar_url,
+        github_user_from_api(user, &[])
+    }
+}
+
+fn merge_identity_emails(primary: Option<&str>, extra: &[String]) -> (Option<String>, Vec<String>) {
+    let mut emails = Vec::new();
+    let mut push = |raw: &str| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return;
         }
+        if !emails.iter().any(|e: &String| e.eq_ignore_ascii_case(trimmed)) {
+            emails.push(trimmed.to_string());
+        }
+    };
+    if let Some(primary) = primary {
+        push(primary);
+    }
+    for email in extra {
+        push(email);
+    }
+    (emails.first().cloned(), emails)
+}
+
+fn github_user_from_api(user: GithubApiUser, extra: &[String]) -> GithubUser {
+    let (email, emails) = merge_identity_emails(user.email.as_deref(), extra);
+    GithubUser {
+        login: user.login,
+        name: user.name,
+        avatar_url: user.avatar_url,
+        email,
+        emails,
     }
 }
 
@@ -423,15 +461,39 @@ pub async fn whoami() -> Result<Option<GithubUser>> {
     }
 }
 
-pub async fn whoami_with(token: &str) -> Result<GithubUser> {
-    let client = reqwest::Client::new();
-    let res = client
-        .get("https://api.github.com/user")
+async fn github_authed_get(
+    client: &reqwest::Client,
+    token: &str,
+    url: &str,
+) -> Result<reqwest::Response> {
+    Ok(client
+        .get(url)
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", UA)
         .header("Authorization", format!("Bearer {token}"))
         .send()
-        .await?;
+        .await?)
+}
+
+async fn list_user_emails(client: &reqwest::Client, token: &str) -> Vec<String> {
+    let Ok(res) = github_authed_get(client, token, "https://api.github.com/user/emails").await else {
+        return Vec::new();
+    };
+    if !res.status().is_success() {
+        return Vec::new();
+    }
+    let Ok(rows) = res.json::<Vec<GithubApiEmail>>().await else {
+        return Vec::new();
+    };
+    rows.into_iter()
+        .map(|row| row.email)
+        .filter(|email| !email.is_empty())
+        .collect()
+}
+
+pub async fn whoami_with(token: &str) -> Result<GithubUser> {
+    let client = reqwest::Client::new();
+    let res = github_authed_get(&client, token, "https://api.github.com/user").await?;
     if !res.status().is_success() {
         return Err(AppError::msg(format!(
             "GitHub rejected credentials ({})",
@@ -439,7 +501,8 @@ pub async fn whoami_with(token: &str) -> Result<GithubUser> {
         )));
     }
     let user: GithubApiUser = res.json().await?;
-    Ok(user.into())
+    let extra = list_user_emails(&client, token).await;
+    Ok(github_user_from_api(user, &extra))
 }
 
 pub fn logout() -> Result<()> {
@@ -473,7 +536,8 @@ mod tests {
             r#"{
                 "login": "octocat",
                 "name": "The Octocat",
-                "avatar_url": "https://avatars.githubusercontent.com/u/1"
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "email": "octocat@github.com"
             }"#,
         )
         .unwrap()
@@ -481,8 +545,11 @@ mod tests {
         assert_eq!(user.login, "octocat");
         assert_eq!(user.name.as_deref(), Some("The Octocat"));
         assert_eq!(user.avatar_url, "https://avatars.githubusercontent.com/u/1");
+        assert_eq!(user.email.as_deref(), Some("octocat@github.com"));
+        assert_eq!(user.emails, vec!["octocat@github.com"]);
         let ipc = serde_json::to_value(&user).unwrap();
         assert_eq!(ipc["avatarUrl"], "https://avatars.githubusercontent.com/u/1");
+        assert_eq!(ipc["emails"], serde_json::json!(["octocat@github.com"]));
         assert!(ipc.get("avatar_url").is_none());
     }
 
@@ -494,6 +561,21 @@ mod tests {
         .unwrap()
         .into();
         assert!(user.name.is_none());
+        assert!(user.email.is_none());
+        assert!(user.emails.is_empty());
+    }
+
+    #[test]
+    fn merge_identity_emails_dedupes_case() {
+        let (primary, emails) = merge_identity_emails(
+            Some("Analyst@tva.local"),
+            &["analyst@tva.local".into(), "noreply@users.noreply.github.com".into()],
+        );
+        assert_eq!(primary.as_deref(), Some("Analyst@tva.local"));
+        assert_eq!(
+            emails,
+            vec!["Analyst@tva.local", "noreply@users.noreply.github.com"]
+        );
     }
 
     #[test]

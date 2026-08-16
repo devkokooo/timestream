@@ -126,6 +126,7 @@ export interface RangeCommit {
   shortId: string;
   summary: string;
   author: string;
+  email: string;
   timestamp: number;
 }
 
@@ -146,6 +147,8 @@ export interface GithubUser {
   login: string;
   name: string | null;
   avatarUrl: string;
+  email?: string | null;
+  emails?: string[];
 }
 
 export interface DeviceLoginBegin {
@@ -310,6 +313,7 @@ export interface PullCommit {
   shortId: string;
   summary: string;
   author: string;
+  email: string;
   createdAt: string;
 }
 

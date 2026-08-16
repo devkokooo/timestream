@@ -13,6 +13,7 @@ export interface DocketEntry {
   at: string;
   id: string;
   user: string;
+  email?: string;
   body: string;
   summary?: string;
   path?: string;
@@ -69,6 +70,7 @@ export function buildPrDocket(
       at: commit.createdAt,
       id: `commit-${commit.sha}`,
       user: commit.author,
+      email: commit.email,
       body: "",
       commits: [{ shortId: commit.shortId, summary: commit.summary, at: commit.createdAt }],
     });

@@ -13,6 +13,7 @@ import { actionLabel, fileAction, fileDisplayName, fileDisplayPath } from "../li
 import { isTestFile } from "../lib/fileKind";
 import type { CommitDetail, FileChange, TimelineNode } from "../lib/types";
 import { FileKindIcon } from "./FileKindIcon";
+import { PersonName } from "./PersonName";
 import { CaseFileDetailSkeleton } from "./TvaSkeleton";
 import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
@@ -73,7 +74,10 @@ export function CaseFile({ node, detail, selectedPath, onOpenFile, onSelectCommi
             ) : null}
             <div className="mt-3 space-y-0.5 border-t border-tva-gold/12 pt-3 font-mono text-[11px] leading-snug text-tva-paper-dim">
               <p className="m-0">
-                {detail && !loading ? detail.author : node.author}
+                <PersonName
+                  name={detail && !loading ? detail.author : node.author}
+                  email={detail && !loading ? detail.email : node.email}
+                />
                 {detail && !loading && detail.email ? ` · ${detail.email}` : ""}
               </p>
               <p className="m-0">

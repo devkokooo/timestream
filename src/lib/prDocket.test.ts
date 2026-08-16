@@ -28,8 +28,8 @@ function pull(partial: Partial<PullRequestSummary> = {}): PullRequestSummary {
 describe("buildPrDocket", () => {
   it("orders opened, commits, and comments by time", () => {
     const commits: PullCommit[] = [
-      { sha: "c2", shortId: "c2", summary: "later tip", author: "analyst", createdAt: "2026-08-16T12:00:00Z" },
-      { sha: "c1", shortId: "c1", summary: "first spur", author: "analyst", createdAt: "2026-08-16T11:00:00Z" },
+      { sha: "c2", shortId: "c2", summary: "later tip", author: "analyst", email: "analyst@tva.local", createdAt: "2026-08-16T12:00:00Z" },
+      { sha: "c1", shortId: "c1", summary: "first spur", author: "analyst", email: "analyst@tva.local", createdAt: "2026-08-16T11:00:00Z" },
     ];
     const comments: IssueComment[] = [
       { id: 2, userLogin: "reviewer", body: "second note", createdAt: "2026-08-16T13:00:00Z" },
@@ -63,6 +63,7 @@ describe("buildPrDocket", () => {
       "review",
     ]);
     expect(docket[1].commits?.map((item) => item.summary)).toEqual(["first spur"]);
+    expect(docket[1].email).toBe("analyst@tva.local");
     expect(docket[3].commits?.map((item) => item.summary)).toEqual(["later tip"]);
   });
 
@@ -70,9 +71,9 @@ describe("buildPrDocket", () => {
     const docket = buildPrDocket(
       pull(),
       [
-        { sha: "a", shortId: "a", summary: "one", author: "analyst", createdAt: "2026-08-16T11:00:00Z" },
-        { sha: "b", shortId: "b", summary: "two", author: "analyst", createdAt: "2026-08-16T11:05:00Z" },
-        { sha: "c", shortId: "c", summary: "three", author: "other", createdAt: "2026-08-16T11:10:00Z" },
+        { sha: "a", shortId: "a", summary: "one", author: "analyst", email: "analyst@tva.local", createdAt: "2026-08-16T11:00:00Z" },
+        { sha: "b", shortId: "b", summary: "two", author: "analyst", email: "analyst@tva.local", createdAt: "2026-08-16T11:05:00Z" },
+        { sha: "c", shortId: "c", summary: "three", author: "other", email: "other@tva.local", createdAt: "2026-08-16T11:10:00Z" },
       ],
       [],
       [],

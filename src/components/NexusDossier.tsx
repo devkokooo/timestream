@@ -16,6 +16,7 @@ import {
 } from "../lib/ui";
 import type { CommitDetail, FileChange, TimelineNode } from "../lib/types";
 import { FileKindIcon } from "./FileKindIcon";
+import { PersonName } from "./PersonName";
 import { CaseFileDetailSkeleton } from "./TvaSkeleton";
 import { TvaScrollArea } from "./TvaScrollArea";
 
@@ -99,10 +100,15 @@ export function NexusDossier({
         <Section title="Filed">
           <Meta
             label="Author"
-            value={formatPerson(
-              detail && !loading ? detail.author : node.author,
-              detail && !loading ? detail.email : null,
-            )}
+            value={
+              <PersonName
+                name={formatPerson(
+                  detail && !loading ? detail.author : node.author,
+                  detail && !loading ? detail.email : node.email,
+                )}
+                email={detail && !loading ? detail.email : node.email}
+              />
+            }
           />
           <Meta
             label="Filed"
@@ -110,7 +116,15 @@ export function NexusDossier({
           />
           {detail && !loading ? (
             <>
-              <Meta label="Committer" value={formatPerson(detail.committer, detail.committerEmail)} />
+              <Meta
+                label="Committer"
+                value={
+                  <PersonName
+                    name={formatPerson(detail.committer, detail.committerEmail)}
+                    email={detail.committerEmail}
+                  />
+                }
+              />
               {detail.committerTimestamp !== detail.timestamp ? (
                 <Meta label="Committed" value={formatWhen(detail.committerTimestamp)} />
               ) : null}
@@ -148,7 +162,7 @@ export function NexusDossier({
             <ul className="m-0 list-none p-0">
               {reviewNames.map((name) => (
                 <li key={name} className="font-mono text-[12px] text-tva-paper">
-                  {name}
+                  <PersonName name={name} login={githubReviewers.includes(name) ? name : undefined} />
                 </li>
               ))}
             </ul>
@@ -186,7 +200,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function Meta({ label, value }: { label: string; value: ReactNode }) {
   return (
     <p className="m-0 font-mono text-[11px] leading-snug text-tva-paper-dim">
       <span className="text-tva-muted">{label}</span> · {value}
@@ -211,7 +225,7 @@ function People({
         <ul className="m-0 list-none p-0">
           {people.map((person, i) => (
             <li key={`${person.key}-${person.value}-${i}`} className="font-mono text-[12px] text-tva-paper">
-              {formatPerson(person.name, person.email)}
+              <PersonName name={formatPerson(person.name, person.email)} email={person.email} />
             </li>
           ))}
         </ul>

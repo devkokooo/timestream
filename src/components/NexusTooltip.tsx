@@ -2,12 +2,14 @@ import type { Ref } from "react";
 import { cn } from "../lib/cn";
 import { btnStow, stamp, stampGold } from "../lib/ui";
 import type { TimelineNode } from "../lib/types";
+import { PersonName } from "./PersonName";
 
 interface Props {
   node: TimelineNode;
   tipRef: Ref<HTMLDivElement>;
   body?: string | null;
   committer?: string | null;
+  committerEmail?: string | null;
   filedAt?: number | null;
   isPr?: boolean;
   failed?: boolean;
@@ -19,6 +21,7 @@ export function NexusTooltip({
   tipRef,
   body,
   committer,
+  committerEmail,
   filedAt,
   isPr,
   failed,
@@ -68,7 +71,11 @@ export function NexusTooltip({
         ) : null}
         <div className="mt-2 flex items-start justify-between gap-3">
           <p className="m-0 min-w-0 break-words font-mono text-[12px] leading-snug tracking-[0.04em] text-tva-muted">
-            {committer?.trim() || node.author} · {formatFiled(filedAt ?? node.timestamp)}
+            <PersonName
+              name={committer?.trim() || node.author}
+              email={committerEmail ?? node.email}
+            />{" "}
+            · {formatFiled(filedAt ?? node.timestamp)}
           </p>
           <button
             type="button"

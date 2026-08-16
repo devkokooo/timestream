@@ -101,6 +101,7 @@ pub struct RangeCommit {
     pub short_id: String,
     pub summary: String,
     pub author: String,
+    pub email: String,
     pub timestamp: i64,
 }
 
@@ -241,6 +242,7 @@ pub fn compare_refs(path: &Path, base: &str, head: &str) -> Result<RangeCompare>
             short_id: short_oid(&id),
             summary: commit.summary().unwrap_or("").to_string(),
             author: commit.author().name().unwrap_or("unknown").to_string(),
+            email: commit.author().email().unwrap_or("").to_string(),
             timestamp: commit.time().seconds(),
         });
         if commits.len() >= MAX_RANGE_COMMITS {
@@ -1468,6 +1470,7 @@ mod tests {
             vec!["edit keep", "add spur"]
         );
         assert_eq!(cmp.commits[1].id, tip);
+        assert_eq!(cmp.commits[0].email, "analyst@tva.local");
         assert!(cmp.merge_base.is_some());
 
         let paths: Vec<_> = cmp.files.iter().map(|f| f.path.as_str()).collect();

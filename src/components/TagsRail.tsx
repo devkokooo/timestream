@@ -2,6 +2,7 @@ import { cn } from "../lib/cn";
 import { emptyText, stamp, stampGold } from "../lib/ui";
 import { listTimelineTags, type TimelineTag } from "../lib/timelineView";
 import type { Timeline } from "../lib/types";
+import { PersonName } from "./PersonName";
 import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
 
@@ -70,8 +71,9 @@ function SealCard({
       <div className="mt-1.5 font-mono text-[11px] leading-snug text-tva-paper">
         {tag.shortId} · {tag.summary}
       </div>
-      <div className="mt-1 text-[10px] tracking-[0.12em] text-tva-muted">
-        {tag.author} · {formatSealWhen(tag.timestamp)}
+      <div className="mt-1 flex items-center gap-1 text-[10px] tracking-[0.12em] text-tva-muted">
+        <PersonName name={tag.author} email={tag.email} />
+        <span>· {formatSealWhen(tag.timestamp)}</span>
       </div>
     </button>
   );
