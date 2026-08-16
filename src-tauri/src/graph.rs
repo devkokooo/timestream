@@ -303,7 +303,7 @@ fn assign_lanes(
         }
     }
     for r in refs {
-        if matches!(r.kind, RefKind::Branch | RefKind::Tag | RefKind::Remote)
+        if matches!(r.kind, RefKind::Branch | RefKind::Remote)
             && by_id.contains_key(&r.target)
             && seen.insert(r.target.clone())
         {
@@ -553,6 +553,14 @@ pub mod tests {
             name: name.into(),
             target: target.into(),
             kind: RefKind::Remote,
+        }
+    }
+
+    pub fn tag(name: &str, target: &str) -> RawRef {
+        RawRef {
+            name: name.into(),
+            target: target.into(),
+            kind: RefKind::Tag,
         }
     }
 
@@ -838,5 +846,48 @@ pub mod tests {
         assert_eq!(tl.dossiers.iter().filter(|d| d.name.contains("main")).count(), 1);
         assert!(!tl.dossiers.iter().any(|d| d.is_upstream));
         assert!(node(&tl, "b").refs.iter().any(|r| r.kind == RefKind::Remote));
+    }
+
+    #[test]
+    fn historic_tags_stay_on_the_sacred_lane() {
+        let tl = layout_timeline(
+            vec![
+                c("a", &[], 1, "root"),
+                c("b", &["a"], 2, "v1"),
+                c("c", &["b"], 3, "v2"),
+                c("d", &["c"], 4, "tip"),
+            ],
+            vec![
+                branch("main", "d"),
+                tag("v1.0", "b"),
+                tag("v2.0", "c"),
+            ],
+            Some("d".into()),
+            Some("main".into()),
+        );
+        assert_invariants(&tl);
+        assert!(tl.nodes.iter().all(|n| n.column == 0), "tags must not open variant lanes");
+        assert!(node(&tl, "b").refs.iter().any(|r| r.kind == RefKind::Tag && r.name == "v1.0"));
+        assert!(node(&tl, "c").refs.iter().any(|r| r.kind == RefKind::Tag && r.name == "v2.0"));
+        assert_eq!(tl.dossiers.len(), 1);
+    }
+
+    #[test]
+    fn tag_on_a_variant_does_not_add_a_lane() {
+        let tl = layout_timeline(
+            vec![
+                c("a", &[], 1, "root"),
+                c("b", &["a"], 2, "sacred"),
+                c("c", &["a"], 3, "feature"),
+            ],
+            vec![branch("main", "b"), branch("feature", "c"), tag("v-feat", "c")],
+            Some("b".into()),
+            Some("main".into()),
+        );
+        assert_invariants(&tl);
+        assert_eq!(node(&tl, "b").column, 0);
+        assert_ne!(node(&tl, "c").column, 0);
+        let cols: HashSet<i32> = tl.nodes.iter().map(|n| n.column).collect();
+        assert_eq!(cols.len(), 2, "tag must share the variant lane, not open a third");
     }
 }

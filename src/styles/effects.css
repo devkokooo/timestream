@@ -35,6 +35,12 @@
   letter-spacing: 0.12em;
 }
 
+.ref-label.tag {
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 /* Diff viewer dense layout + token colors */
 .diff-body.tva-scroll > .tva-scroll-viewport {
   padding: 0 0 16px;

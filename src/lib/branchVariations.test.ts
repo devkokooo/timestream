@@ -36,6 +36,9 @@ describe("UI consistency across branch topologies", () => {
     expect(view.nodes.some((n) => n.side === "above")).toBe(true);
     expect(view.nodes.some((n) => n.side === "below")).toBe(true);
     expect(view.sacredY).toBe(view.nodes.find((n) => n.id === "sacred")?.y);
+    const nearest = Math.min(...ys.map((y) => Math.abs(y - view.sacredY)));
+    expect(nearest).toBe(view.laneGap);
+    expect(view.laneGap).toBeLessThanOrEqual(18);
   });
 
   it("branches many commits apart keep a stable spur height", () => {

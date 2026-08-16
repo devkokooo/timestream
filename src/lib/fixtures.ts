@@ -215,6 +215,54 @@ export function crowdedTipsTimeline(): Timeline {
   };
 }
 
+/** Historic version tags on the sacred river, plus one tag on a variant tip. */
+export function taggedTimeline(): Timeline {
+  return {
+    sacredBranch: "main",
+    head: "d",
+    nodes: [
+      node("a", 0, 0, { summary: "root" }),
+      node("b", 0, 1, {
+        parents: ["a"],
+        summary: "v1",
+        refs: [{ name: "v1.0", kind: "tag" }],
+      }),
+      node("c", 0, 2, {
+        parents: ["b"],
+        summary: "v2",
+        refs: [{ name: "v2.0", kind: "tag" }],
+      }),
+      node("d", 0, 3, {
+        parents: ["c"],
+        summary: "tip",
+        isHead: true,
+        refs: [
+          { name: "main", kind: "branch" },
+          { name: "v3.0", kind: "tag" },
+        ],
+      }),
+      node("e", 1, 3, {
+        parents: ["c"],
+        summary: "feature",
+        refs: [
+          { name: "feature", kind: "branch" },
+          { name: "v-feat", kind: "tag" },
+        ],
+      }),
+    ],
+    edges: [
+      { from: "a", to: "b", kind: "firstParent", fromColumn: 0, toColumn: 0, fromRow: 0, toRow: 1 },
+      { from: "b", to: "c", kind: "firstParent", fromColumn: 0, toColumn: 0, fromRow: 1, toRow: 2 },
+      { from: "c", to: "d", kind: "firstParent", fromColumn: 0, toColumn: 0, fromRow: 2, toRow: 3 },
+      { from: "c", to: "e", kind: "firstParent", fromColumn: 0, toColumn: 1, fromRow: 2, toRow: 3 },
+    ],
+    dossiers: [
+      dossier("main", "d", { isSacred: true, isHead: true }),
+      dossier("feature", "e", { exclusiveCommits: 1, commitsApart: 2 }),
+    ],
+  };
+}
+
 /** Current local branch, another local variant, and a remote-only spur. */
 export function mixedRefTimeline(): Timeline {
   return {
