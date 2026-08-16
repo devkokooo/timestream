@@ -1,7 +1,8 @@
 import { cn } from "../lib/cn";
-import { stamp, stampGold } from "../lib/ui";
+import { emptyText, stamp, stampGold } from "../lib/ui";
 import { threatCopy } from "../lib/timelineView";
 import type { Timeline, VariantDossier } from "../lib/types";
+import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
 
 interface Props {
@@ -13,6 +14,14 @@ interface Props {
 }
 
 export function VariantRail({ timeline, onCheckout, busy, prByBranch, aheadBehind }: Props) {
+  if (timeline.dossiers.length === 0) {
+    return (
+      <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="px-3 py-4">
+        <p className={emptyText}>No variant dossiers on this timeline.</p>
+      </TvaScrollArea>
+    );
+  }
+
   return (
     <TvaVirtualList
       className="min-h-0 flex-1"

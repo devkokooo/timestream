@@ -196,6 +196,7 @@ export interface AppSettings {
     identities: SshIdentity[];
   };
   timeline: {
+    enabled: boolean;
     showUpstreamRefs: boolean;
   };
 }

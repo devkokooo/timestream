@@ -12,6 +12,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { LeftRail } from "./components/LeftRail";
+import { TvaTerm } from "./components/TvaTerm";
 import { WelcomeGate } from "./components/WelcomeGate";
 import {
   aheadBehind,
@@ -59,7 +60,7 @@ import {
 } from "./lib/recentRepos";
 import { defaultSettings } from "./lib/settingsRegistry";
 import type { SettingDef } from "./lib/settingsRegistry";
-import { errorText } from "./lib/ui";
+import { btn, errorText } from "./lib/ui";
 import { openNewArchiveWindow } from "./lib/windows";
 import type {
   AheadBehind,
@@ -260,6 +261,8 @@ export default function App() {
       .then(setUser)
       .catch(() => setUser(null));
   }, []);
+
+  const timelineEnabled = settings.timeline.enabled;
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -530,6 +533,14 @@ export default function App() {
     }
   }
 
+  async function setTimelineEnabled(enabled: boolean) {
+    const next = await setSettings({
+      ...settings,
+      timeline: { ...settings.timeline, enabled },
+    });
+    setSettingsState(next);
+  }
+
   function toggleReview() {
     if (reviewOpen) {
       closeReview();
@@ -643,6 +654,12 @@ export default function App() {
     },
     { id: "docket", title: "Toggle case file", run: () => setDocketOpen((open) => !open) },
     { id: "settings", title: "Open settings", hint: "File", run: () => setSettingsOpen(true) },
+    {
+      id: "timeline-toggle",
+      title: timelineEnabled ? "Hide Sacred Timeline" : "Show Sacred Timeline",
+      hint: "Reduce render lag",
+      run: () => void setTimelineEnabled(!timelineEnabled),
+    },
     {
       id: "new-window",
       title: "New window",
@@ -904,6 +921,7 @@ export default function App() {
             className="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-[radial-gradient(900px_280px_at_50%_20%,rgba(232,93,4,0.14),transparent_60%),linear-gradient(180deg,#1a1511,#100d0a)]"
             aria-hidden={diffOpen}
           >
+            {timelineEnabled ? (
             <SacredTimeline
               timeline={timeline}
               selectedId={selectedId}
@@ -915,6 +933,25 @@ export default function App() {
               prHeadShas={prHeadShas}
               failingShas={failingShas}
             />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <TvaTerm
+                  flavor="Chronomonitor dormant"
+                  noun="Sacred Timeline off"
+                  className="items-center text-tva-gold"
+                />
+                <p className="m-0 max-w-sm text-sm text-tva-paper-dim">
+                  The chronomonitor drawing is off to reduce render lag. Variants, seals, and the case file stay live.
+                </p>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => void setTimelineEnabled(true)}
+                >
+                  Restore timeline
+                </button>
+              </div>
+            )}
           </div>
           <div
             className={cn(

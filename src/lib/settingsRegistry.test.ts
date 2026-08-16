@@ -6,6 +6,7 @@ describe("settings registry", () => {
     const keys = SETTINGS_REGISTRY.map((s) => s.key);
     expect(keys).toContain("github.clone_protocol");
     expect(keys).toContain("ssh.default_key");
+    expect(keys).toContain("timeline.enabled");
     expect(keys).toContain("timeline.show_upstream_refs");
   });
 
@@ -20,5 +21,14 @@ describe("settings registry", () => {
     const next = def.set(defaultSettings(), false);
     expect(next.ssh.agentAutostart).toBe(false);
     expect(next.version).toBe(1);
+  });
+
+  it("finds the timeline toggle by lag or chronomonitor", () => {
+    const def = SETTINGS_REGISTRY.find((s) => s.key === "timeline.enabled")!;
+    expect(searchSettings("lag").some((h) => h.key === "timeline.enabled")).toBe(true);
+    expect(searchSettings("chronomonitor").some((h) => h.key === "timeline.enabled")).toBe(true);
+    const next = def.set(defaultSettings(), false);
+    expect(next.timeline.enabled).toBe(false);
+    expect(next.timeline.showUpstreamRefs).toBe(true);
   });
 });
