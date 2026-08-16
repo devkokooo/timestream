@@ -11,6 +11,8 @@ import {
   focusCamera,
   hasTag,
   INCURSION_ID,
+  currentBranchName,
+  listBranchHistory,
   listTimelineTags,
   indexTimelineView,
   laneGapFor,
@@ -313,6 +315,46 @@ describe("clipRiverX", () => {
     expect(clip!.x).toBeGreaterThanOrEqual(24);
     expect(clip!.x + clip!.width).toBeLessThanOrEqual(view.width - 24 + 1);
     expect(clipRiverX(view, { x: view.width + 50, y: 0, w: 10, h: 10 })).toBeNull();
+  });
+});
+
+describe("listBranchHistory", () => {
+  it("lists HEAD ancestors newest first and skips unmerged variants", () => {
+    const ids = listBranchHistory(taggedTimeline()).map((n) => n.id);
+    expect(ids).toEqual(["d", "c", "b", "a"]);
+    expect(ids).not.toContain("e");
+  });
+
+  it("includes both sides of a merge on the current branch", () => {
+    const base = taggedTimeline();
+    const tip = base.nodes.find((n) => n.id === "d")!;
+    const merge = {
+      ...tip,
+      id: "m",
+      shortId: "m",
+      parents: ["d", "e"],
+      summary: "merge feature",
+      row: 4,
+      isHead: true,
+      refs: [{ name: "main", kind: "branch" as const }],
+    };
+    tip.isHead = false;
+    tip.refs = tip.refs.filter((r) => r.kind !== "branch");
+    const timeline = {
+      ...base,
+      head: "m",
+      nodes: [...base.nodes, merge],
+    };
+    expect(listBranchHistory(timeline).map((n) => n.id)).toEqual(["m", "d", "e", "c", "b", "a"]);
+  });
+
+  it("returns empty when HEAD is missing", () => {
+    expect(listBranchHistory({ ...linearTimeline(), head: null })).toEqual([]);
+  });
+
+  it("names the checked-out local branch", () => {
+    expect(currentBranchName(linearTimeline())).toBe("main");
+    expect(currentBranchName({ ...linearTimeline(), dossiers: [] })).toBeNull();
   });
 });
 

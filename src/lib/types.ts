@@ -117,7 +117,7 @@ export interface BranchInfo {
 }
 
 export type DocketTab = "case" | "requests" | "incidents" | "canon";
-export type RailTab = "variants" | "tags";
+export type RailTab = "variants" | "history" | "tags";
 
 export interface GithubUser {
   login: string;

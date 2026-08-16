@@ -675,6 +675,15 @@ export default function App() {
     { id: "review", title: "Open review mode", hint: "Temporal anomalies", run: () => { if (!reviewOpen) toggleReview(); } },
     { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
     {
+      id: "ledger",
+      title: "Show commit ledger",
+      hint: "History",
+      run: () => {
+        setRailTab("history");
+        setVariantRailOpen(true);
+      },
+    },
+    {
       id: "seals",
       title: "Show canon seals",
       hint: "Tags",
@@ -928,6 +937,7 @@ export default function App() {
           timeline={timeline}
           selectedId={selectedId}
           busy={busy}
+          branch={repo.branch}
           prByBranch={prByBranch}
           aheadBehind={sync}
           onStow={() => setVariantRailOpen(false)}
@@ -949,7 +959,7 @@ export default function App() {
         />
         ) : (
           <RailStrip
-            label={railTab === "tags" ? "SEALS" : "VARIANTS"}
+            label={railTab === "tags" ? "SEALS" : railTab === "history" ? "LEDGER" : "VARIANTS"}
             side="start"
             onExpand={() => setVariantRailOpen(true)}
           />
