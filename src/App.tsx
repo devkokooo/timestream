@@ -188,6 +188,7 @@ export default function App() {
   const [diffError, setDiffError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [remoteOp, setRemoteOp] = useState<"fetch" | "pull" | "push" | null>(null);
   const [settings, setSettingsState] = useState<AppSettings>(defaultSettings);
   const [user, setUser] = useState<GithubUser | null>(null);
   const [origin, setOrigin] = useState<RemoteInfo | null>(null);
@@ -206,7 +207,10 @@ export default function App() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [variantRailOpen, setVariantRailOpen] = useState(true);
   const [docketOpen, setDocketOpen] = useState(true);
-  const pendingRemote = useRef<((args: RemoteAuthArgs) => Promise<unknown>) | null>(null);
+  const pendingRemote = useRef<{
+    op: (args: RemoteAuthArgs) => Promise<unknown>;
+    kind: "fetch" | "pull" | "push" | null;
+  } | null>(null);
   const pendingClone = useRef<{ url: string; dest: string } | null>(null);
   const busyRef = useRef(false);
   const repoPathRef = useRef<string | null>(null);
@@ -570,6 +574,7 @@ export default function App() {
 
   function closeFolder() {
     setBusy(false);
+    setRemoteOp(null);
     setError(null);
     setRepo(null);
     setTimeline(null);
@@ -614,16 +619,21 @@ export default function App() {
     }
   }
 
-  async function runRemote(op: (args: RemoteAuthArgs) => Promise<unknown>, extra?: Partial<RemoteAuthArgs>) {
+  async function runRemote(
+    op: (args: RemoteAuthArgs) => Promise<unknown>,
+    extra?: Partial<RemoteAuthArgs>,
+    kind: "fetch" | "pull" | "push" | null = null,
+  ) {
     if (!repo) return;
     const args: RemoteAuthArgs = { path: repo.path, remote: "origin", ...extra };
     try {
       setBusy(true);
+      if (kind) setRemoteOp(kind);
       await op(args);
       await loadAll(repo.path, { keepSelection: true });
     } catch (err) {
       if (isSshIdentityError(err) || isPassphraseError(err)) {
-        pendingRemote.current = op;
+        pendingRemote.current = { op, kind };
         setIdentityOpen(true);
         return;
       }
@@ -636,6 +646,7 @@ export default function App() {
       setError(errMessage(err));
     } finally {
       setBusy(false);
+      if (kind) setRemoteOp(null);
     }
   }
 
@@ -671,9 +682,9 @@ export default function App() {
     { id: "open", title: "Open folder", hint: "File", run: () => void browse() },
     { id: "close-folder", title: "Close folder", hint: "File", run: closeFolder },
     { id: "rescan", title: "Rescan", hint: "View", run: () => repo && void loadAll(repo.path, { keepSelection: true }) },
-    { id: "fetch", title: "Fetch from origin", hint: "Dispatch", run: () => void runRemote(fetchRemote) },
-    { id: "push", title: "Push branch", hint: "File to HQ", run: () => void runRemote(pushBranch) },
-    { id: "pull", title: "Fast-forward pull", hint: "Sync inbound", run: () => void runRemote(pullFfOnly) },
+    { id: "fetch", title: "Fetch from origin", hint: "Dispatch", run: () => void runRemote(fetchRemote, undefined, "fetch") },
+    { id: "push", title: "Push branch", hint: "Upload to HQ", run: () => void runRemote(pushBranch, undefined, "push") },
+    { id: "pull", title: "Fast-forward pull", hint: "Sync inbound", run: () => void runRemote(pullFfOnly, undefined, "pull") },
     { id: "ssh-pick", title: "GitHub: Choose SSH key for this remote", run: () => setIdentityOpen(true) },
     {
       id: "ssh-agent",
@@ -749,9 +760,10 @@ export default function App() {
             await runClone(clone.url, clone.dest, auth);
             return;
           }
-          const op = pendingRemote.current ?? pushBranch;
+          const pending = pendingRemote.current;
           pendingRemote.current = null;
-          await runRemote(op, auth);
+          const op = pending?.op ?? pushBranch;
+          await runRemote(op, auth, pending?.kind ?? "push");
         }}
       />
     </>
@@ -840,10 +852,13 @@ export default function App() {
         <ReviewMode
           status={status}
           busy={busy}
+          fetching={remoteOp === "fetch"}
+          pulling={remoteOp === "pull"}
+          pushing={remoteOp === "push"}
           ahead={sync?.ahead ?? 0}
-          onPush={() => void runRemote(pushBranch)}
-          onFetch={() => void runRemote(fetchRemote)}
-          onPull={() => void runRemote(pullFfOnly)}
+          onPush={() => void runRemote(pushBranch, undefined, "push")}
+          onFetch={() => void runRemote(fetchRemote, undefined, "fetch")}
+          onPull={() => void runRemote(pullFfOnly, undefined, "pull")}
           selected={
             diffTarget && diffTarget.kind !== "commit"
               ? { side: diffTarget.kind, path: diffTarget.path }

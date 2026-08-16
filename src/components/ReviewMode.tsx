@@ -13,6 +13,7 @@ import {
   actionColor,
   btn,
   btnPrimary,
+  btnTransmit,
   emptyText,
   eyebrow,
   fieldInput,
@@ -22,6 +23,7 @@ import {
 import type { FileChange, StatusPayload } from "../lib/types";
 import { FileKindIcon } from "./FileKindIcon";
 import { AnomalyColumnSkeleton } from "./TvaSkeleton";
+import { TvaJumble } from "./TvaJumble";
 import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
 import { TvaVirtualList } from "./TvaVirtualList";
@@ -36,6 +38,9 @@ interface Props {
   onUnstage: (path: string) => void | Promise<void>;
   onCommit: (message: string) => Promise<void>;
   busy: boolean;
+  fetching?: boolean;
+  pulling?: boolean;
+  pushing?: boolean;
   ahead?: number;
   onPush: () => void;
   onFetch: () => void;
@@ -51,6 +56,9 @@ export function ReviewMode({
   onUnstage,
   onCommit,
   busy,
+  fetching = false,
+  pulling = false,
+  pushing = false,
   ahead = 0,
   onPush,
   onFetch,
@@ -63,7 +71,8 @@ export function ReviewMode({
   const staged = status?.staged ?? [];
   const unfiled = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
   const message = composeCommitMessage(title, body);
-  const canFile = !busy && staged.length > 0 && Boolean(title.trim());
+  const hasSubject = Boolean(title.trim());
+  const canFile = !busy && staged.length > 0 && hasSubject;
 
   const runAll = useCallback(async (paths: string[], act: (path: string) => void | Promise<void>) => {
     for (const path of paths) {
@@ -164,28 +173,84 @@ export function ReviewMode({
           File variant
         </button>
         <div className="mt-auto flex flex-col gap-2 border-t border-tva-gold/16 pt-3">
-          <button type="button" className={btn} disabled={busy} onClick={onFetch} title="Fetch from origin">
-            <TvaTerm flavor="Dispatch" noun="Fetch" />
-          </button>
-          <button type="button" className={btn} disabled={busy} onClick={onPull} title="Fast-forward pull">
-            <TvaTerm flavor="Sync inbound" noun="Pull" />
-          </button>
-          <button
-            type="button"
-            className={ahead > 0 ? btnPrimary : btn}
+          <TransmitButton
+            active={fetching}
             disabled={busy}
+            idleClass={btn}
+            onClick={onFetch}
+            title="Fetch from origin"
+            label="Fetching…"
+            flavor="Dispatch"
+            noun="Fetch"
+            busyNoun="Fetching…"
+          />
+          <TransmitButton
+            active={pulling}
+            disabled={busy}
+            idleClass={btn}
+            onClick={onPull}
+            title="Fast-forward pull"
+            label="Pulling…"
+            flavor="Sync inbound"
+            noun="Pull"
+            busyNoun="Pulling…"
+          />
+          <TransmitButton
+            active={pushing}
+            disabled={busy || !hasSubject}
+            idleClass={ahead > 0 ? btnPrimary : btn}
             onClick={onPush}
             title="Push branch"
-          >
-            <TvaTerm
-              flavor={ahead > 0 ? `File to HQ · ${ahead} ahead` : "File to HQ"}
-              noun="Push"
-              onPrimary={ahead > 0}
-            />
-          </button>
+            label="Pushing…"
+            flavor={ahead > 0 ? `Upload to HQ · ${ahead} ahead` : "Upload to HQ"}
+            noun="Push"
+            busyNoun="Pushing…"
+            onPrimary={ahead > 0}
+          />
         </div>
       </form>
     </div>
+  );
+}
+
+function TransmitButton({
+  active,
+  disabled,
+  idleClass,
+  onClick,
+  title,
+  label,
+  flavor,
+  noun,
+  busyNoun,
+  onPrimary,
+}: {
+  active: boolean;
+  disabled: boolean;
+  idleClass: string;
+  onClick: () => void;
+  title: string;
+  label: string;
+  flavor: string;
+  noun: string;
+  busyNoun: string;
+  onPrimary?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={active ? btnTransmit : idleClass}
+      disabled={disabled || active}
+      onClick={onClick}
+      title={active ? label : title}
+      aria-busy={active}
+    >
+      {active ? (
+        <TvaJumble label={label} noun={busyNoun} />
+      ) : (
+        <TvaTerm flavor={flavor} noun={noun} onPrimary={onPrimary} />
+      )}
+    </button>
   );
 }
 
@@ -279,7 +344,7 @@ function Column({
                 </span>
                 <button
                   type="button"
-                  className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright"
+                  className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold"
                   onClick={(e: ReactMouseEvent) => {
                     e.stopPropagation();
                     void onClick(item.path);

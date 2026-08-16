@@ -1,13 +1,16 @@
 export const btn =
-  "border border-tva-gold/35 bg-[#2d241c] px-3 py-[7px] text-[11px] uppercase tracking-[0.08em] text-tva-paper hover:border-tva-orange hover:text-tva-gold-bright disabled:opacity-50";
+  "border border-tva-gold/35 bg-[#2d241c] px-3 py-[7px] text-[11px] uppercase tracking-[0.08em] text-tva-paper enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:opacity-50 disabled:hover:border-tva-gold/35 disabled:hover:text-tva-paper";
 
 export const btnPrimary =
-  "border border-[#ffb347] bg-tva-orange-hot px-3 py-[7px] text-[11px] font-semibold uppercase tracking-[0.08em] text-tva-ink hover:border-[#ffc56a] hover:bg-[#ffb347] hover:text-tva-ink disabled:border-tva-gold/20 disabled:bg-[#2d241c] disabled:text-tva-muted disabled:hover:border-tva-gold/20 disabled:hover:bg-[#2d241c] disabled:hover:text-tva-muted";
+  "border border-[#ffb347] bg-tva-orange-hot px-3 py-[7px] text-[11px] font-semibold uppercase tracking-[0.08em] text-tva-ink enabled:hover:border-[#ffc56a] enabled:hover:bg-[#ffb347] enabled:hover:text-tva-ink disabled:border-tva-gold/20 disabled:bg-[#2d241c] disabled:text-tva-muted disabled:hover:border-tva-gold/20 disabled:hover:bg-[#2d241c] disabled:hover:text-tva-muted";
+
+export const btnTransmit =
+  "border border-tva-gold/50 bg-[#2d241c] px-3 py-[7px] text-[11px] uppercase tracking-[0.08em] text-tva-gold cursor-wait disabled:cursor-wait disabled:opacity-100";
 
 export const btnDanger = "border-tva-stamp text-[#f3c2b8]";
 
 export const btnStow =
-  "shrink-0 border border-tva-gold/35 bg-transparent px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold hover:border-tva-orange hover:text-tva-gold-bright";
+  "shrink-0 border border-tva-gold/35 bg-transparent px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold";
 
 export const panelTitle =
   "m-0 font-display text-[15px] tracking-[0.16em] text-tva-gold";
