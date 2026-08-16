@@ -1,3 +1,5 @@
+import { SiGithub } from "react-icons/si";
+import { cn } from "../lib/cn";
 import { btn, btnPrimary, eyebrow } from "../lib/ui";
 import { HintMark, TvaTerm } from "./TvaTerm";
 import type { GithubUser, RemoteInfo, RepoSummary } from "../lib/types";
@@ -64,11 +66,12 @@ export function BureauHeader({
         </button>
         <button
           type="button"
-          className={hqOpen ? btnPrimary : btn}
+          className={cn(hqOpen ? btnPrimary : btn, "inline-flex items-center gap-2")}
           onClick={onToggleHq}
           aria-pressed={hqOpen}
           title="Pull requests, issues, and releases"
         >
+          <SiGithub size={14} aria-hidden />
           <TvaTerm
             flavor={user ? `@${user.login}` : "GitHub"}
             noun="HQ desk"
