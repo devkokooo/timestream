@@ -29,6 +29,8 @@ pub fn run() {
             get_branches,
             switch_branch,
             create_local_branch,
+            rename_local_branch,
+            delete_local_branch,
             stage_file,
             unstage_file,
             file_commit,

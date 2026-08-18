@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthDialog } from "./components/AuthDialog";
+import { BranchPicker } from "./components/BranchPicker";
 import { BureauHeader } from "./components/BureauHeader";
 import { CommandPalette, type PaletteCommand } from "./components/CommandPalette";
 import { DiffViewer } from "./components/DiffViewer";
@@ -20,7 +21,9 @@ import {
   aheadBehind,
   checkoutPullRequest,
   cloneRepository,
+  createLocalBranch,
   createLocalTag,
+  deleteLocalBranch,
   fetchRemote,
   fileCommit,
   getCommit,
@@ -46,6 +49,7 @@ import {
   pullFfOnly,
   pushBranch,
   pushTag,
+  renameLocalBranch,
   setSettings,
   sshAddKey,
   sshAgentEnsure,
@@ -205,6 +209,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [branchDeskOpen, setBranchDeskOpen] = useState(false);
   const [cloneLog, setCloneLog] = useState<string[]>([]);
   const [cloning, setCloning] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -224,12 +229,14 @@ export default function App() {
   const reviewOpenRef = useRef(false);
   const hqOpenRef = useRef(false);
   const paletteOpenRef = useRef(false);
+  const branchDeskOpenRef = useRef(false);
   busyRef.current = busy;
   repoPathRef.current = repo?.path ?? null;
   diffTargetRef.current = diffTarget;
   reviewOpenRef.current = reviewOpen;
   hqOpenRef.current = hqOpen;
   paletteOpenRef.current = paletteOpen;
+  branchDeskOpenRef.current = branchDeskOpen;
 
   const loadAll = useCallback(async (path: string, options: LoadOptions = {}) => {
     const { keepSelection = false, quiet = false } = options;
@@ -321,6 +328,7 @@ export default function App() {
         setPaletteOpen(false);
         return;
       }
+      if (branchDeskOpenRef.current) return;
       if (reviewOpenRef.current) {
         setReviewOpen(false);
         setDiffTarget((target) => (target && target.kind !== "commit" ? null : target));
@@ -652,7 +660,18 @@ export default function App() {
     setReviewComments([]);
     setReviewOpen(false);
     setHqOpen(false);
+    setBranchDeskOpen(false);
     setRailTab("variants");
+  }
+
+  async function runLocalBranch(op: () => Promise<void>) {
+    setBusy(true);
+    try {
+      await op();
+    } catch (err) {
+      setBusy(false);
+      throw err;
+    }
   }
 
   async function runClone(
@@ -714,6 +733,14 @@ export default function App() {
     { id: "review", title: "Open review mode", hint: "Temporal anomalies", run: () => { if (!reviewOpen) toggleReview(); } },
     { id: "hq", title: "Open HQ desk", hint: "Pull requests, issues, releases", run: () => { if (!hqOpen) toggleHq(); } },
     { id: "variants", title: "Toggle variant dossiers", run: () => setVariantRailOpen((open) => !open) },
+    {
+      id: "branches",
+      title: "Manage local branches",
+      hint: "Create, rename, cull",
+      run: () => {
+        if (repo) setBranchDeskOpen(true);
+      },
+    },
     {
       id: "ledger",
       title: "Show commit ledger",
@@ -799,6 +826,42 @@ export default function App() {
         onChange={setSettingsState}
       />
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSignedIn={setUser} />
+      <BranchPicker
+        open={branchDeskOpen}
+        path={repo?.path ?? null}
+        busy={busy}
+        onClose={() => setBranchDeskOpen(false)}
+        onSwitch={async (name) => {
+          if (!repo) return;
+          await runLocalBranch(async () => {
+            await switchBranch(repo.path, name);
+            await loadAll(repo.path);
+            setBranchDeskOpen(false);
+          });
+        }}
+        onCreate={async (name, checkout) => {
+          if (!repo) return;
+          await runLocalBranch(async () => {
+            await createLocalBranch(repo.path, name, checkout);
+            await loadAll(repo.path, { keepSelection: !checkout });
+            if (checkout) setBranchDeskOpen(false);
+          });
+        }}
+        onRename={async (from, to) => {
+          if (!repo) return;
+          await runLocalBranch(async () => {
+            await renameLocalBranch(repo.path, from, to);
+            await loadAll(repo.path, { keepSelection: true });
+          });
+        }}
+        onDelete={async (name) => {
+          if (!repo) return;
+          await runLocalBranch(async () => {
+            await deleteLocalBranch(repo.path, name);
+            await loadAll(repo.path, { keepSelection: true });
+          });
+        }}
+      />
       <IdentityPicker
         open={identityOpen}
         onClose={() => {
@@ -857,12 +920,13 @@ export default function App() {
       repo={repo}
       origin={origin}
       sync={sync}
+      branchOpen={branchDeskOpen}
       onBranchClick={
         repo
           ? () => {
               setReviewOpen(false);
-              setRailTab("variants");
-              setVariantRailOpen(true);
+              setHqOpen(false);
+              setBranchDeskOpen((open) => !open);
             }
           : undefined
       }
