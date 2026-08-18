@@ -28,14 +28,15 @@ export function BureauHeader({
   onToggleHq,
 }: Props) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-tva-gold/22 bg-linear-to-b from-[#2a231c] to-[#1a1612] px-[18px] py-2.5">
+    <header className="flex items-center justify-between gap-4 border-b border-tva-gold/22 bg-linear-to-b from-[#2a231c] to-[#1a1612] px-4.5 py-2.5">
       <div className="flex items-center gap-3">
-        <svg className="size-[42px]" viewBox="0 0 64 64" aria-hidden>
-          <circle cx="32" cy="32" r="28" fill="#2b2118" stroke="#e85d04" strokeWidth="3" />
-          <path d="M10 32 H54" stroke="#f4c430" strokeWidth="3" />
-          <path d="M32 32 C 40 18, 50 18, 56 24" fill="none" stroke="#e85d04" strokeWidth="2.4" />
-          <circle cx="32" cy="32" r="4" fill="#f4c430" />
-        </svg>
+        <img
+          className="size-10.5"
+          src="/timestream-logo.svg"
+          alt=""
+          aria-hidden
+          draggable={false}
+        />
         <div>
           <p className={eyebrow}>Time Variance Authority</p>
           <h1 className="m-0 font-display text-[28px] font-semibold tracking-[0.18em]">TIMESTREAM</h1>
@@ -43,7 +44,7 @@ export function BureauHeader({
       </div>
       <div className="flex min-w-0 flex-col items-end gap-1 font-mono text-[11px] text-tva-paper-dim">
         <span>CHRONOMONITORING DIVISION</span>
-        <span className="max-w-[420px] overflow-hidden text-ellipsis whitespace-nowrap">
+        <span className="max-w-105 overflow-hidden text-ellipsis whitespace-nowrap">
           FILE {repo.name.toUpperCase()}
           {origin?.owner && origin.nameOnHost ? ` · ${origin.owner}/${origin.nameOnHost}` : ""}
         </span>

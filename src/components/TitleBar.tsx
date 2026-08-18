@@ -177,7 +177,7 @@ function BarMenu({
       {open ? (
         <div
           role="menu"
-          className="absolute top-full left-0 z-50 min-w-[212px] border border-tva-gold/28 bg-[#241e18] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.55)]"
+          className="absolute top-full left-0 z-50 min-w-53 border border-tva-gold/28 bg-[#241e18] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.55)]"
         >
           {menu.items.map((item, index) =>
             item === "separator" ? (
@@ -203,12 +203,13 @@ function BarMenu({
 
 function TimestreamMark() {
   return (
-    <svg className="size-4 shrink-0" viewBox="0 0 64 64" aria-hidden>
-      <circle cx="32" cy="32" r="28" fill="#2b2118" stroke="#e85d04" strokeWidth="3" />
-      <path d="M10 32 H54" stroke="#f4c430" strokeWidth="3" />
-      <path d="M32 32 C 40 18, 50 18, 56 24" fill="none" stroke="#e85d04" strokeWidth="2.4" />
-      <circle cx="32" cy="32" r="4" fill="#f4c430" />
-    </svg>
+    <img
+      className="size-4 shrink-0"
+      src="/timestream-logo.svg"
+      alt=""
+      aria-hidden
+      draggable={false}
+    />
   );
 }
 
@@ -254,7 +255,7 @@ function WindowButton({
       aria-label={label}
       title={label}
       className={cn(
-        "grid h-full w-[46px] place-items-center border-0 bg-transparent text-tva-paper-dim transition-colors",
+        "grid h-full w-11.5 place-items-center border-0 bg-transparent text-tva-paper-dim transition-colors",
         danger ? "hover:bg-tva-orange-hot hover:text-white" : "hover:bg-white/8 hover:text-tva-paper",
       )}
       onClick={onClick}

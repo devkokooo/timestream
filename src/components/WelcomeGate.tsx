@@ -65,19 +65,15 @@ export function WelcomeGate({
   return (
     <div className="flex min-h-0 flex-1 justify-center px-6 py-10">
       <div className="grid h-full min-h-0 w-[min(860px,100%)] overflow-hidden border border-tva-gold/24 bg-[linear-gradient(180deg,rgba(243,226,194,0.06),transparent_35%),#1b1713] shadow-[0_28px_90px_rgba(0,0,0,0.5)] max-[720px]:grid-cols-1 grid-cols-[minmax(240px,300px)_1fr]">
-        <aside className="flex min-h-0 flex-col gap-[18px] overflow-auto border-r border-tva-gold/16 bg-linear-to-b from-[#241e18] to-[#171310] px-6 py-7 max-[720px]:border-r-0 max-[720px]:border-b max-[720px]:border-tva-gold/16">
+        <aside className="flex min-h-0 flex-col gap-4.5 overflow-auto border-r border-tva-gold/16 bg-linear-to-b from-[#241e18] to-[#171310] px-6 py-7 max-[720px]:border-r-0 max-[720px]:border-b max-[720px]:border-tva-gold/16">
           <div className="flex items-center gap-3">
-            <svg className="size-[42px]" viewBox="0 0 64 64" aria-hidden>
-              <circle cx="32" cy="32" r="28" fill="#2b2118" stroke="#e85d04" strokeWidth="3" />
-              <path d="M10 32 H54" stroke="#f4c430" strokeWidth="3" />
-              <path
-                d="M32 32 C 40 18, 50 18, 56 24"
-                fill="none"
-                stroke="#e85d04"
-                strokeWidth="2.4"
-              />
-              <circle cx="32" cy="32" r="4" fill="#f4c430" />
-            </svg>
+            <img
+              className="size-10.5"
+              src="/timestream-logo.svg"
+              alt=""
+              aria-hidden
+              draggable={false}
+            />
             <div>
               <p className={eyebrow}>Chronomonitoring</p>
               <h1 className="mt-1 mb-0 font-display text-[22px] font-semibold tracking-[0.16em]">
@@ -199,7 +195,7 @@ function RecentList({
           <li key={item.path} className="group grid grid-cols-[1fr_auto] items-stretch">
             <button
               type="button"
-              className="flex w-full min-w-0 flex-col items-start gap-[3px] border-0 bg-transparent px-4 py-2.5 text-left text-inherit hover:bg-tva-orange/10"
+              className="flex w-full min-w-0 flex-col items-start gap-0.75 border-0 bg-transparent px-4 py-2.5 text-left text-inherit hover:bg-tva-orange/10"
               onClick={() => onOpenRecent(item.path)}
             >
               <span className="text-[13px] font-medium text-tva-paper">{item.name}</span>
