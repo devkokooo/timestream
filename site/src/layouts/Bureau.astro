@@ -1,6 +1,14 @@
 ---
 import "../styles/global.css";
-import { SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
+import {
+  SITE_DESCRIPTION,
+  SITE_OG_ALT,
+  SITE_OG_HEIGHT,
+  SITE_OG_IMAGE,
+  SITE_OG_WIDTH,
+  SITE_TITLE,
+  X_HANDLE,
+} from "../lib/site";
 
 interface Props {
   title?: string;
@@ -8,6 +16,8 @@ interface Props {
 }
 
 const { title = SITE_TITLE, description = SITE_DESCRIPTION } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+const ogImage = new URL(SITE_OG_IMAGE, canonical);
 ---
 
 <!doctype html>
@@ -17,9 +27,25 @@ const { title = SITE_TITLE, description = SITE_DESCRIPTION } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:site_name" content="Timestream" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content={String(SITE_OG_WIDTH)} />
+    <meta property="og:image:height" content={String(SITE_OG_HEIGHT)} />
+    <meta property="og:image:alt" content={SITE_OG_ALT} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content={X_HANDLE} />
+    <meta name="twitter:creator" content={X_HANDLE} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={SITE_OG_ALT} />
     <meta name="theme-color" content="#161310" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

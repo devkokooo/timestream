@@ -9,6 +9,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const mock = (name) => path.resolve(root, "src/mocks", name);
 
 export default defineConfig({
+  site: process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_PRIME_URL,
   output: "static",
   adapter: netlify(),
   integrations: [react()],

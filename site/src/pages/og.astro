@@ -1,0 +1,46 @@
+---
+import "../styles/global.css";
+import { OgCard } from "../components/OgCard";
+import { loadOgDiffHighlight } from "../components/OgReviewBackdrop";
+import { SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
+
+export const prerender = true;
+
+const highlight = await loadOgDiffHighlight();
+---
+
+<!doctype html>
+<html lang="en" class="og-frame">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200" />
+    <title>Share card — {SITE_TITLE}</title>
+    <meta name="description" content={SITE_DESCRIPTION} />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <OgCard highlight={highlight} />
+  </body>
+</html>
+
+<style is:global>
+  html.og-frame {
+    font-size: 16px;
+  }
+
+  html.og-frame,
+  html.og-frame body {
+    margin: 0;
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    background: #161310;
+  }
+</style>
