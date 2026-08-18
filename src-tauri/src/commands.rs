@@ -1,10 +1,10 @@
 use crate::auth::{self, DeviceLoginBegin, GithubUser};
 use crate::error::Result;
 use crate::git::{
-    checkout_branch, commit_changes, compare_refs, create_branch, create_tag, delete_tag,
-    list_branches, load_commit, load_file_diff, load_range_file_diff, load_status,
-    load_timeline_opts, load_worktree_diff, open_repo, stage_path, unstage_path, BranchInfo,
-    CommitDetail, FileDiff, RangeCompare, RepoSummary, StatusPayload,
+    checkout_branch, commit_changes, compare_refs, create_branch, create_tag, delete_branch,
+    delete_tag, list_branches, load_commit, load_file_diff, load_range_file_diff, load_status,
+    load_timeline_opts, load_worktree_diff, open_repo, rename_branch, stage_path, unstage_path,
+    BranchInfo, CommitDetail, FileDiff, RangeCompare, RepoSummary, StatusPayload,
 };
 use crate::github::{
     self, CheckRunSummary, CreateIssue, CreatePullRequest, CreateRelease, IssueComment,
@@ -117,8 +117,22 @@ pub fn switch_branch(path: String, name: String) -> Result<RepoSummary> {
 }
 
 #[tauri::command]
-pub fn create_local_branch(path: String, name: String) -> Result<RepoSummary> {
-    create_branch(&PathBuf::from(path), &name)
+pub fn create_local_branch(
+    path: String,
+    name: String,
+    checkout: Option<bool>,
+) -> Result<RepoSummary> {
+    create_branch(&PathBuf::from(path), &name, checkout.unwrap_or(true))
+}
+
+#[tauri::command]
+pub fn rename_local_branch(path: String, from: String, to: String) -> Result<RepoSummary> {
+    rename_branch(&PathBuf::from(path), &from, &to)
+}
+
+#[tauri::command]
+pub fn delete_local_branch(path: String, name: String) -> Result<()> {
+    delete_branch(&PathBuf::from(path), &name)
 }
 
 #[tauri::command]

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AuthDialogExhibit } from "./exhibits/AuthDialog";
+import { BranchPickerExhibit } from "./exhibits/BranchPicker";
 import { BureauHeaderExhibit } from "./exhibits/BureauHeader";
 import {
   FileKindIconExhibit,
@@ -119,6 +120,13 @@ export const EXHIBITS: Exhibit[] = [
     group: "Chrome",
     stamps: ["success", "loading", "error", "empty"],
     render: (scenario) => <StatusBarExhibit scenario={scenario} />,
+  },
+  {
+    id: "branch-picker",
+    title: "Branch picker",
+    group: "Chrome",
+    stamps: ALL,
+    render: (scenario) => <BranchPickerExhibit scenario={scenario} />,
   },
   {
     id: "welcome-gate",

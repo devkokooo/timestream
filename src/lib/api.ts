@@ -113,8 +113,20 @@ export function switchBranch(path: string, name: string): Promise<RepoSummary> {
   return invoke("switch_branch", { path, name });
 }
 
-export function createLocalBranch(path: string, name: string): Promise<RepoSummary> {
-  return invoke("create_local_branch", { path, name });
+export function createLocalBranch(
+  path: string,
+  name: string,
+  checkout = true,
+): Promise<RepoSummary> {
+  return invoke("create_local_branch", { path, name, checkout });
+}
+
+export function renameLocalBranch(path: string, from: string, to: string): Promise<RepoSummary> {
+  return invoke("rename_local_branch", { path, from, to });
+}
+
+export function deleteLocalBranch(path: string, name: string): Promise<void> {
+  return invoke("delete_local_branch", { path, name });
 }
 
 export function stageFile(path: string, rel: string): Promise<StatusPayload> {

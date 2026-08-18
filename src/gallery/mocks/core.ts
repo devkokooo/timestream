@@ -59,6 +59,7 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
     case "open_repository":
     case "switch_branch":
     case "create_local_branch":
+    case "rename_local_branch":
     case "checkout_pull_request":
     case "clone_repository":
       return (empty ? { ...REPO, head: null, branch: null } : REPO) as T;
@@ -84,10 +85,11 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
       return (
         empty
           ? []
-          : LINEAR.dossiers.map((d) => ({ name: d.name, tip: d.tip, isHead: d.isHead }))
+          : MANY_BRANCHES.dossiers.map((d) => ({ name: d.name, tip: d.tip, isHead: d.isHead }))
       ) as T;
     case "file_commit":
       return "filed-sha" as T;
+    case "delete_local_branch":
     case "create_local_tag":
     case "delete_local_tag":
     case "push_tag":

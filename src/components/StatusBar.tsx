@@ -7,9 +7,10 @@ interface Props {
   origin: RemoteInfo | null;
   sync: AheadBehind | null;
   onBranchClick?: () => void;
+  branchOpen?: boolean;
 }
 
-export function StatusBar({ repo, origin, sync, onBranchClick }: Props) {
+export function StatusBar({ repo, origin, sync, onBranchClick, branchOpen }: Props) {
   const detached = Boolean(repo) && !repo?.branch;
   const branch = repo?.branch ?? (repo ? "DETACHED" : null);
   const sha = repo?.head?.slice(0, 7) ?? null;
@@ -25,6 +26,8 @@ export function StatusBar({ repo, origin, sync, onBranchClick }: Props) {
         <StatusItem
           title={detached ? "Detached HEAD" : `Current branch: ${branch}`}
           onClick={onBranchClick}
+          expanded={branchOpen}
+          popup="dialog"
           className={detached ? "text-[#ff8a6a]" : "text-tva-gold-bright"}
         >
           <BranchMark />
@@ -57,11 +60,15 @@ function StatusItem({
   children,
   title,
   onClick,
+  expanded,
+  popup,
   className,
 }: {
   children: ReactNode;
   title?: string;
   onClick?: () => void;
+  expanded?: boolean;
+  popup?: "dialog" | "menu";
   className?: string;
 }) {
   const shared = cn(
@@ -71,7 +78,14 @@ function StatusItem({
   );
   if (onClick) {
     return (
-      <button type="button" title={title} className={cn(shared, "border-0 bg-transparent")} onClick={onClick}>
+      <button
+        type="button"
+        title={title}
+        className={cn(shared, "border-0 bg-transparent")}
+        onClick={onClick}
+        aria-expanded={expanded}
+        aria-haspopup={popup}
+      >
         {children}
       </button>
     );
