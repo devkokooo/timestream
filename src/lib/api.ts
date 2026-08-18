@@ -440,6 +440,4 @@ export function isDivergedError(err: unknown): boolean {
   return String(err).includes("VARIANT_DIVERGED");
 }
 
-export function isAuthError(err: unknown): boolean {
-  return String(err).includes("GITHUB_AUTH_REQUIRED");
-}
+export { isAuthError } from "./githubDispatch";

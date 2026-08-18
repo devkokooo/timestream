@@ -1,8 +1,10 @@
-import { PrCompare } from "../../components/PrCompare";
+import { PrCompare, type RequestDeskTab } from "../../components/PrCompare";
 import { MANY_BRANCHES, REPO } from "../fixtures";
 import { Frame, noop } from "../frame";
+import { useExhibitTab } from "../exhibitUi";
 
 export function PrCompareExhibit() {
+  const [tab, onTab] = useExhibitTab<RequestDeskTab>("pr-compare", "conversation");
   return (
     <Frame>
       <PrCompare
@@ -15,6 +17,8 @@ export function PrCompareExhibit() {
         extraBranches={["grain"]}
         onHead={noop}
         onBase={noop}
+        tab={tab}
+        onTab={onTab}
       />
     </Frame>
   );

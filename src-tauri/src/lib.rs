@@ -3,6 +3,7 @@ mod commands;
 mod error;
 mod git;
 mod github;
+mod github_error;
 mod graph;
 mod remotes;
 mod settings;

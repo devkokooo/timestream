@@ -38,6 +38,8 @@ interface Props {
   onHead: (name: string) => void;
   onBase: (name: string) => void;
   children?: ReactNode;
+  tab?: RequestDeskTab;
+  onTab?: (tab: RequestDeskTab) => void;
 }
 
 export function PrCompare({
@@ -53,10 +55,17 @@ export function PrCompare({
   onHead,
   onBase,
   children,
+  tab: tabProp,
+  onTab,
 }: Props) {
   const compareHead = headSpec || head;
   const compareBase = baseSpec || base;
-  const [tab, setTab] = useState<RequestDeskTab>("conversation");
+  const [tabState, setTabState] = useState<RequestDeskTab>("conversation");
+  const tab = tabProp ?? tabState;
+  const setTab = (next: RequestDeskTab) => {
+    onTab?.(next);
+    if (tabProp === undefined) setTabState(next);
+  };
   const [compare, setCompare] = useState<RangeCompare | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

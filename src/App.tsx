@@ -4,6 +4,7 @@ import { BureauHeader } from "./components/BureauHeader";
 import { CommandPalette, type PaletteCommand } from "./components/CommandPalette";
 import { DiffViewer } from "./components/DiffViewer";
 import { Docket } from "./components/Docket";
+import { DispatchNotice } from "./components/DispatchNotice";
 import { HqMode } from "./components/HqMode";
 import { RailStrip } from "./components/RailStrip";
 import { ReviewMode } from "./components/ReviewMode";
@@ -34,6 +35,7 @@ import {
   githubSearchRepos,
   githubWhoami,
   githubLogout,
+  isAuthError,
   isDivergedError,
   isPassphraseError,
   isSshIdentityError,
@@ -60,6 +62,7 @@ import {
   type RecentRepo,
 } from "./lib/recentRepos";
 import { GithubUserProvider } from "./lib/githubUserContext";
+import { isGithubDispatchError } from "./lib/githubDispatch";
 import { defaultSettings } from "./lib/settingsRegistry";
 import type { SettingDef } from "./lib/settingsRegistry";
 import { btn, errorText } from "./lib/ui";
@@ -267,7 +270,13 @@ export default function App() {
       .catch(() => {});
     void githubWhoami()
       .then(setUser)
-      .catch(() => setUser(null));
+      .catch((err) => {
+        if (isAuthError(err)) {
+          setUser(null);
+          return;
+        }
+        setError(errMessage(err));
+      });
   }, []);
 
   const timelineEnabled = settings.timeline.enabled;
@@ -289,7 +298,10 @@ export default function App() {
     }
     void githubListPulls(origin.owner, origin.nameOnHost, "open")
       .then(setPrs)
-      .catch(() => setPrs([]));
+      .catch((err) => {
+        setPrs([]);
+        setError(errMessage(err));
+      });
   }, [origin?.owner, origin?.nameOnHost, user?.login]);
 
   useEffect(() => {
@@ -910,7 +922,35 @@ export default function App() {
         hqOpen={hqOpen}
         onToggleHq={toggleHq}
       />
-      {error ? <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div> : null}
+      {error ? (
+        isGithubDispatchError(error) ? (
+          <div className="px-[18px] py-1.5">
+            <DispatchNotice
+              error={error}
+              compact
+              onSignIn={() => setAuthOpen(true)}
+              onRetry={() => {
+                setError(null);
+                void githubWhoami()
+                  .then((next) => {
+                    setUser(next);
+                    if (!origin?.owner || !origin.nameOnHost || !next) return;
+                    return githubListPulls(origin.owner, origin.nameOnHost, "open").then(setPrs);
+                  })
+                  .catch((err) => {
+                    if (isAuthError(err)) {
+                      setUser(null);
+                      return;
+                    }
+                    setError(errMessage(err));
+                  });
+              }}
+            />
+          </div>
+        ) : (
+          <div className={cn(errorText, "px-[18px] py-1.5")}>{error}</div>
+        )
+      ) : null}
       {reviewOpen ? (
         <ReviewMode
           status={status}
@@ -1107,7 +1147,10 @@ export default function App() {
             if (pr && origin?.owner && origin.nameOnHost) {
               void githubListReviewComments(origin.owner, origin.nameOnHost, pr.number)
                 .then(setReviewComments)
-                .catch(() => setReviewComments([]));
+                .catch((err) => {
+                  setReviewComments([]);
+                  setError(errMessage(err));
+                });
             }
             openDiff({ kind: "commit", path });
           }}

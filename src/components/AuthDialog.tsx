@@ -2,9 +2,11 @@ import { useState } from "react";
 import { VscCopy } from "react-icons/vsc";
 import { SiGithub } from "react-icons/si";
 import { githubLoginBegin, githubLoginPat, githubLoginPoll } from "../lib/api";
+import { classifyGithubDispatch, dispatchMessage } from "../lib/githubDispatch";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cn } from "../lib/cn";
 import { btn, btnPrimary, fieldInput, fieldLabel, panelTitle } from "../lib/ui";
+import { DispatchNotice } from "./DispatchNotice";
 import { TvaTerm } from "./TvaTerm";
 import type { GithubUser } from "../lib/types";
 
@@ -65,7 +67,7 @@ export function AuthDialog({ open, onClose, onSignedIn }: Props) {
               }
               setError("Device login expired.");
             } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
+              setError(dispatchMessage(err));
             } finally {
               setBusy(false);
             }
@@ -142,7 +144,7 @@ export function AuthDialog({ open, onClose, onSignedIn }: Props) {
                 onSignedIn(user);
                 onClose();
               } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
+                setError(dispatchMessage(err));
               } finally {
                 setBusy(false);
               }
@@ -152,7 +154,15 @@ export function AuthDialog({ open, onClose, onSignedIn }: Props) {
           </button>
         </details>
         {hint ? <p className="mt-2 text-xs text-tva-gold">{hint}</p> : null}
-        {error ? <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p> : null}
+        {error ? (
+          classifyGithubDispatch(error) ? (
+            <div className="mt-2">
+              <DispatchNotice error={error} compact />
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p>
+          )
+        ) : null}
         <div className="mt-4 flex justify-end">
           <button type="button" className={btn} onClick={onClose}>
             Cancel

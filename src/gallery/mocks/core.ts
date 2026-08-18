@@ -30,14 +30,14 @@ import {
   TEXT_DIFF,
   settingsWithKey,
 } from "../fixtures";
-import { getScenario, neverResolves, SPECIMEN_ERROR } from "../scenario";
+import { getScenario, neverResolves, SPECIMEN_AUTH, SPECIMEN_ERROR, SPECIMEN_FORBIDDEN, SPECIMEN_OUTAGE, SPECIMEN_RATE_LIMIT } from "../scenario";
 
 function hang<T>(): Promise<T> {
   return neverResolves();
 }
 
-function fail(): never {
-  throw new Error(SPECIMEN_ERROR);
+function fail(message = SPECIMEN_ERROR): never {
+  throw new Error(message);
 }
 
 function settings(): AppSettings {
@@ -48,6 +48,10 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
   const scenario = getScenario();
   if (scenario === "loading") return hang();
   if (scenario === "error") fail();
+  if (scenario === "outage") fail(SPECIMEN_OUTAGE);
+  if (scenario === "rate-limit") fail(SPECIMEN_RATE_LIMIT);
+  if (scenario === "auth") fail(SPECIMEN_AUTH);
+  if (scenario === "forbidden") fail(SPECIMEN_FORBIDDEN);
 
   const empty = scenario === "empty";
 

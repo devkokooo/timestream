@@ -13,6 +13,7 @@ import {
 import { CommandPaletteExhibit } from "./exhibits/CommandPalette";
 import { DiffViewerExhibit } from "./exhibits/DiffViewer";
 import { DocketExhibit } from "./exhibits/Docket";
+import { GithubDispatchExhibit } from "./exhibits/GithubDispatch";
 import { HqClearanceExhibit, HqModeExhibit } from "./exhibits/HqMode";
 import { IdentityPickerExhibit } from "./exhibits/IdentityPicker";
 import { NexusDossierExhibit, NexusTooltipExhibit } from "./exhibits/Nexus";
@@ -24,7 +25,7 @@ import { SettingsPageExhibit } from "./exhibits/SettingsPage";
 import { StatusBarExhibit } from "./exhibits/StatusBar";
 import { TitleBarExhibit } from "./exhibits/TitleBar";
 import { WelcomeGateExhibit } from "./exhibits/WelcomeGate";
-import { SCENARIOS, type Scenario } from "./scenario";
+import { CORE_SCENARIOS, GITHUB_FAIL_SCENARIOS, type Scenario } from "./scenario";
 
 export interface Exhibit {
   id: string;
@@ -34,9 +35,12 @@ export interface Exhibit {
   render: (scenario: Scenario) => ReactNode;
 }
 
-const ALL = SCENARIOS;
+const ALL = CORE_SCENARIOS;
 const NO_IPC = ["success", "empty"] as const;
 const LOCAL = ["success", "loading", "empty"] as const;
+const HQ = [...CORE_SCENARIOS, ...GITHUB_FAIL_SCENARIOS] as const;
+const AUTH = [...CORE_SCENARIOS, "outage", "auth"] as const;
+const WELCOME = [...CORE_SCENARIOS, "outage"] as const;
 
 export const EXHIBITS: Exhibit[] = [
   {
@@ -120,7 +124,7 @@ export const EXHIBITS: Exhibit[] = [
     id: "welcome-gate",
     title: "Welcome gate",
     group: "Local",
-    stamps: ALL,
+    stamps: WELCOME,
     render: (scenario) => <WelcomeGateExhibit scenario={scenario} />,
   },
   {
@@ -197,7 +201,7 @@ export const EXHIBITS: Exhibit[] = [
     id: "auth-dialog",
     title: "Auth dialog",
     group: "GitHub",
-    stamps: ALL,
+    stamps: AUTH,
     render: () => <AuthDialogExhibit />,
   },
   {
@@ -211,8 +215,15 @@ export const EXHIBITS: Exhibit[] = [
     id: "hq-mode",
     title: "HQ desk",
     group: "GitHub",
-    stamps: ALL,
+    stamps: HQ,
     render: () => <HqModeExhibit />,
+  },
+  {
+    id: "github-dispatch",
+    title: "GitHub dispatch",
+    group: "GitHub",
+    stamps: ["success"],
+    render: () => <GithubDispatchExhibit />,
   },
   {
     id: "hq-clearance",

@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
-import { btn, btnPrimary, errorText, eyebrow, fieldInput } from "../lib/ui";
+import { btn, btnPrimary, eyebrow, fieldInput } from "../lib/ui";
+import { classifyGithubDispatch, dispatchMessage } from "../lib/githubDispatch";
 import type { GithubUser, RepoSearchHit } from "../lib/types";
 import type { RecentRepo } from "../lib/recentRepos";
+import { DispatchNotice } from "./DispatchNotice";
 import { TvaTerm } from "./TvaTerm";
 import { TvaScrollArea } from "./TvaScrollArea";
+
+type GateTab = "recent" | "logs";
 
 interface Props {
   recent: RecentRepo[];
@@ -19,6 +23,8 @@ interface Props {
   error: string | null;
   cloneLog: string[];
   cloning: boolean;
+  tab?: GateTab;
+  onTab?: (tab: GateTab) => void;
 }
 
 function parentPath(path: string): string {
@@ -28,8 +34,6 @@ function parentPath(path: string): string {
   if (idx <= 0) return "";
   return trimmed.slice(0, idx);
 }
-
-type GateTab = "recent" | "logs";
 
 export function WelcomeGate({
   recent,
@@ -44,8 +48,15 @@ export function WelcomeGate({
   error,
   cloneLog,
   cloning,
+  tab: tabProp,
+  onTab,
 }: Props) {
-  const [tab, setTab] = useState<GateTab>("recent");
+  const [tabState, setTabState] = useState<GateTab>("recent");
+  const tab = tabProp ?? tabState;
+  const setTab = (next: GateTab) => {
+    onTab?.(next);
+    if (tabProp === undefined) setTabState(next);
+  };
 
   useEffect(() => {
     if (cloning) setTab("logs");
@@ -95,7 +106,13 @@ export function WelcomeGate({
             <TvaTerm flavor="Bureau settings" noun="Settings" />
           </button>
 
-          {error ? <div className={errorText}>{error}</div> : null}
+          {error ? (
+            classifyGithubDispatch(error) ? (
+              <DispatchNotice error={error} compact />
+            ) : (
+              <div className="mt-2.5 text-xs text-[#ff8a6a]">{error}</div>
+            )
+          ) : null}
         </aside>
 
         <section className="flex min-h-0 min-w-0 flex-col px-2 pt-3 pb-4">
@@ -218,6 +235,7 @@ function CloneBox({
 }) {
   const [url, setUrl] = useState("");
   const [hits, setHits] = useState<RepoSearchHit[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-1.5">
       <button type="button" className={cn(btn, "w-full")} disabled>
@@ -231,7 +249,16 @@ function CloneBox({
         onChange={(e) => setUrl(e.target.value)}
         onBlur={() => {
           if (signedIn && url && !url.includes("://") && !url.includes("@")) {
-            void onSearchRepos(url).then(setHits).catch(() => setHits([]));
+            setSearchError(null);
+            void onSearchRepos(url)
+              .then((next) => {
+                setHits(next);
+                setSearchError(null);
+              })
+              .catch((err) => {
+                setHits([]);
+                setSearchError(dispatchMessage(err));
+              });
           }
         }}
       />
@@ -243,6 +270,7 @@ function CloneBox({
       >
         {cloning ? "Cloning…" : "Clone"}
       </button>
+      {searchError ? <DispatchNotice error={searchError} compact /> : null}
       {hits.map((hit) => (
         <button
           key={hit.fullName}

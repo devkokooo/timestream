@@ -1,4 +1,5 @@
 use crate::error::{AppError, Result};
+use crate::github_error;
 use serde::{Deserialize, Serialize};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -302,7 +303,7 @@ fn oauth_http_error(status: reqwest::StatusCode, text: &str) -> AppError {
             ));
         }
     }
-    AppError::msg(format!("GitHub login failed ({status}): {text}"))
+    github_error::api_error(status, text.to_string())
 }
 
 async fn post_oauth_form(url: &str, form: &[(&str, &str)]) -> Result<String> {
@@ -313,7 +314,8 @@ async fn post_oauth_form(url: &str, form: &[(&str, &str)]) -> Result<String> {
         .header("User-Agent", UA)
         .form(form)
         .send()
-        .await?;
+        .await
+        .map_err(github_error::transport_error)?;
     let status = res.status();
     let text = res.text().await.unwrap_or_default();
     if !status.is_success() {
@@ -451,13 +453,22 @@ pub async fn whoami() -> Result<Option<GithubUser>> {
     };
     match whoami_with(&token).await {
         Ok(user) => Ok(Some(user)),
-        Err(_) => match refresh_access_token().await {
+        Err(err) if github_error::is_auth_required(&err) => match refresh_access_token().await {
             Ok(Some(next)) => match whoami_with(&next).await {
                 Ok(user) => Ok(Some(user)),
-                Err(_) => Ok(None),
+                Err(retry) if github_error::is_auth_required(&retry) => Ok(None),
+                Err(retry) => Err(retry),
             },
-            _ => Ok(None),
+            Ok(None) => Ok(None),
+            Err(refresh_err) => {
+                if refresh_err.to_string().starts_with("GITHUB_OUTAGE:") {
+                    Err(refresh_err)
+                } else {
+                    Ok(None)
+                }
+            }
         },
+        Err(err) => Err(err),
     }
 }
 
@@ -466,13 +477,14 @@ async fn github_authed_get(
     token: &str,
     url: &str,
 ) -> Result<reqwest::Response> {
-    Ok(client
+    client
         .get(url)
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", UA)
         .header("Authorization", format!("Bearer {token}"))
         .send()
-        .await?)
+        .await
+        .map_err(github_error::transport_error)
 }
 
 async fn list_user_emails(client: &reqwest::Client, token: &str) -> Vec<String> {
@@ -495,10 +507,9 @@ pub async fn whoami_with(token: &str) -> Result<GithubUser> {
     let client = reqwest::Client::new();
     let res = github_authed_get(&client, token, "https://api.github.com/user").await?;
     if !res.status().is_success() {
-        return Err(AppError::msg(format!(
-            "GitHub rejected credentials ({})",
-            res.status()
-        )));
+        let status = res.status();
+        let text = res.text().await.unwrap_or_default();
+        return Err(github_error::api_error(status, text));
     }
     let user: GithubApiUser = res.json().await?;
     let extra = list_user_emails(&client, token).await;

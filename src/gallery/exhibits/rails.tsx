@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { HistoryRail } from "../../components/HistoryRail";
 import { LeftRail } from "../../components/LeftRail";
 import { TagsRail } from "../../components/TagsRail";
@@ -6,6 +5,7 @@ import { VariantRail } from "../../components/VariantRail";
 import type { RailTab } from "../../lib/types";
 import { LINEAR, MANY_BRANCHES, SYNC, TAGGED, emptyTimeline } from "../fixtures";
 import { Frame, noop } from "../frame";
+import { useExhibitTab } from "../exhibitUi";
 import type { Scenario } from "../scenario";
 
 export function VariantRailExhibit({ scenario }: { scenario: Scenario }) {
@@ -41,7 +41,7 @@ export function TagsRailExhibit({ scenario }: { scenario: Scenario }) {
 }
 
 export function LeftRailExhibit({ scenario }: { scenario: Scenario }) {
-  const [tab, setTab] = useState<RailTab>("variants");
+  const [tab, setTab] = useExhibitTab<RailTab>("left-rail", "variants");
   const timeline = scenario === "empty" ? emptyTimeline() : MANY_BRANCHES;
   return (
     <Frame>

@@ -1,5 +1,6 @@
 use crate::auth;
 use crate::error::{AppError, Result};
+use crate::github_error;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -193,11 +194,11 @@ async fn send_request(
     if let Some(body) = body {
         req = req.json(&body);
     }
-    Ok(req.send().await?)
+    req.send().await.map_err(github_error::transport_error)
 }
 
 fn api_error(status: reqwest::StatusCode, text: String) -> AppError {
-    AppError::msg(format!("GitHub API {status}: {text}"))
+    github_error::api_error(status, text)
 }
 
 async fn request(
@@ -245,11 +246,11 @@ fn graphql_errors(body: &Value) -> Option<String> {
 
 fn graphql_data(body: Value) -> Result<Value> {
     if let Some(msg) = graphql_errors(&body) {
-        return Err(AppError::msg(format!("GitHub GraphQL: {msg}")));
+        return Err(github_error::graphql_error(&msg));
     }
     body.get("data")
         .cloned()
-        .ok_or_else(|| AppError::msg("GitHub GraphQL: empty data"))
+        .ok_or_else(|| AppError::msg("GITHUB_DISPATCH: empty GraphQL data"))
 }
 
 fn pull_id_from_repo(data: &Value) -> Option<String> {
@@ -312,7 +313,7 @@ async fn pull_node_id(owner: &str, repo: &str, number: u64) -> Result<String> {
         json!({ "owner": owner, "name": repo, "number": number }),
     )
     .await?;
-    pull_id_from_repo(&data).ok_or_else(|| AppError::msg("GitHub GraphQL: pull request not found"))
+    pull_id_from_repo(&data).ok_or_else(|| AppError::msg("GITHUB_NOT_FOUND: pull request not found"))
 }
 
 async fn mutate_pull(owner: &str, repo: &str, number: u64, query: &str, extra: Value) -> Result<()> {
@@ -1131,10 +1132,13 @@ mod tests {
 
         let data = json!({ "repository": { "pullRequest": { "id": "PR_kwDO" } } });
         assert_eq!(pull_id_from_repo(&data).as_deref(), Some("PR_kwDO"));
-        assert!(graphql_data(json!({
+        let denied = graphql_data(json!({
             "errors": [{ "message": "Resource not accessible by integration" }]
-        }))
-        .is_err());
+        }));
+        assert_eq!(
+            denied.unwrap_err().to_string(),
+            "GITHUB_FORBIDDEN: Resource not accessible by integration"
+        );
     }
 
     #[test]

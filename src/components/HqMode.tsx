@@ -47,8 +47,10 @@ import type {
   ReviewComment,
   Timeline,
 } from "../lib/types";
+import { classifyGithubDispatch, dispatchMessage } from "../lib/githubDispatch";
+import { DispatchNotice } from "./DispatchNotice";
 import { PersonName } from "./PersonName";
-import { PrCompare } from "./PrCompare";
+import { PrCompare, type RequestDeskTab } from "./PrCompare";
 import { HintMark, TvaTerm } from "./TvaTerm";
 import { TransmitButton } from "./TransmitButton";
 import { TvaScrollArea } from "./TvaScrollArea";
@@ -69,6 +71,10 @@ interface HqModeProps {
   onCreateTag: (name: string, sha: string, message?: string) => void;
   onPushTag: (name: string) => void;
   selectedSha: string | null;
+  tab?: HqTab;
+  onTab?: (tab: HqTab) => void;
+  deskTab?: RequestDeskTab;
+  onDeskTab?: (tab: RequestDeskTab) => void;
 }
 
 type FeatureDesk = {
@@ -79,7 +85,12 @@ type FeatureDesk = {
 };
 
 export function HqMode(props: HqModeProps) {
-  const [tab, setTab] = useState<HqTab>("requests");
+  const [tabState, setTabState] = useState<HqTab>("requests");
+  const tab = props.tab ?? tabState;
+  const setTab = (next: HqTab) => {
+    props.onTab?.(next);
+    if (props.tab === undefined) setTabState(next);
+  };
   const [features, setFeatures] = useState<RepoFeatures | null>(null);
   const [recheckingFeatures, setRecheckingFeatures] = useState(false);
   const [recheckError, setRecheckError] = useState<string | null>(null);
@@ -95,7 +106,7 @@ export function HqMode(props: HqModeProps) {
     try {
       setFeatures(await githubRepoFeatures(props.owner, props.repoName));
     } catch (err) {
-      setRecheckError(err instanceof Error ? err.message : String(err));
+      setRecheckError(dispatchMessage(err));
     } finally {
       setRecheckingFeatures(false);
     }
@@ -197,6 +208,28 @@ function HqDesk({
   );
 }
 
+function HqDispatch({
+  error,
+  compact,
+  onRetry,
+  onSignIn,
+}: {
+  error?: string | null;
+  compact?: boolean;
+  onRetry?: () => void;
+  onSignIn?: () => void;
+}) {
+  if (!error) return null;
+  if (!classifyGithubDispatch(error)) {
+    return <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p>;
+  }
+  return (
+    <div className="mt-2">
+      <DispatchNotice error={error} compact={compact} onRetry={onRetry} onSignIn={onSignIn} />
+    </div>
+  );
+}
+
 function HqListPane({
   title,
   count,
@@ -204,6 +237,8 @@ function HqListPane({
   extra,
   error,
   empty,
+  onRetry,
+  onSignIn,
   children,
 }: {
   title: string;
@@ -212,6 +247,8 @@ function HqListPane({
   extra?: ReactNode;
   error?: string | null;
   empty: string;
+  onRetry?: () => void;
+  onSignIn?: () => void;
   children?: ReactNode;
 }) {
   return (
@@ -222,9 +259,15 @@ function HqListPane({
         </h3>
         {filters ? <div className="mt-2 flex flex-wrap gap-1">{filters}</div> : null}
         {extra}
-        {error ? <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p> : null}
+        {error && count > 0 ? (
+          <HqDispatch error={error} compact onRetry={onRetry} onSignIn={onSignIn} />
+        ) : null}
       </div>
-      {count === 0 || !children ? (
+      {error && count === 0 ? (
+        <div className="min-h-0 flex-1 overflow-auto pr-1">
+          <HqDispatch error={error} onRetry={onRetry} onSignIn={onSignIn} />
+        </div>
+      ) : count === 0 || !children ? (
         <TvaScrollArea className="min-h-0 flex-1" axis="y" fill>
           <div className={emptyText}>{empty}</div>
         </TvaScrollArea>
@@ -241,6 +284,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
   const [counts, setCounts] = useState<PullCounts>({ open: 0, closed: 0 });
   const [selected, setSelected] = useState<PullRequestSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [draft, setDraft] = useState(false);
@@ -296,7 +340,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
         setCounts((prev) => ({ ...prev, open: next.length }));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(dispatchMessage(err));
     }
   }
 
@@ -307,7 +351,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
     try {
       await work();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(dispatchMessage(err));
     } finally {
       setActing(null);
     }
@@ -335,19 +379,29 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
     if (!props.owner || !props.repoName) return;
     const owner = props.owner;
     const repo = props.repoName;
+    let first: string | null = null;
+    async function loadOr<T>(work: Promise<T>, fallback: T): Promise<T> {
+      try {
+        return await work;
+      } catch (err) {
+        first ??= dispatchMessage(err);
+        return fallback;
+      }
+    }
     const [issue, review, commits, nextReviews] = await Promise.all([
-      githubListIssueComments(owner, repo, number).catch(() => [] as IssueComment[]),
-      githubListReviewComments(owner, repo, number).catch(() => [] as ReviewComment[]),
-      githubListPullCommits(owner, repo, number).catch(() => [] as PullCommit[]),
-      githubListReviews(owner, repo, number).catch(() => [] as PullReview[]),
+      loadOr(githubListIssueComments(owner, repo, number), [] as IssueComment[]),
+      loadOr(githubListReviewComments(owner, repo, number), [] as ReviewComment[]),
+      loadOr(githubListPullCommits(owner, repo, number), [] as PullCommit[]),
+      loadOr(githubListReviews(owner, repo, number), [] as PullReview[]),
     ]);
     setIssueComments(issue);
     setComments(review);
     setPullCommits(commits);
     setReviews(nextReviews);
     if (headSha) {
-      setChecks(await githubListChecks(owner, repo, headSha).catch(() => []));
+      setChecks(await loadOr(githubListChecks(owner, repo, headSha), [] as CheckRunSummary[]));
     }
+    if (first) setDetailError(first);
   }
 
   useEffect(() => {
@@ -356,9 +410,12 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
       setComments([]);
       setPullCommits([]);
       setReviews([]);
+      setDetailError(null);
       return;
     }
-    void githubGetPull(props.owner, props.repoName, selected.number).then(setSelected).catch(() => {});
+    void githubGetPull(props.owner, props.repoName, selected.number)
+      .then(setSelected)
+      .catch((err) => setDetailError(dispatchMessage(err)));
     void reloadConversation(selected.number, selected.headSha);
   }, [selected?.number, selected?.headSha, props.owner, props.repoName]);
 
@@ -386,6 +443,8 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
           title="REQUESTS"
           count={prs.length}
           error={error}
+          onRetry={() => void reload()}
+          onSignIn={props.onSignIn}
           empty={pullsOpen ? "No requests in this filter." : "Requests are sealed on this origin."}
           filters={
             pullsOpen ? (
@@ -495,6 +554,8 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
           extraBranches={extraBranches}
           onHead={chooseHead}
           onBase={chooseBase}
+          tab={props.deskTab}
+          onTab={props.onDeskTab}
         >
           {pullsOpen ? (
             selected && sameGitRef(selected.headRef, head) && sameGitRef(selected.baseRef, base) ? (
@@ -564,9 +625,9 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                         setHead(created.headRef);
                         setBase(created.baseRef);
                         await reload();
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : String(err));
-                      } finally {
+    } catch (err) {
+      setError(dispatchMessage(err));
+    } finally {
                         setFiling(false);
                       }
                     })();
@@ -593,7 +654,16 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
               {selected.headRef} → {selected.baseRef}
               {selected.ciStatus ? ` · ${selected.ciStatus}` : ""}
             </p>
-            {error ? <p className="mt-2 text-xs text-[#ff8a6a]">{error}</p> : null}
+            {error ? (
+              <HqDispatch error={error} compact onSignIn={props.onSignIn} />
+            ) : (
+              <HqDispatch
+                error={detailError}
+                compact
+                onRetry={() => selected && void reloadConversation(selected.number, selected.headSha)}
+                onSignIn={props.onSignIn}
+              />
+            )}
             <div className="mt-3 flex flex-col gap-1">
               <TransmitButton
                 active={acting === "checkout"}
@@ -719,11 +789,7 @@ function RequestsPanel(props: HqModeProps & FeatureDesk) {
                         void runDossier(`rerun-${run.id}`, async () => {
                           if (!props.signedIn || !props.owner || !props.repoName) return;
                           await githubRerunJob(props.owner, props.repoName, run.id);
-                          setChecks(
-                            await githubListChecks(props.owner, props.repoName, selected.headSha).catch(
-                              () => checks,
-                            ),
-                          );
+                          setChecks(await githubListChecks(props.owner, props.repoName, selected.headSha));
                         })
                       }
                       title="Re-run GitHub Actions job"
@@ -842,14 +908,18 @@ function DocketItem({ entry, now }: { entry: DocketEntry; now: number }) {
 function ReviewForm({ onSubmit }: { onSubmit: (event: string, body: string) => Promise<void> }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(event: string) {
     if (sending) return;
     if (event === "COMMENT" && !body.trim()) return;
     setSending(event);
+    setError(null);
     try {
       await onSubmit(event, body);
       setBody("");
+    } catch (err) {
+      setError(dispatchMessage(err));
     } finally {
       setSending(null);
     }
@@ -901,6 +971,7 @@ function ReviewForm({ onSubmit }: { onSubmit: (event: string, body: string) => P
         />
       </div>
       <p className="m-0 mt-1 text-[10px] text-tva-muted">Stamps CLEAR / FLAG apply after GitHub records the review.</p>
+      <HqDispatch error={error} compact />
     </div>
   );
 }
@@ -924,7 +995,7 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
       setError(null);
       setIssues(await githubListIssues(props.owner, props.repoName, filter));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(dispatchMessage(err));
     }
   }
 
@@ -940,7 +1011,10 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
     if (!selected || !props.owner || !props.repoName) return;
     void githubListIssueComments(props.owner, props.repoName, selected.number)
       .then(setComments)
-      .catch(() => setComments([]));
+      .catch((err) => {
+        setComments([]);
+        setError(dispatchMessage(err));
+      });
   }, [selected?.number, props.owner, props.repoName]);
 
   if (!props.signedIn) {
@@ -967,6 +1041,8 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
           title="INCIDENTS"
           count={issues.length}
           error={error}
+          onRetry={() => void reload()}
+          onSignIn={props.onSignIn}
           empty={issuesOpen ? "No incidents in this filter." : "Incidents are sealed on this origin."}
           filters={
             issuesOpen ? (
@@ -1036,7 +1112,7 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
                       setSelected(created);
                       await reload();
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : String(err));
+                      setError(dispatchMessage(err));
                     } finally {
                       setFiling(false);
                     }
@@ -1082,7 +1158,7 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
                       setNote("");
                       setComments(await githubListIssueComments(props.owner, props.repoName, selected.number));
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : String(err));
+                      setError(dispatchMessage(err));
                     } finally {
                       setCommenting(false);
                     }
@@ -1105,15 +1181,20 @@ function IncidentsPanel(props: HqModeProps & FeatureDesk) {
           <div className="flex min-h-0 flex-1 flex-col px-[18px] pt-4 pb-[18px]">
             <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">DOSSIER</h3>
             <p className="mt-2 text-[11px] text-tva-muted">{selected.state}</p>
+            <HqDispatch error={error} compact onSignIn={props.onSignIn} />
             <button
               type="button"
               className={`${btn} mt-3`}
               onClick={async () => {
                 if (!props.signedIn || !props.owner || !props.repoName) return;
-                await githubUpdateIssue(props.owner, props.repoName, selected.number, {
-                  state: selected.state === "open" ? "closed" : "open",
-                });
-                await reload();
+                try {
+                  await githubUpdateIssue(props.owner, props.repoName, selected.number, {
+                    state: selected.state === "open" ? "closed" : "open",
+                  });
+                  await reload();
+                } catch (err) {
+                  setError(dispatchMessage(err));
+                }
               }}
             >
               {selected.state === "open" ? "Close" : "Reopen"}
@@ -1137,14 +1218,16 @@ function CanonPanel(props: HqModeProps) {
   const [body, setBody] = useState("");
   const [draft, setDraft] = useState(false);
   const [prerelease, setPrerelease] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     if (!props.signedIn || !props.owner || !props.repoName) return;
+    setError(null);
     setReleases(await githubListReleases(props.owner, props.repoName));
   }
 
   useEffect(() => {
-    void reload().catch(() => {});
+    void reload().catch((err) => setError(dispatchMessage(err)));
   }, [props.owner, props.repoName]);
 
   const tags = (props.timeline?.nodes ?? []).flatMap((n) => n.refs.filter((r) => r.kind === "tag").map((r) => r.name));
@@ -1174,6 +1257,11 @@ function CanonPanel(props: HqModeProps) {
       {!props.signedIn ? <NeedClearance /> : null}
       {props.signedIn && props.owner ? (
         <>
+          <HqDispatch
+            error={error}
+            onRetry={() => void reload().catch((err) => setError(dispatchMessage(err)))}
+            onSignIn={props.onSignIn}
+          />
           <div className="mb-3 border border-tva-gold/16 p-2">
             <p className="m-0 mb-2 text-[10px] uppercase tracking-[0.12em] text-tva-gold">Declare canon · Create release</p>
             <select className={`${fieldInput} mb-1`} value={tag} onChange={(e) => setTag(e.target.value)}>
@@ -1207,8 +1295,12 @@ function CanonPanel(props: HqModeProps) {
                   draft,
                   prerelease,
                 };
-                await githubCreateRelease(props.owner, props.repoName, input);
-                await reload();
+                try {
+                  await githubCreateRelease(props.owner, props.repoName, input);
+                  await reload();
+                } catch (err) {
+                  setError(dispatchMessage(err));
+                }
               }}
             >
               Create release
@@ -1229,8 +1321,12 @@ function CanonPanel(props: HqModeProps) {
                   className={`${btn} mt-1`}
                   onClick={async () => {
                     if (!props.signedIn || !props.owner || !props.repoName) return;
-                    await githubUpdateRelease(props.owner, props.repoName, rel.id, { draft: false });
-                    await reload();
+                    try {
+                      await githubUpdateRelease(props.owner, props.repoName, rel.id, { draft: false });
+                      await reload();
+                    } catch (err) {
+                      setError(dispatchMessage(err));
+                    }
                   }}
                 >
                   Publish draft
@@ -1264,7 +1360,7 @@ function FeatureSeal({
     <div className="mb-3 border border-tva-stamp/40 bg-[#2a1814] p-3">
       <p className="m-0 text-[10px] uppercase tracking-[0.14em] text-tva-stamp">{flavor}</p>
       <p className={cn(emptyText, "mt-2")}>{copy}</p>
-      {recheckError ? <p className="mt-2 text-xs text-[#ff8a6a]">{recheckError}</p> : null}
+      <HqDispatch error={recheckError} compact />
       <div className="mt-3 flex flex-wrap gap-2">
         {settingsUrl ? (
           <button type="button" className={btn} onClick={() => void openUrl(settingsUrl)}>

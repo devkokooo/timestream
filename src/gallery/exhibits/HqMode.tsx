@@ -1,8 +1,13 @@
 import { HqMode } from "../../components/HqMode";
+import type { RequestDeskTab } from "../../components/PrCompare";
+import type { HqTab } from "../../lib/types";
 import { MANY_BRANCHES, REPO } from "../fixtures";
 import { Frame, noop, noopAsync } from "../frame";
+import { useExhibitTab } from "../exhibitUi";
 
 export function HqModeExhibit() {
+  const [tab, onTab] = useExhibitTab<HqTab>("hq-mode", "requests");
+  const [deskTab, onDeskTab] = useExhibitTab<RequestDeskTab>("hq-mode-desk", "conversation");
   return (
     <Frame>
       <HqMode
@@ -20,6 +25,10 @@ export function HqModeExhibit() {
         onCreateTag={noop}
         onPushTag={noop}
         selectedSha={MANY_BRANCHES.head}
+        tab={tab}
+        onTab={onTab}
+        deskTab={deskTab}
+        onDeskTab={onDeskTab}
       />
     </Frame>
   );
