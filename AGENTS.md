@@ -7,7 +7,7 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 - **Desktop:** Tauri 2 (Rust) + React 18 + TypeScript + Vite
 - **Git:** `git2` (libgit2, vendored) — never shell out to `git` for product logic
 - **Package manager:** Bun
-- **Tests:** `cargo test` (graph + git fixtures) and `bun run test` (Vitest: view-model + layout)
+- **Tests:** `cargo test` (graph + git fixtures), `bun run test` (Vitest: view-model + layout), `bun run gallery` (visual UI suite)
 
 ## Layout
 
@@ -23,6 +23,7 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 | `src-tauri/src/commands.rs` | Tauri IPC surface — thin wrappers only |
 | `src/lib/timelineView.ts` | Graph → SVG coordinates, lane spacing, label collision |
 | `src/components/SacredTimeline.tsx` | Chronomonitor visualization |
+| `src/gallery/` | Specimen Desk — visual UI suite (success / loading / error / empty) |
 | `src/styles/tva.css` | TVA tokens (orange, concrete, gold, analog grain) |
 
 ## Design language (Loki / TVA)
@@ -112,11 +113,20 @@ Assert: unique lanes, no overlapping nodes, parent edges connect, long-diverged 
 
 Frontend: same topologies through `layoutTimelineView` — spacing, sacred-lane centering, spur direction, zoom extents.
 
+Visual UI suite (browser only, no Tauri):
+
+```
+bun run gallery
+```
+
+Opens the Specimen Desk at http://localhost:1422. Stamps (`SUCCESS` / `LOADING` / `ERROR` / `EMPTY`) drive fixture props and stubbed `invoke()` so every interactive surface can be inspected. Hash `#/exhibit-id/error` is shareable. Gallery Vite aliases (`vite.gallery.config.ts`) must not leak into `tauri dev` / production `vite build`. Add an exhibit in `src/gallery/exhibits/` and register it in `src/gallery/registry.tsx` when you ship a new surface or a new loading/error/empty state.
+
 ## Commands
 
 ```
 bun install
 bun run tauri dev
+bun run gallery
 bun run test
 cargo test --manifest-path src-tauri/Cargo.toml
 ```

@@ -44,7 +44,10 @@ Fine-grained tokens work for clone, PRs, issues, releases, and Actions if you gr
 ```
 bun run test
 cargo test --manifest-path src-tauri/Cargo.toml
+bun run gallery
 ```
+
+`bun run test` and `cargo test` cover graph math, git fixtures, and view-model layout. `bun run gallery` is the visual UI suite: a TVA Specimen Desk at http://localhost:1422 (port 1420 stays reserved for `tauri dev`). Open each surface in SUCCESS / LOADING / ERROR / EMPTY without Tauri or a real repo. Bookmark a state with `#/welcome-gate/error`.
 
 Fixtures cover linear history, many simultaneous branches, and branches that diverge for dozens of commits.
 
