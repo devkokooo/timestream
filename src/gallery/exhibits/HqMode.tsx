@@ -10,6 +10,7 @@ export function HqModeExhibit() {
         repoName="timestream"
         signedIn
         onSignIn={noop}
+        onSignOut={noop}
         repoPath={REPO.path}
         currentBranch="feature"
         sacredBranch="main"
@@ -32,6 +33,7 @@ export function HqClearanceExhibit() {
         repoName="timestream"
         signedIn={false}
         onSignIn={noop}
+        onSignOut={noop}
         repoPath={REPO.path}
         currentBranch="main"
         sacredBranch="main"

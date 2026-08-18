@@ -59,6 +59,7 @@ interface HqModeProps {
   repoName: string | null;
   signedIn: boolean;
   onSignIn: () => void;
+  onSignOut: () => void;
   repoPath: string | null;
   currentBranch: string | null;
   sacredBranch: string | null;
@@ -113,10 +114,20 @@ export function HqMode(props: HqModeProps) {
 
   return (
     <div data-workspace className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#16120e]">
-      <div className="flex shrink-0 border-b border-tva-gold/16 bg-[#1b1713]">
+      <div className="flex shrink-0 items-stretch border-b border-tva-gold/16 bg-[#1b1713]">
         <TabBtn active={tab === "requests"} onClick={() => setTab("requests")} flavor="Requests" noun="Pull requests" />
         <TabBtn active={tab === "incidents"} onClick={() => setTab("incidents")} flavor="Incidents" noun="Issues" />
         <TabBtn active={tab === "canon"} onClick={() => setTab("canon")} flavor="Canon" noun="Releases" />
+        {props.signedIn ? (
+          <button
+            type="button"
+            className={cn(btn, "mx-2 my-1.5 shrink-0 self-center")}
+            onClick={props.onSignOut}
+            title="Sign out of GitHub"
+          >
+            <TvaTerm flavor="Revoke clearance" noun="Sign out" />
+          </button>
+        ) : null}
       </div>
       {props.signedIn ? (
         <>

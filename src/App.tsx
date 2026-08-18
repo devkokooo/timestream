@@ -600,6 +600,12 @@ export default function App() {
     setHqOpen(true);
   }
 
+  function signOutGithub() {
+    void githubLogout()
+      .then(() => setUser(null))
+      .catch((err) => setError(errMessage(err)));
+  }
+
   async function browse() {
     try {
       const picked = await pickRepository();
@@ -729,7 +735,7 @@ export default function App() {
       run: newWindow,
     },
     { id: "signin", title: "Sign in with GitHub", hint: "Clearance", run: () => setAuthOpen(true) },
-    { id: "signout", title: "Sign out of GitHub", run: () => void githubLogout().then(() => { setUser(null); setHqOpen(false); }) },
+    { id: "signout", title: "Sign out of GitHub", run: signOutGithub },
     { id: "open", title: "Open folder", hint: "File", run: () => void browse() },
     { id: "close-folder", title: "Close folder", hint: "File", run: closeFolder },
     { id: "rescan", title: "Rescan", hint: "View", run: () => repo && void loadAll(repo.path, { keepSelection: true }) },
@@ -956,6 +962,7 @@ export default function App() {
           repoName={origin?.nameOnHost ?? null}
           signedIn={Boolean(user)}
           onSignIn={() => setAuthOpen(true)}
+          onSignOut={signOutGithub}
           repoPath={repo.path}
           currentBranch={repo.branch}
           sacredBranch={timeline?.sacredBranch ?? null}
