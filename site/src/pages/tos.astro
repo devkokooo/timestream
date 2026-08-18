@@ -1,0 +1,41 @@
+---
+import Filing from "../layouts/Filing.astro";
+import { GITHUB_REPO, SUPPORT_HREF } from "../lib/site";
+
+export const prerender = true;
+---
+
+<Filing title="Terms of Service" eyebrow="Bureau record" stamp="TERMS">
+  <p>Effective 18 August 2026. These terms cover this website and the Timestream desktop client.</p>
+
+  <h2>The software</h2>
+  <p>
+    Timestream is open source. Use, copy, and distribute it under the license published in the
+    <a href={GITHUB_REPO} target="_blank" rel="noreferrer">GitHub repository</a>. If the license and
+    these terms conflict for the software itself, the repository license wins.
+  </p>
+
+  <h2>This website</h2>
+  <p>
+    The site is provided as-is for information about the project. Do not scrape, attack, or
+    otherwise abuse the host. Marks, copy, and TVA-styled chrome on this site remain with their
+    owners.
+  </p>
+
+  <h2>No warranty</h2>
+  <p>
+    Timestream and this site come with no warranty of any kind, express or implied, including
+    fitness for a particular purpose. You use the client and the site at your own risk. In
+    particular, Timestream will not force-push or rewrite published git history; you remain
+    responsible for how you use git on your machine.
+  </p>
+
+  <h2>Support</h2>
+  <p>
+    Best-effort help lives on GitHub issues. There is no paid support contract unless a separate
+    writing says otherwise.
+  </p>
+  <p>
+    <a href={SUPPORT_HREF} target="_blank" rel="noreferrer">Open a support issue</a>
+  </p>
+</Filing>

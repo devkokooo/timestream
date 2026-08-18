@@ -1,0 +1,366 @@
+@import "tailwindcss";
+@import "../../../src/styles/effects.css";
+
+@source "../../src/components";
+@source "../../src/lib";
+@source "../../../src/components";
+@source "../../../src/lib";
+
+@theme {
+  --color-tva-orange: #e85d04;
+  --color-tva-orange-hot: #ff7a1a;
+  --color-tva-orange-deep: #541806;
+  --color-tva-gold: #e8b86d;
+  --color-tva-gold-bright: #f4c430;
+  --color-tva-concrete: #161310;
+  --color-tva-concrete-mid: #241f1b;
+  --color-tva-concrete-high: #3a332c;
+  --color-tva-paper: #f3e2c2;
+  --color-tva-paper-dim: #d4c19a;
+  --color-tva-wood: #5c4033;
+  --color-tva-ink: #1a120c;
+  --color-tva-stamp: #c23b22;
+  --color-tva-muted: #9a8b74;
+  --font-display: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --font-ui: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-tva-orange) var(--color-tva-concrete-mid);
+  }
+
+  ::selection {
+    background: var(--color-tva-orange);
+    color: var(--color-tva-ink);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-size: 130%;
+    --site-header: 3.75rem;
+  }
+
+  html,
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--color-tva-concrete);
+    color: var(--color-tva-paper);
+    font-family: var(--font-ui);
+  }
+
+  button,
+  input,
+  textarea,
+  select,
+  a {
+    font: inherit;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--color-tva-orange);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin: 0;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 55%, transparent);
+    background: #120e0b;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+
+  input[type="checkbox"] {
+    border-radius: 1px;
+  }
+
+  input[type="radio"] {
+    border-radius: 50%;
+  }
+
+  input[type="checkbox"]:checked {
+    border-color: var(--color-tva-gold);
+    background-color: var(--color-tva-orange);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='none' stroke='%231a120c' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter' d='M2 6.2 4.8 9 10 3'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 10px 10px;
+  }
+
+  input[type="radio"]:checked {
+    border-color: var(--color-tva-gold);
+    background: radial-gradient(
+      circle at center,
+      var(--color-tva-gold-bright) 0 3.5px,
+      #120e0b 4px 100%
+    );
+  }
+
+  input[type="checkbox"]:focus-visible,
+  input[type="radio"]:focus-visible {
+    outline: 1px solid var(--color-tva-orange-hot);
+    outline-offset: 2px;
+  }
+
+  input[type="checkbox"]:disabled,
+  input[type="radio"]:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--color-tva-orange-hot);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 35%, transparent);
+    background: #2d241c;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-tva-paper);
+  }
+
+  .btn:hover {
+    border-color: var(--color-tva-orange);
+    color: var(--color-tva-gold-bright);
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid #ffb347;
+    background: var(--color-tva-orange-hot);
+    padding: 0.5rem 0.9rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-tva-ink);
+  }
+
+  .btn-primary:hover {
+    border-color: #ffc56a;
+    background: #ffb347;
+    color: var(--color-tva-ink);
+  }
+
+  .eyebrow {
+    margin: 0;
+    font-size: 0.625rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-tva-gold);
+  }
+
+  .stamp {
+    display: inline-block;
+    rotate: -6deg;
+    border: 2px solid var(--color-tva-stamp);
+    padding: 1px 6px;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-tva-stamp);
+  }
+
+  .stamp-gold {
+    border-color: var(--color-tva-gold);
+    color: var(--color-tva-gold);
+  }
+
+  .stamp-flat {
+    rotate: 0deg;
+  }
+
+  .chip {
+    display: inline-block;
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 28%, transparent);
+    background: #1b1713;
+    padding: 0.28rem 0.55rem;
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-tva-paper-dim);
+  }
+
+  .dossier {
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 24%, transparent);
+    background:
+      repeating-linear-gradient(
+        180deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.06) 2px,
+        rgba(0, 0, 0, 0.06) 3px
+      ),
+      linear-gradient(180deg, #2c2218, #16120e);
+    box-shadow: inset 0 0 0 1px rgba(232, 184, 109, 0.12);
+  }
+
+  .filing {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--color-tva-paper-dim);
+  }
+
+  .filing h2 {
+    margin: 1.25rem 0 0;
+    font-size: 0.625rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-tva-gold);
+  }
+
+  .filing p,
+  .filing ul {
+    margin: 0;
+  }
+
+  .filing ul {
+    list-style: none;
+    padding: 0;
+    border-left: 1px solid color-mix(in srgb, var(--color-tva-gold) 28%, transparent);
+  }
+
+  .filing li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.45rem 0 0.45rem 0.9rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-tva-gold) 12%, transparent);
+  }
+
+  .filing li:last-child {
+    border-bottom: 0;
+  }
+
+  .filing li .stamp {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+  }
+
+  .filing .meta {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-tva-muted);
+  }
+
+  .filing .placeholder {
+    border: 1px dashed color-mix(in srgb, var(--color-tva-gold) 40%, transparent);
+    background: color-mix(in srgb, var(--color-tva-gold) 6%, transparent);
+    padding: 0.85rem 1rem;
+    color: var(--color-tva-muted);
+    font-style: italic;
+  }
+
+  .filing strong {
+    color: var(--color-tva-paper);
+    font-weight: 600;
+  }
+
+  .filing code {
+    font-size: 0.8125em;
+    color: var(--color-tva-gold);
+  }
+
+  .filing a {
+    color: var(--color-tva-gold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--color-tva-gold) 40%, transparent);
+  }
+
+  .filing a:hover {
+    color: var(--color-tva-gold-bright);
+  }
+}
+
+.grain,
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+}
+
+.grain {
+  z-index: 40;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.scanlines {
+  z-index: 39;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 3px
+  );
+}
+
+@keyframes tva-jumble-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+.tva-jumble {
+  animation: tva-jumble-flicker 0.16s steps(2) infinite;
+  text-shadow: 0 0 8px rgba(232, 184, 109, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .scanlines {
+    display: none;
+  }
+
+  .tva-jumble {
+    animation: none;
+  }
+}

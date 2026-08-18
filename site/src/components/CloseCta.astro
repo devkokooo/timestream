@@ -1,0 +1,20 @@
+---
+import GithubMark from "./GithubMark.astro";
+import { GITHUB_REPO } from "../lib/site";
+---
+
+<section class="border-t border-tva-gold/16">
+  <div class="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
+    <p class="eyebrow mb-4">End of filing</p>
+    <h2 class="mb-6 max-w-4xl font-display text-[clamp(2rem,6vw,4.2rem)] leading-[0.95] font-semibold tracking-[-0.04em]">
+      Reconstruct the Sacred Timeline.
+    </h2>
+    <p class="mb-8 max-w-2xl text-sm text-tva-paper-dim">
+      Every branch accounted for. Star the project and follow future releases.
+    </p>
+    <a class="btn-primary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
+      <GithubMark />
+      View on GitHub
+    </a>
+  </div>
+</section>

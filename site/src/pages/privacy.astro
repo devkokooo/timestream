@@ -1,0 +1,47 @@
+---
+import Filing from "../layouts/Filing.astro";
+import { DISCORD_HREF, GITHUB_REPO, SUPPORT_HREF } from "../lib/site";
+
+export const prerender = true;
+---
+
+<Filing title="Privacy Policy" eyebrow="Bureau record" stamp="PRIVACY">
+  <p>Effective 18 August 2026. This filing describes how Timestream handles information.</p>
+
+  <h2>Desktop client</h2>
+  <p>
+    Timestream is local-first. Your repositories, diffs, and working tree stay on the machine you
+    open. The app does not send git contents to Timestream’s authors.
+  </p>
+  <p>
+    If you sign in to GitHub, tokens and related secrets live in the operating system keychain — not
+    in <code>settings.toml</code>. GitHub’s own privacy policy applies to that sign-in and to any
+    GitHub API requests the client makes on your behalf.
+  </p>
+
+  <h2>This website</h2>
+  <p>
+    The marketing site is static. It does not create accounts, and Timestream does not set tracking
+    cookies. The host (Netlify) may keep ordinary request logs such as IP address, user agent, and
+    the pages requested.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions about this filing: open a GitHub issue, or reach the bureau on Discord.
+  </p>
+  <ul>
+    <li>
+      <span class="stamp stamp-gold stamp-flat" aria-hidden="true">01</span>
+      <a href={SUPPORT_HREF} target="_blank" rel="noreferrer">GitHub issues</a>
+    </li>
+    <li>
+      <span class="stamp stamp-gold stamp-flat" aria-hidden="true">02</span>
+      <a href={DISCORD_HREF} target="_blank" rel="noreferrer">Discord</a>
+    </li>
+    <li>
+      <span class="stamp stamp-gold stamp-flat" aria-hidden="true">03</span>
+      <a href={GITHUB_REPO} target="_blank" rel="noreferrer">Source repository</a>
+    </li>
+  </ul>
+</Filing>

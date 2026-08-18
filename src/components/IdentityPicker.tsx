@@ -17,9 +17,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onChoose: (choice: IdentityChoice) => void;
+  /** Render the panel in place, without a modal overlay. */
+  inline?: boolean;
 }
 
-export function IdentityPicker({ open, onClose, onChoose }: Props) {
+export function IdentityPicker({ open, onClose, onChoose, inline = false }: Props) {
   const [keys, setKeys] = useState<SshKeyInfo[]>([]);
   const [agent, setAgent] = useState<SshAgentStatus | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -42,10 +44,13 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
-      <div className="flex w-[min(560px,100%)] flex-col gap-4 border border-tva-gold/28 bg-[#1b1713] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-        <header className="flex flex-col gap-2">
+  const panel = (
+    <div
+      className={`flex w-[min(560px,100%)] flex-col gap-4 border border-tva-gold/28 bg-[#1b1713] p-5 ${
+        inline ? "" : "shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+      }`}
+    >
+      <header className="flex flex-col gap-2">
           <h2 className={panelTitle}>
             <TvaTerm flavor="Choose identity" noun="Select an SSH key for GitHub" />
           </h2>
@@ -154,9 +159,11 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
         </div>
         {error ? <p className="m-0 text-xs text-[#ff8a6a]">{error}</p> : null}
         <div className="flex justify-end gap-2">
-          <button type="button" className={btn} onClick={onClose}>
-            Cancel
-          </button>
+          {inline ? null : (
+            <button type="button" className={btn} onClick={onClose}>
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             className={btnPrimary}
@@ -176,6 +183,13 @@ export function IdentityPicker({ open, onClose, onChoose }: Props) {
           </button>
         </div>
       </div>
+  );
+
+  if (inline) return panel;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
+      {panel}
     </div>
   );
 }

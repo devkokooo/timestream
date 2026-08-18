@@ -20,6 +20,7 @@ import { tokenClassName, useHighlightedRange, type ThemedToken } from "../lib/sy
 import { languageFromPath } from "../lib/syntaxLang";
 import {
   btn,
+  btnStow,
   emptyText,
   errorText,
   eyebrow,
@@ -41,6 +42,8 @@ interface Props {
   onFile?: () => void | Promise<void>;
   reviewComments?: ReviewComment[];
   onAddComment?: (line: number, body: string) => void;
+  /** Denser chrome for narrow embeds (marketing tour). */
+  compact?: boolean;
 }
 
 export function DiffViewer({
@@ -53,6 +56,7 @@ export function DiffViewer({
   onFile,
   reviewComments,
   onAddComment,
+  compact = false,
 }: Props) {
   const status = file?.status ?? diff?.status ?? "modified";
   const action = fileAction(status);
@@ -126,58 +130,70 @@ export function DiffViewer({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#16120e]">
-      <header className="flex items-center gap-3 border-b border-tva-gold/16 bg-linear-to-b from-[#241e18] to-[#1a1612] px-3.5 py-2.5">
-        <div className="min-w-0 flex-1">
+      <header
+        className={cn(
+          "flex min-w-0 flex-wrap items-center border-b border-tva-gold/16 bg-linear-to-b from-[#241e18] to-[#1a1612]",
+          compact ? "gap-x-2.5 gap-y-2 px-3 py-2" : "gap-3 px-3.5 py-2.5",
+        )}
+      >
+        <div className="min-w-0 flex-1 basis-44">
           <p className={eyebrow}>Variance record</p>
           <h2 className="mt-1 mb-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium tracking-[0.02em]">
             {title}
           </h2>
         </div>
-        <span className={cn(stampChrome, stampByAction[tone])}>{actionLabel(action)}</span>
-        {reviewable && hunkTotal > 0 ? (
-          <p
-            className="m-0 shrink-0 text-[11px] uppercase tracking-[0.12em] text-tva-gold"
-            aria-label={`${readCount} of ${hunkTotal} hunks read`}
-          >
-            {readCount}/{hunkTotal}
-          </p>
-        ) : null}
-        {onFile ? (
-          <button type="button" className={btn} disabled={filing} onClick={() => void fileRecord()}>
-            File
-          </button>
-        ) : null}
-        <div className="flex border border-tva-gold/28" role="group" aria-label="Diff layout">
-          <button
-            type="button"
-            className={cn(
-              "border-0 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em]",
-              mode === "split"
-                ? "bg-tva-orange font-semibold text-tva-ink"
-                : "bg-[#2d241c] text-tva-paper-dim",
-            )}
-            aria-pressed={mode === "split"}
-            onClick={() => onMode("split")}
-          >
-            Side by side
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "border-0 border-l border-tva-gold/28 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em]",
-              mode === "inline"
-                ? "bg-tva-orange font-semibold text-tva-ink"
-                : "bg-[#2d241c] text-tva-paper-dim",
-            )}
-            aria-pressed={mode === "inline"}
-            onClick={() => onMode("inline")}
-          >
-            Inline
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <span className={cn(stampChrome, stampByAction[tone])}>{actionLabel(action)}</span>
+          {reviewable && hunkTotal > 0 ? (
+            <p
+              className="m-0 shrink-0 text-[11px] uppercase tracking-[0.12em] text-tva-gold"
+              aria-label={`${readCount} of ${hunkTotal} hunks read`}
+            >
+              {readCount}/{hunkTotal}
+            </p>
+          ) : null}
+          {onFile ? (
+            <button
+              type="button"
+              className={compact ? btnStow : btn}
+              disabled={filing}
+              onClick={() => void fileRecord()}
+            >
+              File
+            </button>
+          ) : null}
+          <div className="flex border border-tva-gold/28" role="group" aria-label="Diff layout">
+            <button
+              type="button"
+              className={cn(
+                "border-0 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em]",
+                mode === "split"
+                  ? "bg-tva-orange font-semibold text-tva-ink"
+                  : "bg-[#2d241c] text-tva-paper-dim",
+              )}
+              aria-pressed={mode === "split"}
+              onClick={() => onMode("split")}
+            >
+              {compact ? "Split" : "Side by side"}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "border-0 border-l border-tva-gold/28 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em]",
+                mode === "inline"
+                  ? "bg-tva-orange font-semibold text-tva-ink"
+                  : "bg-[#2d241c] text-tva-paper-dim",
+              )}
+              aria-pressed={mode === "inline"}
+              onClick={() => onMode("inline")}
+            >
+              Inline
+            </button>
+          </div>
+          <button type="button" className={compact ? btnStow : btn} onClick={onClose}>
+            {compact ? "Close" : "Return to timeline"}
           </button>
         </div>
-        <button type="button" className={btn} onClick={onClose}>
-          Return to timeline
-        </button>
       </header>
 
       {empty ? (

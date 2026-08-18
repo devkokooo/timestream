@@ -1,0 +1,28 @@
+---
+import Bureau from "./Bureau.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title: string;
+  eyebrow: string;
+  stamp?: string;
+}
+
+const { title, eyebrow, stamp = "FILING" } = Astro.props;
+---
+
+<Bureau title={`${title} — TIMESTREAM`}>
+  <Header />
+  <main id="main" class="mx-auto max-w-3xl px-5 py-20 md:px-8 md:py-28">
+    <span class="stamp stamp-gold mb-6 w-fit">{stamp}</span>
+    <p class="eyebrow mb-3">{eyebrow}</p>
+    <h1 class="mb-8 font-display text-[clamp(1.8rem,5vw,3rem)] leading-tight font-semibold tracking-[-0.03em]">
+      {title}
+    </h1>
+    <div class="filing">
+      <slot />
+    </div>
+  </main>
+  <Footer />
+</Bureau>

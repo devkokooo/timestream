@@ -1,0 +1,152 @@
+---
+import Bureau from "../../layouts/Bureau.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import { AUTHOR_AVATAR, AUTHOR_HREF, GITHUB_REPO } from "../../lib/site";
+import GithubMark from "../../components/GithubMark.astro";
+
+export const prerender = true;
+---
+
+<Bureau
+  title="v0.1 Initial release — TIMESTREAM"
+  description="The first public cut of Timestream: a local-first Git client, visualized TVA-style."
+>
+  <Header />
+  <main id="main" class="mx-auto max-w-3xl px-5 py-20 md:px-8 md:py-28">
+    <span class="stamp stamp-gold mb-6 w-fit">v0.1</span>
+    <p class="eyebrow mb-3">Dispatch</p>
+    <h1 class="mb-4 font-display text-[clamp(1.8rem,5vw,3rem)] leading-tight font-semibold tracking-[-0.03em]">
+      Initial release
+    </h1>
+    <div class="filing">
+      <p class="meta">
+        18 August 2026 ·
+        <a
+          class="inline-flex items-center gap-1.5 align-middle"
+          href={AUTHOR_HREF}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img
+            src={AUTHOR_AVATAR}
+            alt=""
+            width="18"
+            height="18"
+            class="size-[1.125rem] rounded-full object-cover ring-1 ring-tva-gold/35"
+          />
+          DevKokooo
+        </a>
+      </p>
+      <p>
+        First public working release of Timestream, a post-modern local-first Git client, TVA-styled. Cross-platform and open-sourced under AGPL-3.0.
+      </p>
+
+      <h2>Why I built this</h2>
+      <p>
+        I'm a big fan of Loki and the TVA aesthetic, and wanted to build something that feels like a TVA analyst would use.
+        <br/><br/>
+        For a long time, I wanted to build a Git client, because the existing ones were either paid or painful to use.
+        I needed to build one that I would use myself, and would find joy in using. So I did. 
+      </p>
+
+      <h2>The vision</h2>
+      <p>
+        Timestream aims to be the central location on your desktop to manage the entire code review process,
+        from reviewing diffs to merging PRs on GitHub, to tagging releases and managing action workflows.
+        <br/><br/>
+        Code review should be done in style and not be boring, so you can visualize the commit graph as branching timelines
+        and focus on merging them back to the main timeline.
+        <br/><br/>
+        Due to recent GitHub outages, I also aim for Timestream to be platform-agnostic and be able to work with other Git providers (GitLab, Gitea, Forgejo, etc).
+      </p>
+
+      <h2>What ships</h2>
+      <ul>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">01</span>
+          <span><strong>Timeline</strong> — commit graph, variants, tags, case file</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">02</span>
+          <span><strong>Working tree</strong> — clone, stage, commit, amend unpublished HEAD, branches, tags</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">03</span>
+          <span><strong>Review</strong> — split/unified diffs, syntax highlight, branch compare</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">04</span>
+          <span><strong>Remotes</strong> — fetch, ff-only pull, push (no force), checkout a PR</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">05</span>
+          <span><strong>SSH</strong> — keys, ssh-agent, per-remote identity</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">06</span>
+          <span><strong>GitHub</strong> — device flow or PAT; PRs, issues, releases, checks / rerun jobs</span>
+        </li>
+      </ul>
+
+      <h2>Building it</h2>
+      <p>
+        When Cursor Grok 4.6 released, I wanted to use up the double usage limits before they ran out.
+        <br/><br/>
+        I was also stuck on another project, and decided to build something else that I would enjoy and use.
+        <br/><br/>
+        Before I realized it, within the first few hours of building Timestream, I was dogfooding my own project to review AI-generated code.
+        <br/><br/>
+        I kept adding features that I actually needed, and here we are at <code>v0.1</code>. 
+      </p>
+
+      <h2>What's next</h2>
+      <ul>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">01</span>
+          <span>Executables (Windows, then macOS / Linux)</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">02</span>
+          <span>Notification inbox</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">03</span>
+          <span>Conflict editor</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">04</span>
+          <span>Inline review comments on the diff</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">05</span>
+          <span>Stash, blame, file history</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">06</span>
+          <span>Optimizations (UI, performance, etc)</span>
+        </li>
+      </ul>
+      <p>And more features that I have not considered yet.</p>
+
+      <h2>Other notes</h2>
+      <p>
+        Keep in mind that this is <code>v0.1</code>, so this is the worst it'll ever be.
+        There will be bugs and performance issues, but I will fix them as they come up.
+        <br/><br/>
+        I tried opening <a href="https://github.com/astral-sh/uv" target="_blank" rel="noreferrer"><code>uv</code></a> in Timestream and it lagged significantly, then
+        I tried opening <a href="https://github.com/oven-sh/bun" target="_blank" rel="noreferrer"><code>bun</code></a> and it completely destroyed the app.
+        <br/><br/>
+        So my end goal will be to open Bun repo smoothly in Timestream. Wish me luck.
+      </p>
+    </div>
+    <div class="mt-10 flex flex-wrap gap-3">
+      <a class="btn-primary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
+        <GithubMark />
+        View on GitHub
+      </a>
+      <a class="btn" href="/">Return to bureau</a>
+    </div>
+  </main>
+  <Footer />
+</Bureau>

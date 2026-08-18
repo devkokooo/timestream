@@ -15,6 +15,7 @@ import {
   actionColor,
   btn,
   btnPrimary,
+  btnStow,
   emptyText,
   eyebrow,
   fieldInput,
@@ -43,6 +44,8 @@ interface Props {
   fetching?: boolean;
   pulling?: boolean;
   pushing?: boolean;
+  /** Tour / demo: push already completed. */
+  pushed?: boolean;
   sync?: AheadBehind | null;
   onBranch?: boolean;
   hasHead?: boolean;
@@ -51,6 +54,8 @@ interface Props {
   onFetch: () => void;
   onPull: () => void;
   children?: ReactNode;
+  /** Narrower columns and tighter chrome for marketing-site embeds. */
+  compact?: boolean;
 }
 
 export function ReviewMode({
@@ -64,6 +69,7 @@ export function ReviewMode({
   fetching = false,
   pulling = false,
   pushing = false,
+  pushed = false,
   sync = null,
   onBranch = false,
   hasHead = false,
@@ -72,6 +78,7 @@ export function ReviewMode({
   onFetch,
   onPull,
   children,
+  compact = false,
 }: Props) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -122,7 +129,12 @@ export function ReviewMode({
   return (
     <div
       data-workspace
-      className="grid min-h-0 flex-1 overflow-hidden grid-cols-[260px_minmax(0,1fr)_320px]"
+      className={cn(
+        "grid min-h-0 flex-1 overflow-hidden",
+        compact
+          ? "grid-cols-[280px_minmax(0,1fr)_280px]"
+          : "grid-cols-[260px_minmax(0,1fr)_320px]",
+      )}
     >
       <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713]">
         <Column
@@ -136,6 +148,7 @@ export function ReviewMode({
           onAll={() => runAll(unfiled.map((item) => item.path), onStage)}
           loading={loading}
           empty="No unfiled variance."
+          compact={compact}
         />
         <Column
           title="FILED (STAGED)"
@@ -148,6 +161,7 @@ export function ReviewMode({
           onAll={() => runAll(staged.map((item) => item.path), onUnstage)}
           loading={loading}
           empty="Nothing staged for filing."
+          compact={compact}
         />
       </aside>
 
@@ -163,7 +177,10 @@ export function ReviewMode({
       </div>
 
       <form
-        className="flex min-h-0 flex-col gap-2.5 overflow-hidden border-l border-tva-gold/16 bg-[#16120e] px-[18px] pt-4 pb-[18px]"
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden border-l border-tva-gold/16 bg-[#16120e]",
+          compact ? "gap-2.5 px-4 pt-3.5 pb-4" : "gap-2.5 px-[18px] pt-4 pb-[18px]",
+        )}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -190,7 +207,11 @@ export function ReviewMode({
         <label className="flex min-h-0 flex-1 flex-col gap-1.5">
           <span className={fieldLabel}>Addendum</span>
           <textarea
-            className={cn(fieldInput, "min-h-[7rem] flex-1 resize-none leading-[1.45]")}
+            className={cn(
+              fieldInput,
+              "flex-1 resize-none leading-[1.45]",
+              compact ? "min-h-[6rem]" : "min-h-[7rem]",
+            )}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Optional case note for this filing"
@@ -254,15 +275,21 @@ export function ReviewMode({
           />
           <TransmitButton
             active={pushing}
-            disabled={busy}
-            idleClass={ahead > 0 ? btnPrimary : btn}
+            disabled={busy || pushed}
+            idleClass={ahead > 0 && !pushed ? btnPrimary : btn}
             onClick={onPush}
             title="Push branch"
             label="Pushing…"
-            flavor={ahead > 0 ? `Upload to HQ · ${ahead} ahead` : "Upload to HQ"}
-            noun="Push"
+            flavor={
+              pushed
+                ? "Uploaded to HQ"
+                : ahead > 0
+                  ? `Upload to HQ · ${ahead} ahead`
+                  : "Upload to HQ"
+            }
+            noun={pushed ? "Pushed" : "Push"}
             busyNoun="Pushing…"
-            onPrimary={ahead > 0}
+            onPrimary={ahead > 0 && !pushed}
           />
         </div>
       </form>
@@ -281,6 +308,7 @@ function Column({
   onAll,
   loading,
   empty,
+  compact = false,
 }: {
   title: string;
   side: AnomalySide;
@@ -292,15 +320,26 @@ function Column({
   onAll: () => void;
   loading: boolean;
   empty: string;
+  compact?: boolean;
 }) {
   const verb = action === "file" ? "File" : "Unfile";
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-b border-tva-gold/12 py-3 pr-2.5 pl-3.5 last:border-b-0">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col border-b border-tva-gold/12 last:border-b-0",
+        compact ? "py-2.5 pr-2.5 pl-3" : "py-3 pr-2.5 pl-3.5",
+      )}
+    >
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">
           {title} <span className="text-tva-muted">{loading ? "…" : items.length}</span>
         </h3>
-        <button type="button" className={btn} disabled={loading || items.length === 0} onClick={onAll}>
+        <button
+          type="button"
+          className={compact ? btnStow : btn}
+          disabled={loading || items.length === 0}
+          onClick={onAll}
+        >
           {verb} all
         </button>
       </div>
@@ -318,7 +357,9 @@ function Column({
           axis="y"
           fill
           count={items.length}
-          estimateSize={(index) => (items[index].path === selectedPath ? 56 : 40)}
+          estimateSize={(index) =>
+            compact ? 44 : items[index].path === selectedPath ? 56 : 40
+          }
           getItemKey={(index) => `${action}-${items[index].path}`}
         >
           {(index) => {
@@ -331,7 +372,8 @@ function Column({
             return (
               <div
                 className={cn(
-                  "relative grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 py-2 pr-2 font-mono text-xs min-h-10 group hover:bg-tva-orange/8",
+                  "relative grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center border-0 border-b border-dashed border-tva-gold/12 pr-2 font-mono group hover:bg-tva-orange/8",
+                  compact ? "min-h-11 gap-1.5 py-1.5 text-[11px] leading-tight" : "min-h-10 gap-2.5 py-2 text-xs",
                   fileRowPad,
                   actionColor[tone],
                   selected && fileRowSelected,
@@ -347,11 +389,23 @@ function Column({
                 <span className="pointer-events-none relative z-[1] flex min-w-0 items-center gap-1.5 text-inherit group-hover:text-tva-gold-bright">
                   <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
                   <span className="min-w-0 overflow-hidden">
-                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                    <span
+                      className={cn(
+                        "block overflow-hidden text-ellipsis whitespace-nowrap",
+                        compact && "text-[11px]",
+                      )}
+                    >
                       {fileDisplayName(item)}
                     </span>
-                    {selected ? (
-                      <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
+                    {compact || selected ? (
+                      <span
+                        className={cn(
+                          "mt-0.5 block text-[10px] leading-snug text-tva-muted",
+                          compact
+                            ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                            : "break-all",
+                        )}
+                      >
                         {fileDisplayPath(item)}
                       </span>
                     ) : null}

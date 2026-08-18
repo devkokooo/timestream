@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Timestream">
+  <defs>
+    <clipPath id="screen">
+      <circle cx="256" cy="256" r="176"/>
+    </clipPath>
+  </defs>
+
+  <!-- Lugs -->
+  <rect x="232" y="36" width="48" height="22" rx="6" fill="#E8B86D"/>
+  <rect x="232" y="454" width="48" height="22" rx="6" fill="#E8B86D"/>
+
+  <!-- Round case -->
+  <circle cx="256" cy="256" r="228" fill="#E8B86D"/>
+  <circle cx="256" cy="256" r="228" fill="none" stroke="#5C4033" stroke-width="3"/>
+  <circle cx="256" cy="256" r="208" fill="#2B2723"/>
+
+  <!-- Circular screen -->
+  <circle cx="256" cy="256" r="180" fill="#161310"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#E8B86D" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Timeline -->
+  <g clip-path="url(#screen)" fill="none" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M80 256 H256" stroke="#E8B86D" stroke-width="10"/>
+    <path d="M256 256 L316 170 H432" stroke="#E85D04" stroke-width="10"/>
+    <path d="M256 256 L316 342 H432" stroke="#F4C430" stroke-width="10"/>
+  </g>
+
+  <!-- Nodes (uniform size) -->
+  <g clip-path="url(#screen)" stroke-width="3">
+    <circle cx="148" cy="256" r="16" fill="#161310" stroke="#E8B86D"/>
+    <circle cx="256" cy="256" r="16" fill="#161310" stroke="#E8B86D"/>
+    <circle cx="338" cy="170" r="16" fill="#161310" stroke="#E85D04"/>
+    <circle cx="380" cy="342" r="16" fill="#161310" stroke="#F4C430"/>
+  </g>
+
+  <!-- Side button (stem + protruding crown) -->
+  <rect x="485" y="232" width="24" height="48" rx="12" fill="#B67A2E" stroke="#5C4033" stroke-width="2"/>
+  <rect x="487" y="234" width="22" height="44" rx="11" fill="#E8B86D"/>
+  <g stroke="#5C4033" stroke-width="1.4" opacity="0.45">
+    <line x1="498" y1="242" x2="498" y2="270"/>
+    <line x1="503" y1="242" x2="503" y2="270"/>
+  </g>
+</svg>

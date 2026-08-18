@@ -1,5 +1,5 @@
 # 🕰️ Timestream
-⏱️ Local-first Git client, visualized TVA-style
+A post-modern Git client, visualized TVA-style
 
 <img width="1918" height="1033" alt="image" src="https://github.com/user-attachments/assets/42582399-9ec8-4f67-ba53-d63e0fd931ce" />
 
@@ -50,6 +50,18 @@ bun run gallery
 `bun run test` and `cargo test` cover graph math, git fixtures, and view-model layout. `bun run gallery` is the visual UI suite: a TVA Specimen Desk at http://localhost:1422 (port 1420 stays reserved for `tauri dev`). Open each surface in SUCCESS / LOADING / ERROR / EMPTY without Tauri or a real repo. Bookmark a state with `#/welcome-gate/error`.
 
 Fixtures cover linear history, many simultaneous branches, and branches that diverge for dozens of commits.
+
+## Marketing site
+
+Separate Astro app in `site/`, deployed on Netlify. Set the site’s **Base directory** to `site` in the Netlify UI (do not also set `base` in `netlify.toml` — that resolves to `site/site`). Config lives in `site/netlify.toml`. Not bundled into the Tauri app.
+
+```
+cd site
+bun install
+bun run dev
+```
+
+Opens at http://localhost:4321. Primary CTA is GitHub — no download buttons in v0.1.
 
 ## Design
 

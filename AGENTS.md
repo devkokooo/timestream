@@ -7,6 +7,7 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 - **Desktop:** Tauri 2 (Rust) + React 18 + TypeScript + Vite
 - **Git:** `git2` (libgit2, vendored) — never shell out to `git` for product logic
 - **Package manager:** Bun
+- **Marketing site:** Astro + Tailwind + React in `site/`, Netlify adapter. Not part of `tauri dev` or `bun run test`.
 - **Tests:** `cargo test` (graph + git fixtures), `bun run test` (Vitest: view-model + layout), `bun run gallery` (visual UI suite)
 
 ## Layout
@@ -24,7 +25,8 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 | `src/lib/timelineView.ts` | Graph → SVG coordinates, lane spacing, label collision |
 | `src/components/SacredTimeline.tsx` | Chronomonitor visualization |
 | `src/gallery/` | Specimen Desk — visual UI suite (success / loading / error / empty) |
-| `src/styles/tva.css` | TVA tokens (orange, concrete, gold, analog grain) |
+| `src/styles/index.css` | TVA tokens (orange, concrete, gold, analog grain) |
+| `site/` | Marketing site (Astro). Separate Netlify deploy; not part of `tauri dev` or `bun run test`. |
 
 ## Design language (Loki / TVA)
 
@@ -129,6 +131,7 @@ bun run tauri dev
 bun run gallery
 bun run test
 cargo test --manifest-path src-tauri/Cargo.toml
+cd site && bun install && bun run dev
 ```
 
 ## Conventions

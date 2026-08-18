@@ -1,0 +1,16 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "baseUrl": ".",
+    "paths": {
+      "@tauri-apps/api/core": ["./src/mocks/core.ts"],
+      "@tauri-apps/api/event": ["./src/mocks/event.ts"],
+      "@tauri-apps/plugin-dialog": ["./src/mocks/dialog.ts"],
+      "@tauri-apps/plugin-opener": ["./src/mocks/opener.ts"]
+    }
+  }
+}

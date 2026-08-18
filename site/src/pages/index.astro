@@ -1,0 +1,26 @@
+---
+import Bureau from "../layouts/Bureau.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import Pitch from "../components/Pitch.astro";
+import { WorkPath } from "../components/WorkPath";
+import Manifesto from "../components/Manifesto.astro";
+import FaqSection from "../components/FaqSection.astro";
+import CloseCta from "../components/CloseCta.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Bureau>
+  <Header />
+  <main id="main">
+    <Hero />
+    <Pitch />
+    <WorkPath client:only="react">
+      <p class="px-5 py-16 text-sm text-tva-muted">Loading path…</p>
+    </WorkPath>
+    <Manifesto />
+    <FaqSection />
+    <CloseCta />
+  </main>
+  <Footer />
+</Bureau>

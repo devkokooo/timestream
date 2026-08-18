@@ -1,0 +1,31 @@
+---
+const desks = [
+  "Working tree",
+  "Review",
+  "Pull requests",
+  "Issues",
+  "Releases",
+  "Tags",
+  "Actions",
+];
+---
+
+<section id="charter" class="border-b border-tva-gold/16">
+  <div class="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
+    <p class="eyebrow mb-6">Charter</p>
+    <h2 class="m-0 max-w-4xl font-display text-[clamp(1.5rem,4vw,2.75rem)] leading-[1.2] font-semibold tracking-[-0.03em] text-tva-paper">
+      One desk for the working tree, the review, and the GitHub filing.
+    </h2>
+    <p class="mt-6 max-w-2xl text-sm leading-relaxed text-tva-paper-dim">
+      Code review, pull requests, issues, releases, tags, and action workflows.<br/>
+      All in one place, with style.
+    </p>
+    <ul class="mt-10 flex list-none flex-wrap gap-3 p-0">
+      {
+        desks.map((desk) => (
+          <li class="stamp stamp-gold stamp-flat">{desk}</li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

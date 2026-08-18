@@ -1,0 +1,98 @@
+---
+import GithubMark from "./GithubMark.astro";
+import {
+  AUTHOR_HREF,
+  DISCORD_HREF,
+  GITHUB_PROFILE,
+  ORG_HREF,
+  SUPPORT_HREF,
+  X_HREF,
+} from "../lib/site";
+
+const year = new Date().getFullYear();
+
+const socials = [
+  { href: X_HREF, label: "X" },
+  { href: DISCORD_HREF, label: "Discord" },
+  { href: GITHUB_PROFILE, label: "GitHub" },
+] as const;
+
+const filings = [
+  { href: "/privacy", label: "Privacy Policy", external: false },
+  { href: "/tos", label: "Terms of Service", external: false },
+  { href: SUPPORT_HREF, label: "Support", external: true },
+] as const;
+---
+
+<footer class="border-t border-tva-gold/16">
+  <div class="mx-auto grid max-w-6xl gap-10 px-5 py-12 md:grid-cols-3 md:gap-0 md:px-8 md:py-16">
+    <section class="md:pr-10">
+      <p class="eyebrow mb-4">Channels</p>
+      <ul class="m-0 flex list-none gap-2 p-0">
+        {
+          socials.map((social) => (
+            <li>
+              <a
+                class="inline-flex size-9 items-center justify-center border border-tva-gold/35 text-tva-paper-dim hover:border-tva-orange hover:text-tva-gold-bright"
+                href={social.href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={social.label}
+              >
+                {social.label === "X" ? (
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.822L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                ) : social.label === "Discord" ? (
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                    <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25-1.845-.276-3.68-.276-5.487 0-.164-.393-.406-.874-.618-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.995a.076.076 0 0 0-.042-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.106c.36.7.772 1.363 1.225 1.994a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.211 0 2.176 1.095 2.157 2.42 0 1.332-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.332-.946 2.418-2.157 2.418z" />
+                  </svg>
+                ) : (
+                  <GithubMark />
+                )}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="md:border-x md:border-tva-gold/16 md:px-10">
+      <p class="eyebrow mb-4">Filings</p>
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
+        {
+          filings.map((filing) => (
+            <li>
+              <a
+                class="text-[0.6875rem] uppercase tracking-[0.16em] text-tva-paper-dim hover:text-tva-gold-bright"
+                href={filing.href}
+                target={filing.external ? "_blank" : undefined}
+                rel={filing.external ? "noreferrer" : undefined}
+              >
+                {filing.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="md:pl-10">
+      <p class="eyebrow mb-4">Record</p>
+      <p class="m-0 text-sm leading-relaxed text-tva-paper-dim">
+        © {year} Timestream VCS from{" "}
+        <a class="text-tva-gold underline decoration-tva-gold/40 underline-offset-4 hover:text-tva-gold-bright" href={ORG_HREF} target="_blank" rel="noreferrer">
+          Forgeware
+        </a>
+      </p>
+      <p class="mt-2 text-sm leading-relaxed text-tva-paper-dim">
+        Built with <span aria-hidden="true">🧡</span>
+        <span class="sr-only">an orange heart</span>
+        by{" "}
+        <a class="text-tva-gold underline decoration-tva-gold/40 underline-offset-4 hover:text-tva-gold-bright" href={AUTHOR_HREF} target="_blank" rel="noreferrer">
+          Koko
+        </a>
+      </p>
+    </section>
+  </div>
+</footer>

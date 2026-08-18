@@ -40,6 +40,8 @@ interface Props {
   children?: ReactNode;
   tab?: RequestDeskTab;
   onTab?: (tab: RequestDeskTab) => void;
+  /** Tighter file list and chrome for marketing-site embeds. */
+  compact?: boolean;
 }
 
 export function PrCompare({
@@ -57,6 +59,7 @@ export function PrCompare({
   children,
   tab: tabProp,
   onTab,
+  compact = false,
 }: Props) {
   const compareHead = headSpec || head;
   const compareBase = baseSpec || base;
@@ -224,11 +227,17 @@ export function PrCompare({
           empty={same || !head || !base}
           diffMode={diffMode}
           onMode={setDiffMode}
+          compact={compact}
         />
       ) : null}
 
       {tab === "files" ? (
-        <div className="grid min-h-0 flex-1 overflow-hidden grid-cols-[220px_minmax(0,1fr)]">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 overflow-hidden",
+            compact ? "grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-[220px_minmax(0,1fr)]",
+          )}
+        >
           <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713]">
             <FileColumn
               files={compare?.files ?? []}
@@ -236,10 +245,12 @@ export function PrCompare({
               onOpen={setFilePath}
               loading={loading}
               empty={same || !head || !base}
+              compact={compact}
             />
           </aside>
           {filePath ? (
             <DiffViewer
+              compact={compact}
               file={selectedFile}
               diff={diff}
               mode={diffMode}
@@ -327,6 +338,7 @@ function CommitLedger({
   empty,
   diffMode,
   onMode,
+  compact = false,
 }: {
   repoPath: string | null;
   commits: RangeCompare["commits"];
@@ -334,6 +346,7 @@ function CommitLedger({
   empty: boolean;
   diffMode: DiffMode;
   onMode: (mode: DiffMode) => void;
+  compact?: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const days = groupLedgerByDay(commits);
@@ -375,6 +388,7 @@ function CommitLedger({
               now={now}
               diffMode={diffMode}
               onMode={onMode}
+              compact={compact}
             />
           ))}
         </section>
@@ -400,6 +414,7 @@ function CommitEventCard({
   now,
   diffMode,
   onMode,
+  compact = false,
 }: {
   commit: RangeCompare["commits"][number];
   repoPath: string | null;
@@ -408,6 +423,7 @@ function CommitEventCard({
   now: number;
   diffMode: DiffMode;
   onMode: (mode: DiffMode) => void;
+  compact?: boolean;
 }) {
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -520,12 +536,14 @@ function CommitEventCard({
                     file={file}
                     selected={filePath === file.path}
                     onOpen={() => setFilePath(file.path)}
+                    compact={compact}
                   />
                 ))}
               </div>
               {filePath ? (
                 <div className="flex h-[min(36rem,55vh)] flex-col overflow-hidden border border-tva-gold/16">
                   <DiffViewer
+                    compact={compact}
                     file={selectedFile}
                     diff={diff}
                     mode={diffMode}
@@ -553,10 +571,12 @@ function CommitFileRow({
   file,
   selected,
   onOpen,
+  compact = false,
 }: {
   file: FileChange;
   selected: boolean;
   onOpen: () => void;
+  compact?: boolean;
 }) {
   const tone = actionTone(file.status);
   const mark = actionMark(file.status);
@@ -568,7 +588,8 @@ function CommitFileRow({
       title={fileDisplayPath(file)}
       aria-label={`${markTitle} · ${fileDisplayPath(file)}`}
       className={cn(
-        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 py-1.5 pr-1 text-left font-mono text-xs min-h-8 hover:bg-tva-orange/8",
+        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center border-0 border-b border-dashed border-tva-gold/12 pr-1 text-left font-mono hover:bg-tva-orange/8",
+        compact ? "min-h-11 gap-1.5 py-1.5 text-[11px] leading-tight" : "min-h-8 gap-2.5 py-1.5 text-xs",
         fileRowPad,
         actionColor[tone],
         selected && fileRowSelected,
@@ -577,7 +598,28 @@ function CommitFileRow({
     >
       <span className="flex min-w-0 items-center gap-1.5 text-inherit">
         <FileKindIcon path={file.path} color={test ? TEST_FILE_HEX : undefined} />
-        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{fileDisplayName(file)}</span>
+        <span className="min-w-0 overflow-hidden">
+          <span
+            className={cn(
+              "block overflow-hidden text-ellipsis whitespace-nowrap",
+              compact && "text-[11px]",
+            )}
+          >
+            {fileDisplayName(file)}
+          </span>
+          {compact || selected ? (
+            <span
+              className={cn(
+                "mt-0.5 block text-[10px] leading-snug text-tva-muted",
+                compact
+                  ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                  : "break-all",
+              )}
+            >
+              {fileDisplayPath(file)}
+            </span>
+          ) : null}
+        </span>
       </span>
       <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
         {mark}
@@ -592,15 +634,22 @@ function FileColumn({
   onOpen,
   loading,
   empty,
+  compact = false,
 }: {
   files: FileChange[];
   selectedPath: string | null;
   onOpen: (path: string) => void;
   loading: boolean;
   empty: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col py-3 pr-2.5 pl-3.5">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col",
+        compact ? "py-2.5 pr-2.5 pl-3" : "py-3 pr-2.5 pl-3.5",
+      )}
+    >
       <h3 className="mb-2 m-0 shrink-0 text-[11px] tracking-[0.14em] text-tva-gold">
         RECORDS <span className="text-tva-muted">{loading ? "…" : files.length}</span>
       </h3>
@@ -622,7 +671,9 @@ function FileColumn({
           axis="y"
           fill
           count={files.length}
-          estimateSize={(index) => (files[index].path === selectedPath ? 56 : 40)}
+          estimateSize={(index) =>
+            compact ? 44 : files[index].path === selectedPath ? 56 : 40
+          }
           getItemKey={(index) => files[index].path}
         >
           {(index) => {
@@ -638,7 +689,8 @@ function FileColumn({
                 title={fileDisplayPath(item)}
                 aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
                 className={cn(
-                  "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 border-0 border-b border-dashed border-tva-gold/12 py-2 pr-2 text-left font-mono text-xs min-h-10 hover:bg-tva-orange/8",
+                  "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center border-0 border-b border-dashed border-tva-gold/12 pr-2 text-left font-mono hover:bg-tva-orange/8",
+                  compact ? "min-h-11 gap-1.5 py-1.5 text-[11px] leading-tight" : "min-h-10 gap-2.5 py-2 text-xs",
                   fileRowPad,
                   actionColor[tone],
                   selected && fileRowSelected,
@@ -648,11 +700,23 @@ function FileColumn({
                 <span className="flex min-w-0 items-center gap-1.5 text-inherit">
                   <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
                   <span className="min-w-0 overflow-hidden">
-                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                    <span
+                      className={cn(
+                        "block overflow-hidden text-ellipsis whitespace-nowrap",
+                        compact && "text-[11px]",
+                      )}
+                    >
                       {fileDisplayName(item)}
                     </span>
-                    {selected ? (
-                      <span className="mt-0.5 block break-all text-[10px] leading-snug text-tva-muted">
+                    {compact || selected ? (
+                      <span
+                        className={cn(
+                          "mt-0.5 block text-[10px] leading-snug text-tva-muted",
+                          compact
+                            ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                            : "break-all",
+                        )}
+                      >
                         {fileDisplayPath(item)}
                       </span>
                     ) : null}

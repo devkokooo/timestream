@@ -1,0 +1,20 @@
+---
+import Bureau from "../layouts/Bureau.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Bureau title="VARIANT DETECTED — TIMESTREAM">
+  <Header />
+  <main id="main" class="mx-auto flex min-h-[60vh] max-w-6xl flex-col justify-center px-5 py-24 md:px-8">
+    <span class="stamp mb-6 w-fit">VARIANT</span>
+    <h1 class="mb-4 font-display text-[clamp(2rem,6vw,4rem)] leading-none font-semibold tracking-[-0.04em]">
+      File not on the Sacred Timeline.
+    </h1>
+    <p class="mb-8 max-w-xl text-sm text-tva-paper-dim">
+      This path diverged. Return to the bureau.
+    </p>
+    <a class="btn-primary w-fit" href="/">Return to canon</a>
+  </main>
+  <Footer />
+</Bureau>
