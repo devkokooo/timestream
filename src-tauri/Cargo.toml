@@ -3,6 +3,7 @@ name = "timestream"
 version = "0.1.0"
 description = "Local-first Git client with a TVA Chronomonitor timeline"
 authors = ["you"]
+license = "AGPL-3.0-or-later"
 edition = "2021"
 
 [lib]

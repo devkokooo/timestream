@@ -66,3 +66,7 @@ Opens at http://localhost:4321. Primary CTA is GitHub — no download buttons in
 ## Design
 
 Orange tile, board-formed concrete, sacred gold veining, manila dossiers, analog grain. See `AGENTS.md`.
+
+## License
+
+GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
