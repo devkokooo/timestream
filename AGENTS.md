@@ -5,7 +5,7 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 ## Stack
 
 - **Desktop:** Tauri 2 (Rust) + React 18 + TypeScript + Vite
-- **Git:** `git2` (libgit2, vendored) — never shell out to `git` for product logic
+- **Git:** `git2` (libgit2 + OpenSSL, vendored) — never shell out to `git` for product logic
 - **Package manager:** Bun
 - **Marketing site:** Astro + Tailwind + React in `site/`, Netlify adapter. Not part of `tauri dev` or `bun run test`.
 - **Tests:** `cargo test` (graph + git fixtures), `bun run test` (Vitest: view-model + layout), `bun run gallery` (visual UI suite)
