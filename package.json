@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "gallery": "vite --config vite.gallery.config.ts",
+    "bundle:release": "bun scripts/bundle-release.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

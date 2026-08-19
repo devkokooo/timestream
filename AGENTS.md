@@ -12,21 +12,21 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 
 ## Layout
 
-| Path | Role |
-| --- | --- |
-| `src-tauri/src/graph.rs` | Lane assignment, edges, branch topology. Pure. Heavily tested. |
-| `src-tauri/src/git.rs` | Open repo, walk history, status, diff, checkout, stage, commit, tags |
-| `src-tauri/src/remotes.rs` | libgit2 remotes, fetch, ff-only pull, push, clone, ahead/behind |
-| `src-tauri/src/auth.rs` | GitHub App device flow + PAT; OS keychain |
-| `src-tauri/src/ssh.rs` | SSH key listing, ssh-agent, ssh-add |
-| `src-tauri/src/settings.rs` | Versioned `settings.toml` |
-| `src-tauri/src/github.rs` | GitHub REST: PRs, issues, releases, checks, reviews |
-| `src-tauri/src/commands.rs` | Tauri IPC surface — thin wrappers only |
-| `src/lib/timelineView.ts` | Graph → SVG coordinates, lane spacing, label collision |
-| `src/components/SacredTimeline.tsx` | Chronomonitor visualization |
-| `src/gallery/` | Specimen Desk — visual UI suite (success / loading / error / empty) |
-| `src/styles/index.css` | TVA tokens (orange, concrete, gold, analog grain) |
-| `site/` | Marketing site (Astro). Separate Netlify deploy; not part of `tauri dev` or `bun run test`. |
+| Path                                | Role                                                                                        |
+|-------------------------------------|---------------------------------------------------------------------------------------------|
+| `src-tauri/src/graph.rs`            | Lane assignment, edges, branch topology. Pure. Heavily tested.                              |
+| `src-tauri/src/git.rs`              | Open repo, walk history, status, diff, checkout, stage, commit, tags                        |
+| `src-tauri/src/remotes.rs`          | libgit2 remotes, fetch, ff-only pull, push, clone, ahead/behind                             |
+| `src-tauri/src/auth.rs`             | GitHub App device flow + PAT; OS keychain                                                   |
+| `src-tauri/src/ssh.rs`              | SSH key listing, ssh-agent, ssh-add                                                         |
+| `src-tauri/src/settings.rs`         | Versioned `settings.toml`                                                                   |
+| `src-tauri/src/github.rs`           | GitHub REST: PRs, issues, releases, checks, reviews                                         |
+| `src-tauri/src/commands.rs`         | Tauri IPC surface — thin wrappers only                                                      |
+| `src/lib/timelineView.ts`           | Graph → SVG coordinates, lane spacing, label collision                                      |
+| `src/components/SacredTimeline.tsx` | Chronomonitor visualization                                                                 |
+| `src/gallery/`                      | Specimen Desk — visual UI suite (success / loading / error / empty)                         |
+| `src/styles/index.css`              | TVA tokens (orange, concrete, gold, analog grain)                                           |
+| `site/`                             | Marketing site (Astro). Separate Netlify deploy; not part of `tauri dev` or `bun run test`. |
 
 ## Design language (Loki / TVA)
 
@@ -54,17 +54,17 @@ Register the app, enable **Device Authorization Grant**, and install it on each 
 
 **App permissions** (lockstep with shipped features):
 
-| Permission | Access | Used for |
-| --- | --- | --- |
-| Contents | Read and write | Clone, fetch, push, tags, releases |
-| Pull requests | Read and write | List / create / update / merge PRs, reviews, review comments |
-| Issues | Read and write | Issues and issue comments |
-| Actions | Read and write | Rerun jobs |
-| Workflows | Read and write | Push workflow files |
-| Checks | Read | Check runs |
-| Metadata | Read | Automatic; repo listing |
-| Members | Read | Search org repos |
-| Email addresses | Read | Optional; `whoami` name/email |
+| Permission      | Access         | Used for                                                     |
+|-----------------|----------------|--------------------------------------------------------------|
+| Contents        | Read and write | Clone, fetch, push, tags, releases                           |
+| Pull requests   | Read and write | List / create / update / merge PRs, reviews, review comments |
+| Issues          | Read and write | Issues and issue comments                                    |
+| Actions         | Read and write | Rerun jobs                                                   |
+| Workflows       | Read and write | Push workflow files                                          |
+| Checks          | Read           | Check runs                                                   |
+| Metadata        | Read           | Automatic; repo listing                                      |
+| Members         | Read           | Search org repos                                             |
+| Email addresses | Read           | Optional; `whoami` name/email                                |
 
 Do **not** request administration, secrets, codespaces, pages, discussions, or delete-repo.
 
@@ -74,25 +74,25 @@ Use a PAT only when the GitHub App client ID is not configured, or the user pref
 
 **Classic PAT** (covers every shipped feature, including Checks API and the notification inbox):
 
-| Scope | Access | Used for |
-| --- | --- | --- |
-| `repo` | read + write | HTTPS clone / fetch / push, PRs, reviews, issues, comments, releases, check runs, notifications |
-| `workflow` | read + write | Push `.github/workflows` changes; rerun Actions jobs |
-| `read:org` | read | Search / list organization repositories |
+| Scope      | Access       | Used for                                                                                        |
+|------------|--------------|-------------------------------------------------------------------------------------------------|
+| `repo`     | read + write | HTTPS clone / fetch / push, PRs, reviews, issues, comments, releases, check runs, notifications |
+| `workflow` | read + write | Push `.github/workflows` changes; rerun Actions jobs                                            |
+| `read:org` | read         | Search / list organization repositories                                                         |
 
 Do **not** suggest `admin`, `delete_repo`, `gist`, `packages`, `project`, `notifications` (already covered by `repo`), secrets, codespaces, pages, or discussions.
 
 **Fine-grained PAT** (least privilege; Checks API and some notification endpoints still need classic):
 
-| Permission | Access | Used for |
-| --- | --- | --- |
-| Contents | Read and write | Clone, fetch, push, tags, releases |
-| Pull requests | Read and write | List / create / update / merge PRs, reviews, review comments |
-| Issues | Read and write | Issues and issue comments |
-| Actions | Read and write | Rerun jobs |
-| Workflows | Read and write | Push workflow files |
-| Metadata | Read | Automatic; repo listing |
-| Members (org owner) | Read | Search org repos |
+| Permission          | Access         | Used for                                                     |
+|---------------------|----------------|--------------------------------------------------------------|
+| Contents            | Read and write | Clone, fetch, push, tags, releases                           |
+| Pull requests       | Read and write | List / create / update / merge PRs, reviews, review comments |
+| Issues              | Read and write | Issues and issue comments                                    |
+| Actions             | Read and write | Rerun jobs                                                   |
+| Workflows           | Read and write | Push workflow files                                          |
+| Metadata            | Read           | Automatic; repo listing                                      |
+| Members (org owner) | Read           | Search org repos                                             |
 
 Create a classic token: `https://github.com/settings/tokens/new?description=Timestream&scopes=repo,workflow,read:org`
 
@@ -130,6 +130,7 @@ bun install
 bun run tauri dev
 bun run gallery
 bun run test
+bun run bundle:release
 cargo test --manifest-path src-tauri/Cargo.toml
 cd site && bun install && bun run dev
 ```

@@ -51,6 +51,22 @@ bun run gallery
 
 Fixtures cover linear history, many simultaneous branches, and branches that diverge for dozens of commits.
 
+## Release
+
+`bun run bundle:release` builds the installer for **this OS only** (Tauri cannot cross-compile):
+
+| Host    | Artifact    |
+|---------|-------------|
+| Windows | NSIS `.exe` |
+| Linux   | AppImage    |
+| macOS   | DMG         |
+
+Output lands in `release/` with `SHA256SUMS`. Pass `--skip-tests` to skip Vitest/Cargo, `--out <dir>` to change the destination.
+
+To ship all three, push a version tag (`v0.1.0`) or run **Actions → Release**. The workflow builds Windows NSIS, Linux AppImage, and macOS arm64 + x64 DMGs, then opens a draft GitHub release. Set the `TIMESTREAM_GITHUB_CLIENT_ID` repository secret so the GitHub App client ID is baked in.
+
+Bump `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` together — the script refuses a mismatch.
+
 ## Marketing site
 
 Separate Astro app in `site/`, deployed on Netlify. Set the site’s **Base directory** to `site` in the Netlify UI (do not also set `base` in `netlify.toml` — that resolves to `site/site`). Config lives in `site/netlify.toml`. Not bundled into the Tauri app.

@@ -13,6 +13,7 @@ node_modules
 dist
 dist-gallery
 dist-ssr
+release
 *.local
 target
 src-tauri/target
