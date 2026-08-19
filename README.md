@@ -77,7 +77,7 @@ bun install
 bun run dev
 ```
 
-Opens at http://localhost:4321. Primary CTA is GitHub — no download buttons in v0.1.
+Opens at http://localhost:4321. Primary CTA is Get v0.1, with supported platforms listed underneath, linking to the GitHub release.
 
 ## Design
 

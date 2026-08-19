@@ -2,8 +2,8 @@
 import Bureau from "../../layouts/Bureau.astro";
 import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
-import { AUTHOR_AVATAR, AUTHOR_HREF, GITHUB_REPO } from "../../lib/site";
-import GithubMark from "../../components/GithubMark.astro";
+import { AUTHOR_AVATAR, AUTHOR_HREF } from "../../lib/site";
+import DownloadButtons from "../../components/DownloadButtons.astro";
 
 export const prerender = true;
 ---
@@ -104,26 +104,22 @@ export const prerender = true;
       <ul>
         <li>
           <span class="stamp stamp-gold stamp-flat">01</span>
-          <span>Executables (Windows, then macOS / Linux)</span>
-        </li>
-        <li>
-          <span class="stamp stamp-gold stamp-flat">02</span>
           <span>Notification inbox</span>
         </li>
         <li>
-          <span class="stamp stamp-gold stamp-flat">03</span>
+          <span class="stamp stamp-gold stamp-flat">02</span>
           <span>Conflict editor</span>
         </li>
         <li>
-          <span class="stamp stamp-gold stamp-flat">04</span>
+          <span class="stamp stamp-gold stamp-flat">03</span>
           <span>Inline review comments on the diff</span>
         </li>
         <li>
-          <span class="stamp stamp-gold stamp-flat">05</span>
+          <span class="stamp stamp-gold stamp-flat">04</span>
           <span>Stash, blame, file history</span>
         </li>
         <li>
-          <span class="stamp stamp-gold stamp-flat">06</span>
+          <span class="stamp stamp-gold stamp-flat">05</span>
           <span>Optimizations (UI, performance, etc)</span>
         </li>
       </ul>
@@ -140,11 +136,8 @@ export const prerender = true;
         So my end goal will be to open Bun repo smoothly in Timestream. Wish me luck.
       </p>
     </div>
-    <div class="mt-10 flex flex-wrap gap-3">
-      <a class="btn-primary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
-        <GithubMark />
-        View on GitHub
-      </a>
+    <div class="mt-10 flex flex-col items-start gap-3">
+      <DownloadButtons github />
       <a class="btn" href="/">Return to bureau</a>
     </div>
   </main>

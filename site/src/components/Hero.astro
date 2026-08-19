@@ -1,6 +1,6 @@
 ---
-import GithubMark from "./GithubMark.astro";
-import { ANNOUNCEMENT_HREF, GITHUB_REPO } from "../lib/site";
+import DownloadButtons from "./DownloadButtons.astro";
+import { ANNOUNCEMENT_HREF } from "../lib/site";
 ---
 
 <section class="relative overflow-hidden">
@@ -17,9 +17,6 @@ import { ANNOUNCEMENT_HREF, GITHUB_REPO } from "../lib/site";
       <span>Initial release</span>
       <span class="text-tva-gold">Learn more →</span>
     </a>
-    <a class="btn-primary mt-8" href={GITHUB_REPO} target="_blank" rel="noreferrer">
-      <GithubMark />
-      View on GitHub
-    </a>
+    <DownloadButtons class="mt-8" align="center" github />
   </div>
 </section>

@@ -11,7 +11,7 @@ const ITEMS = [
   },
   {
     q: "Which platforms ship in v0.1?",
-    a: "Since Tauri is cross-platform, Timestream should compile to Windows, Linux and macOS. Star the project on GitHub to track progress or submit issues.",
+    a: "Windows (NSIS installer), macOS (DMG), and Linux (AppImage). Get v0.1 from the GitHub release.",
   },
   {
     q: "Is it open source?",

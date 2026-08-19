@@ -1,6 +1,5 @@
 ---
-import GithubMark from "./GithubMark.astro";
-import { GITHUB_REPO } from "../lib/site";
+import DownloadButtons from "./DownloadButtons.astro";
 ---
 
 <section class="border-t border-tva-gold/16">
@@ -12,9 +11,6 @@ import { GITHUB_REPO } from "../lib/site";
     <p class="mb-8 max-w-2xl text-sm text-tva-paper-dim">
       Every branch accounted for. Star the project and follow future releases.
     </p>
-    <a class="btn-primary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
-      <GithubMark />
-      View on GitHub
-    </a>
+    <DownloadButtons github />
   </div>
 </section>

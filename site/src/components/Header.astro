@@ -1,5 +1,6 @@
 ---
 import GithubMark from "./GithubMark.astro";
+import DownloadButtons from "./DownloadButtons.astro";
 import { GITHUB_REPO } from "../lib/site";
 
 const links = [
@@ -33,9 +34,11 @@ const links = [
       }
     </nav>
     <div class="flex items-center gap-2">
-      <a class="btn-primary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
+      <DownloadButtons compact />
+      <a class="btn" href={GITHUB_REPO} target="_blank" rel="noreferrer">
         <GithubMark />
-        View on GitHub
+        <span class="hidden sm:inline">View on GitHub</span>
+        <span class="sm:hidden">GitHub</span>
       </a>
     </div>
   </div>

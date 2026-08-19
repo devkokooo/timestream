@@ -1,0 +1,69 @@
+---
+import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
+import GithubMark from "./GithubMark.astro";
+import { GITHUB_REPO, RELEASE_HREF, RELEASE_TAG } from "../lib/site";
+
+interface Props {
+  class?: string;
+  align?: "center" | "start";
+  compact?: boolean;
+  github?: boolean;
+}
+
+const { class: className, align = "start", compact = false, github = false } = Astro.props;
+const centered = align === "center";
+---
+
+{
+  compact ? (
+    <a class:list={["btn-primary", className]} href={RELEASE_HREF} target="_blank" rel="noreferrer">
+      Get v0.1
+    </a>
+  ) : (
+    <div class:list={["flex flex-col gap-3", centered ? "items-center" : "items-start", className]}>
+      <div class:list={["flex flex-wrap items-center gap-2", centered && "justify-center"]}>
+        <a class="btn-primary" href={RELEASE_HREF} target="_blank" rel="noreferrer">
+          Get v0.1
+        </a>
+        {
+          github ? (
+            <a class="btn" href={GITHUB_REPO} target="_blank" rel="noreferrer">
+              <GithubMark />
+              View on GitHub
+            </a>
+          ) : null
+        }
+      </div>
+      <p
+        class:list={[
+          "m-0 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[0.625rem] uppercase tracking-[0.14em] text-tva-muted",
+          centered && "justify-center",
+        ]}
+      >
+        <span class="text-tva-gold/70">{RELEASE_TAG}</span>
+        <span class="text-tva-gold/35" aria-hidden="true">
+          ·
+        </span>
+        <span class="sr-only">Available for</span>
+        <span class="inline-flex items-center gap-1.5">
+          <FaWindows size={12} aria-hidden={true} />
+          Windows
+        </span>
+        <span class="text-tva-gold/35" aria-hidden="true">
+          ·
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <FaApple size={12} aria-hidden={true} />
+          macOS
+        </span>
+        <span class="text-tva-gold/35" aria-hidden="true">
+          ·
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <FaLinux size={12} aria-hidden={true} />
+          Linux AppImage
+        </span>
+      </p>
+    </div>
+  )
+}
