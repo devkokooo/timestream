@@ -1,9 +1,15 @@
 # Bundle Timestream for Windows (NSIS), Linux (AppImage), and macOS (DMG).
-# Trigger: push a version tag (`v0.1.0`) or run from Actions → Release → Run workflow.
+# Trigger: push a version tag (`v0.1.0`) or Actions → Release → Run workflow
+# (enter the same tag). Both cut a draft GitHub release on that tag.
 name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0). Created on this SHA if missing."
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -95,9 +101,19 @@ jobs:
 
   publish:
     needs: bundle
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-22.04
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
+      - name: Check tag
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9] ]]; then
+            echo "Tag must look like v0.1.0, got: $RELEASE_TAG"
+            exit 1
+          fi
+          echo "Publishing draft $RELEASE_TAG"
+
       - uses: actions/download-artifact@v7
         with:
           path: artifacts
@@ -112,8 +128,11 @@ jobs:
 
       - uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           draft: true
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

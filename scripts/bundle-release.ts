@@ -6,7 +6,7 @@
  *   macOS   → DMG
  *
  * Cross-compilation is not supported. Cut all three from CI:
- *   .github/workflows/release.yml  (tag `v*` or workflow_dispatch)
+ *   .github/workflows/release.yml  (tag `v*` or Run workflow + tag)
  *
  * Usage:
  *   bun scripts/bundle-release.ts

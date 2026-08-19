@@ -63,7 +63,7 @@ Fixtures cover linear history, many simultaneous branches, and branches that div
 
 Output lands in `release/` with `SHA256SUMS`. Pass `--skip-tests` to skip Vitest/Cargo, `--out <dir>` to change the destination.
 
-To ship all three, push a version tag (`v0.1.0`) or run **Actions → Release**. The workflow builds Windows NSIS, Linux AppImage, and macOS arm64 + x64 DMGs, then opens a draft GitHub release. Set the `TIMESTREAM_GITHUB_CLIENT_ID` repository secret so the GitHub App client ID is baked in.
+To ship all three, push a version tag (`v0.1.0`) or run **Actions → Release → Run workflow** and enter that tag. Both build Windows NSIS, Linux AppImage, and macOS arm64 + x64 DMGs, then open a draft GitHub release on the tag (created on the workflow SHA if it does not exist yet). Set the `TIMESTREAM_GITHUB_CLIENT_ID` repository secret so the GitHub App client ID is baked in.
 
 Bump `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` together — the script refuses a mismatch.
 
