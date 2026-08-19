@@ -1,4 +1,5 @@
-# Run the AGENTS.md gate on every PR and every push to sacred.
+# Run the AGENTS.md gate on every PR and every push to sacred,
+# except site-only changes (marketing site is a separate Netlify deploy).
 name: Test
 
 on:
@@ -6,7 +7,11 @@ on:
   push:
     branches:
       - sacred
+    paths-ignore:
+      - "site/**"
   pull_request:
+    paths-ignore:
+      - "site/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
