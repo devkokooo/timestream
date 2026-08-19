@@ -1,7 +1,7 @@
 ---
 import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
 import GithubMark from "./GithubMark.astro";
-import { GITHUB_REPO, RELEASE_HREF, RELEASE_TAG } from "../lib/site";
+import { GITHUB_REPO, LICENSE_HREF, RELEASE_HREF, RELEASE_TAG } from "../lib/site";
 
 interface Props {
   class?: string;
@@ -63,6 +63,17 @@ const centered = align === "center";
           <FaLinux size={12} aria-hidden={true} />
           Linux AppImage
         </span>
+        <span class="text-tva-gold/35" aria-hidden="true">
+          ·
+        </span>
+        <a
+          class="text-tva-muted hover:text-tva-gold-bright"
+          href={LICENSE_HREF}
+          target="_blank"
+          rel="noreferrer"
+        >
+          AGPL-3.0
+        </a>
       </p>
     </div>
   )

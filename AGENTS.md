@@ -12,21 +12,39 @@ Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a g
 
 ## Layout
 
-| Path                                | Role                                                                                        |
-|-------------------------------------|---------------------------------------------------------------------------------------------|
-| `src-tauri/src/graph.rs`            | Lane assignment, edges, branch topology. Pure. Heavily tested.                              |
-| `src-tauri/src/git.rs`              | Open repo, walk history, status, diff, checkout, stage, commit, tags                        |
-| `src-tauri/src/remotes.rs`          | libgit2 remotes, fetch, ff-only pull, push, clone, ahead/behind                             |
-| `src-tauri/src/auth.rs`             | GitHub App device flow + PAT; OS keychain                                                   |
-| `src-tauri/src/ssh.rs`              | SSH key listing, ssh-agent, ssh-add                                                         |
-| `src-tauri/src/settings.rs`         | Versioned `settings.toml`                                                                   |
-| `src-tauri/src/github.rs`           | GitHub REST: PRs, issues, releases, checks, reviews                                         |
-| `src-tauri/src/commands.rs`         | Tauri IPC surface — thin wrappers only                                                      |
-| `src/lib/timelineView.ts`           | Graph → SVG coordinates, lane spacing, label collision                                      |
-| `src/components/SacredTimeline.tsx` | Chronomonitor visualization                                                                 |
-| `src/gallery/`                      | Specimen Desk — visual UI suite (success / loading / error / empty)                         |
-| `src/styles/index.css`              | TVA tokens (orange, concrete, gold, analog grain)                                           |
-| `site/`                             | Marketing site (Astro). Separate Netlify deploy; not part of `tauri dev` or `bun run test`. |
+Frontend and Rust trees use the same slice names. Open `src/` or `src-tauri/src/` to see the shipped features.
+
+| Path | Role |
+|------|------|
+| `src/app/` | App composer (layout + mode switching) |
+| `src/ui/` | TVA primitives, tokens, `styles/` |
+| `src/git/` | Open-repo kernel types/IPC |
+| `src/timeline/` | Chronomonitor, rails, commit dossier, graph walk |
+| `src/worktree/` | Status, stage, commit, amend, ReviewMode |
+| `src/diff/` | DiffViewer, hunk layout, syntax highlight |
+| `src/branches/` | Local branch CRUD |
+| `src/remotes/` | Clone, fetch, ff-pull, push, WelcomeGate |
+| `src/ssh/` | Keys, agent, IdentityPicker |
+| `src/auth/` | Forge-agnostic session wrapper (`ForgeUser`, AuthDialog shell) |
+| `src/github/` | GitHub forge: `auth/`, `pulls/`, `issues/`, `releases/`, `checks/`, `reviews/` |
+| `src/settings/` | `settings.toml` UI + command palette |
+| `src/shell/` | Title bar, bureau header, status bar |
+| `src/gallery/` | Specimen Desk visual UI suite |
+| `src-tauri/src/timeline/` | Pure graph layout + history walk |
+| `src-tauri/src/git/` | Open repo + shared git2 helpers |
+| `src-tauri/src/worktree/` | Status, stage, commit, unpublished-HEAD amend |
+| `src-tauri/src/diff/` | Commit / worktree / range diffs |
+| `src-tauri/src/branches/` | Checkout, create, rename, delete |
+| `src-tauri/src/remotes/` | libgit2 remotes, clone, fetch, ff-pull, push |
+| `src-tauri/src/ssh/` | ssh-agent, keys, OpenSSH transport |
+| `src-tauri/src/auth/` | Keychain + session; forge-agnostic `credential_for` |
+| `src-tauri/src/github/` | GitHub HTTP client + nested PR/issue/release modules |
+| `src-tauri/src/settings/` | Versioned `settings.toml` |
+| `site/` | Marketing site (Astro). Separate Netlify deploy |
+
+`#[tauri::command]` handlers live next to domain code. Command **names** are frozen in `src/app/ipcCommands.ts`.
+
+Tests live in the slice they lock. Gate: `cargo test --manifest-path src-tauri/Cargo.toml`, `bun run test`, `bunx tsc --noEmit`, `bunx vite build --config vite.gallery.config.ts`.
 
 ## Design language (Loki / TVA)
 
@@ -137,7 +155,10 @@ cd site && bun install && bun run dev
 
 ## Conventions
 
-- Keep graph math in Rust; keep presentation math in `timelineView.ts`
-- IPC types in `src/lib/types.ts` must match `#[derive(Serialize)]` structs
+- Keep graph math in Rust (`src-tauri/src/timeline/graph.rs`); keep presentation math in `src/timeline/timelineView.ts`
+- IPC types live per slice and must match `#[derive(Serialize)]` structs
+- New forge (GitLab, Gitea, Forgejo) = new top-level slice plus an `auth/` provider; do not grow `github/`
+- New work (bisect, conflicts) = new top-level slice; conflicts import `diff/`
 - No secrets in the repo. No force-push or published-history rewrite helpers
 - Prefer small modules and table-driven tests over snapshots of SVG markup
+- Tests live in the slice they lock

@@ -1,37 +1,25 @@
-import { linearTimeline, manyBranchesTimeline, taggedTimeline } from "../lib/fixtures";
-import { defaultSettings } from "../lib/settingsRegistry";
-import type {
-  AheadBehind,
-  CheckRunSummary,
-  CommitDetail,
-  DeviceLoginBegin,
-  FileChange,
-  FileDiff,
-  GithubUser,
-  IssueComment,
-  IssueSummary,
-  PullCommit,
-  PullCounts,
-  PullRequestSummary,
-  PullReview,
-  RangeCompare,
-  ReleaseSummary,
-  RemoteInfo,
-  RepoFeatures,
-  RepoSearchHit,
-  RepoSummary,
-  ReviewComment,
-  SshAgentStatus,
-  SshKeyInfo,
-  StatusPayload,
-  Timeline,
-} from "../lib/types";
-import type { RecentRepo } from "../lib/recentRepos";
+import { linearTimeline, manyBranchesTimeline, taggedTimeline } from "@/timeline/fixtures";
+import { defaultSettings } from "@/settings/settingsRegistry";
+import type { AheadBehind, RemoteInfo } from "@/remotes/types";
+import type { CheckRunSummary } from "@/github/checks/types";
+import type { CommitDetail, Timeline } from "@/timeline/types";
+import type { DeviceLoginBegin } from "@/github/auth/types";
+import type { FileChange, RepoSummary } from "@/git/types";
+import type { FileDiff, RangeCompare } from "@/diff/types";
+import type { ForgeUser } from "@/auth/types";
+import type { IssueComment, IssueSummary } from "@/github/issues/types";
+import type { PullCommit, PullCounts, PullRequestSummary } from "@/github/pulls/types";
+import type { PullReview, ReviewComment } from "@/github/reviews/types";
+import type { ReleaseSummary } from "@/github/releases/types";
+import type { RepoFeatures, RepoSearchHit } from "@/github/types";
+import type { SshAgentStatus, SshKeyInfo } from "@/ssh/types";
+import type { StatusPayload } from "@/worktree/types";
+import type { RecentRepo } from "@/remotes/recentRepos";
 
 const NOW = Math.floor(Date.now() / 1000);
 const ISO = new Date().toISOString();
 
-export const ANALYST: GithubUser = {
+export const ANALYST: ForgeUser = {
   login: "analyst",
   name: "Analyst",
   avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4",

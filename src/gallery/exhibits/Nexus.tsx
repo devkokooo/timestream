@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { NexusDossier } from "../../components/NexusDossier";
-import { NexusTooltip } from "../../components/NexusTooltip";
+import { NexusDossier } from "@/timeline/NexusDossier";
+import { NexusTooltip } from "@/timeline/NexusTooltip";
 import { LINEAR, commitDetail } from "../fixtures";
 import { Frame, Pad, noop } from "../frame";
 import type { Scenario } from "../scenario";

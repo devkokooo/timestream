@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "@/ui/cn";
 import type { Scenario } from "./scenario";
 
 export function Frame({

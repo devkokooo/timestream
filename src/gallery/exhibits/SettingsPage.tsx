@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { SettingsPage } from "../../components/SettingsPage";
-import { defaultSettings } from "../../lib/settingsRegistry";
+import { SettingsPage } from "@/settings/SettingsPage";
+import { defaultSettings } from "@/settings/settingsRegistry";
 import { settingsWithKey } from "../fixtures";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";

@@ -46,6 +46,7 @@ export default defineConfig({
     plugins: [resolveAppSrcSiteDeps(), tailwindcss()],
     resolve: {
       alias: {
+        "@": appSrc,
         "@tauri-apps/api/core": mock("core.ts"),
         "@tauri-apps/api/event": mock("event.ts"),
         "@tauri-apps/plugin-dialog": mock("dialog.ts"),

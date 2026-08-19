@@ -19,7 +19,7 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
     case "get_range_file_diff":
     case "get_file_diff":
     case "get_worktree_diff":
-      return fileDiffFor(String(args?.rel ?? "src/lib/graph.rs")) as T;
+      return fileDiffFor(String(args?.rel ?? "src-tauri/src/timeline/graph.rs")) as T;
     case "get_commit":
       return tourCommitDetail(String(args?.sha ?? "")) as T;
     default:

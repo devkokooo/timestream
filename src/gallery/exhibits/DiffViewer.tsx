@@ -1,4 +1,4 @@
-import { DiffViewer } from "../../components/DiffViewer";
+import { DiffViewer } from "@/diff/DiffViewer";
 import { BINARY_DIFF, EMPTY_DIFF, FILES, REVIEW_COMMENTS, TEXT_DIFF } from "../fixtures";
 import { Frame, noop, noopAsync } from "../frame";
 import { SPECIMEN_ERROR, type Scenario } from "../scenario";

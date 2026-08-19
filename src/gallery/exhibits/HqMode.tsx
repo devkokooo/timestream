@@ -1,9 +1,41 @@
-import { HqMode } from "../../components/HqMode";
-import type { RequestDeskTab } from "../../components/PrCompare";
-import type { HqTab } from "../../lib/types";
+import { HqMode } from "@/github/HqMode";
+import { RequestsPanel } from "@/github/pulls/RequestsPanel";
+import { IncidentsPanel } from "@/github/issues/IncidentsPanel";
+import { CanonPanel } from "@/github/releases/CanonPanel";
+import type { HqModeProps } from "@/github/hqTypes";
+import type { RequestDeskTab } from "@/github/pulls/PrCompare";
+import type { HqTab } from "@/github/types";
 import { MANY_BRANCHES, REPO } from "../fixtures";
 import { Frame, noop, noopAsync } from "../frame";
 import { useExhibitTab } from "../exhibitUi";
+
+const HQ: Omit<HqModeProps, "tab" | "onTab" | "deskTab" | "onDeskTab" | "signedIn"> = {
+  owner: "tva",
+  repoName: "timestream",
+  onSignIn: noop,
+  onSignOut: noop,
+  repoPath: REPO.path,
+  currentBranch: "feature",
+  sacredBranch: "main",
+  timeline: MANY_BRANCHES,
+  onCheckoutPr: noopAsync,
+  onSyncAfterMerge: noopAsync,
+  onCreateTag: noop,
+  onPushTag: noop,
+  selectedSha: MANY_BRANCHES.head,
+};
+
+const FEATURES = {
+  features: {
+    hasIssues: true,
+    hasPullRequests: true,
+    archived: false,
+    htmlUrl: "https://github.com/tva/timestream",
+  },
+  onRecheckFeatures: noop,
+  recheckingFeatures: false,
+  recheckError: null,
+};
 
 export function HqModeExhibit() {
   const [tab, onTab] = useExhibitTab<HqTab>("hq-mode", "requests");
@@ -11,20 +43,8 @@ export function HqModeExhibit() {
   return (
     <Frame>
       <HqMode
-        owner="tva"
-        repoName="timestream"
+        {...HQ}
         signedIn
-        onSignIn={noop}
-        onSignOut={noop}
-        repoPath={REPO.path}
-        currentBranch="feature"
-        sacredBranch="main"
-        timeline={MANY_BRANCHES}
-        onCheckoutPr={noopAsync}
-        onSyncAfterMerge={noopAsync}
-        onCreateTag={noop}
-        onPushTag={noop}
-        selectedSha={MANY_BRANCHES.head}
         tab={tab}
         onTab={onTab}
         deskTab={deskTab}
@@ -37,22 +57,31 @@ export function HqModeExhibit() {
 export function HqClearanceExhibit() {
   return (
     <Frame>
-      <HqMode
-        owner="tva"
-        repoName="timestream"
-        signedIn={false}
-        onSignIn={noop}
-        onSignOut={noop}
-        repoPath={REPO.path}
-        currentBranch="main"
-        sacredBranch="main"
-        timeline={MANY_BRANCHES}
-        onCheckoutPr={noopAsync}
-        onSyncAfterMerge={noopAsync}
-        onCreateTag={noop}
-        onPushTag={noop}
-        selectedSha={MANY_BRANCHES.head}
-      />
+      <HqMode {...HQ} currentBranch="main" signedIn={false} />
+    </Frame>
+  );
+}
+
+export function GithubRequestsExhibit() {
+  return (
+    <Frame>
+      <RequestsPanel {...HQ} signedIn {...FEATURES} />
+    </Frame>
+  );
+}
+
+export function GithubIncidentsExhibit() {
+  return (
+    <Frame>
+      <IncidentsPanel {...HQ} signedIn {...FEATURES} />
+    </Frame>
+  );
+}
+
+export function GithubCanonExhibit() {
+  return (
+    <Frame>
+      <CanonPanel {...HQ} signedIn />
     </Frame>
   );
 }

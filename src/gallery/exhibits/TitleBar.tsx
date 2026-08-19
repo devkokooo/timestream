@@ -1,4 +1,4 @@
-import { TitleBar } from "../../components/TitleBar";
+import { TitleBar } from "@/shell/TitleBar";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";
 

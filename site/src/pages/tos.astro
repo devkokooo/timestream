@@ -1,6 +1,6 @@
 ---
 import Filing from "../layouts/Filing.astro";
-import { GITHUB_REPO, SUPPORT_HREF } from "../lib/site";
+import { LICENSE_HREF, SUPPORT_HREF } from "../lib/site";
 
 export const prerender = true;
 ---
@@ -11,7 +11,7 @@ export const prerender = true;
   <h2>The software</h2>
   <p>
     Timestream is licensed under the
-    <a href={`${GITHUB_REPO}/blob/main/LICENSE`} target="_blank" rel="noreferrer">GNU Affero General Public License v3.0</a>.
+    <a href={LICENSE_HREF} target="_blank" rel="noreferrer">GNU Affero General Public License v3.0</a>.
     Use, copy, and distribute it under that license. If the license and these terms conflict for the
     software itself, the repository license wins.
   </p>

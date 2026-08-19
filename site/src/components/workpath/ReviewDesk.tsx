@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { DiffViewer } from "../../../../src/components/DiffViewer";
-import { ReviewMode } from "../../../../src/components/ReviewMode";
-import type { AnomalySide } from "../../../../src/components/ReviewMode";
-import type { DiffMode, FileChange, StatusPayload } from "../../../../src/lib/types";
+import { DiffViewer } from "../../../../src/diff/DiffViewer";
+import { ReviewMode } from "../../../../src/worktree/ReviewMode";
+import type { AnomalySide } from "../../../../src/worktree/ReviewMode";
+import type { DiffMode } from "../../../../src/diff/types";
+import type { FileChange } from "../../../../src/git/types";
+import type { StatusPayload } from "../../../../src/worktree/types";
 import { fileDiffFor, INITIAL_STATUS, REVIEW_FILES, SYNC } from "../../lib/tourData";
 
 function cloneStatus(status: StatusPayload): StatusPayload {

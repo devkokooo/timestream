@@ -1,4 +1,4 @@
-import { ReviewMode } from "../../components/ReviewMode";
+import { ReviewMode } from "@/worktree/ReviewMode";
 import { EMPTY_STATUS, STATUS, SYNC } from "../fixtures";
 import { Frame, noop, noopAsync } from "../frame";
 import type { Scenario } from "../scenario";

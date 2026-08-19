@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AuthDialogExhibit } from "./exhibits/AuthDialog";
+import { AuthDialogExhibit, GithubSignInExhibit } from "./exhibits/AuthDialog";
 import { BranchPickerExhibit } from "./exhibits/BranchPicker";
 import { BureauHeaderExhibit } from "./exhibits/BureauHeader";
 import {
@@ -15,7 +15,7 @@ import { CommandPaletteExhibit } from "./exhibits/CommandPalette";
 import { DiffViewerExhibit } from "./exhibits/DiffViewer";
 import { DocketExhibit } from "./exhibits/Docket";
 import { GithubDispatchExhibit } from "./exhibits/GithubDispatch";
-import { HqClearanceExhibit, HqModeExhibit } from "./exhibits/HqMode";
+import { GithubCanonExhibit, GithubIncidentsExhibit, GithubRequestsExhibit, HqClearanceExhibit, HqModeExhibit } from "./exhibits/HqMode";
 import { IdentityPickerExhibit } from "./exhibits/IdentityPicker";
 import { NexusDossierExhibit, NexusTooltipExhibit } from "./exhibits/Nexus";
 import { PrCompareExhibit } from "./exhibits/PrCompare";
@@ -253,6 +253,34 @@ export const EXHIBITS: Exhibit[] = [
     group: "GitHub",
     stamps: ALL,
     render: (scenario) => <SettingsPageExhibit scenario={scenario} />,
+  },
+  {
+    id: "github-sign-in",
+    title: "GitHub sign-in",
+    group: "GitHub",
+    stamps: AUTH,
+    render: () => <GithubSignInExhibit />,
+  },
+  {
+    id: "github-requests",
+    title: "Requests desk",
+    group: "GitHub",
+    stamps: HQ,
+    render: () => <GithubRequestsExhibit />,
+  },
+  {
+    id: "github-incidents",
+    title: "Incidents desk",
+    group: "GitHub",
+    stamps: HQ,
+    render: () => <GithubIncidentsExhibit />,
+  },
+  {
+    id: "github-canon",
+    title: "Canon desk",
+    group: "GitHub",
+    stamps: HQ,
+    render: () => <GithubCanonExhibit />,
   },
 ];
 

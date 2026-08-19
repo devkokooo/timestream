@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SacredTimeline } from "../../components/SacredTimeline";
+import { SacredTimeline } from "@/timeline/SacredTimeline";
 import { MANY_BRANCHES, commitDetail, emptyTimeline } from "../fixtures";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";

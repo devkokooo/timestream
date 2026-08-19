@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { IdentityPicker, type IdentityChoice } from "../../../../src/components/IdentityPicker";
-import { TvaJumble } from "../../../../src/components/TvaJumble";
-import { TvaTerm } from "../../../../src/components/TvaTerm";
-import { btn, eyebrow, panelTitle, stamp, stampGold } from "../../../../src/lib/ui";
-import { cn } from "../../../../src/lib/cn";
+import { IdentityPicker, type IdentityChoice } from "../../../../src/ssh/IdentityPicker";
+import { TvaJumble } from "../../../../src/ui/TvaJumble";
+import { TvaTerm } from "../../../../src/ui/TvaTerm";
+import { btn, eyebrow, panelTitle, stamp, stampGold } from "../../../../src/ui/ui";
+import { cn } from "../../../../src/ui/cn";
 import { REMOTE, SSH_KEYS } from "../../lib/tourData";
 
 function Panel({ children }: { children: ReactNode }) {
