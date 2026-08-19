@@ -1,4 +1,4 @@
-import { Docket } from "../../components/Docket";
+import { Docket } from "@/timeline/Docket";
 import { LINEAR, commitDetail } from "../fixtures";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";

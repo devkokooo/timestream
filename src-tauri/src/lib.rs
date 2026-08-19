@@ -1,16 +1,37 @@
 mod auth;
-mod commands;
+mod branches;
+mod diff;
 mod error;
 mod git;
 mod github;
-mod github_error;
-mod graph;
 mod remotes;
 mod settings;
 mod ssh;
-mod ssh_exec;
+mod timeline;
+mod worktree;
 
-use commands::*;
+use branches::{
+    create_local_branch, delete_local_branch, get_branches, rename_local_branch, switch_branch,
+};
+use diff::{compare_range, get_file_diff, get_range_file_diff, get_worktree_diff};
+use git::open_repository;
+use github::{
+    github_add_issue_comment, github_create_issue, github_create_pull, github_create_release,
+    github_get_pull, github_list_checks, github_list_issue_comments, github_list_issues,
+    github_list_notifications, github_list_pull_commits, github_list_pull_counts, github_list_pulls,
+    github_list_releases, github_list_review_comments, github_list_reviews, github_login_begin,
+    github_login_pat, github_login_poll, github_logout, github_merge_pull, github_repo_features,
+    github_rerun_job, github_reply_review_comment, github_search_repos, github_submit_review,
+    github_update_issue, github_update_pull, github_update_release, github_whoami,
+};
+use remotes::commands::{
+    ahead_behind, checkout_pull_request, clone_repository, delete_remote_tag, fetch_remote,
+    github_origin, list_remotes, pull_ff_only, push_branch, push_tag,
+};
+use settings::{get_settings, set_settings, settings_toml_path};
+use ssh::{list_ssh_keys, ssh_add_key, ssh_agent_ensure, ssh_agent_status};
+use timeline::{create_local_tag, delete_local_tag, get_commit, get_timeline};
+use worktree::{file_commit, get_status, stage_file, unstage_file};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

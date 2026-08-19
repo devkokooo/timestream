@@ -1,23 +1,17 @@
-import type {
-  AheadBehind,
-  CommitDetail,
-  FileChange,
-  FileDiff,
-  GithubUser,
-  IssueComment,
-  PullCommit,
-  PullRequestSummary,
-  PullReview,
-  RangeCompare,
-  SshAgentStatus,
-  SshKeyInfo,
-  StatusPayload,
-  Timeline,
-} from "../../../src/lib/types";
+import type { ForgeUser } from "../../../src/auth/types";
+import type { FileChange } from "../../../src/git/types";
+import type { FileDiff, RangeCompare } from "../../../src/diff/types";
+import type { IssueComment } from "../../../src/github/issues/types";
+import type { PullCommit, PullRequestSummary } from "../../../src/github/pulls/types";
+import type { PullReview } from "../../../src/github/reviews/types";
+import type { AheadBehind } from "../../../src/remotes/types";
+import type { SshAgentStatus, SshKeyInfo } from "../../../src/ssh/types";
+import type { CommitDetail, Timeline } from "../../../src/timeline/types";
+import type { StatusPayload } from "../../../src/worktree/types";
 
 export const AUTHOR = "devkokooo";
 export const AUTHOR_EMAIL = "devkoko.vt@gmail.com";
-export const TOUR_USER: GithubUser = {
+export const TOUR_USER: ForgeUser = {
   login: AUTHOR,
   name: "DevKoko",
   avatarUrl: "https://avatars.githubusercontent.com/u/210086900?v=4",
@@ -46,12 +40,12 @@ export const COMMITS: TourCommit[] = [
 ];
 
 export const REVIEW_FILES: FileChange[] = [
-  { path: "src/lib/graph.rs", oldPath: null, status: "modified" },
-  { path: "src/components/SacredTimeline.tsx", oldPath: null, status: "modified" },
-  { path: "src/lib/newRail.ts", oldPath: null, status: "added" },
+  { path: "src-tauri/src/timeline/graph.rs", oldPath: null, status: "modified" },
+  { path: "src/timeline/SacredTimeline.tsx", oldPath: null, status: "modified" },
+  { path: "src/timeline/newRail.ts", oldPath: null, status: "added" },
   {
-    path: "src/styles/chronomonitor.css",
-    oldPath: "src/styles/monitor.css",
+    path: "src/ui/styles/chronomonitor.css",
+    oldPath: "src/ui/styles/monitor.css",
     status: "moved",
   },
   { path: "notes.txt", oldPath: null, status: "untracked" },
@@ -105,7 +99,7 @@ function hunk(
 }
 
 const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
-  "src/lib/graph.rs": [
+  "src-tauri/src/timeline/graph.rs": [
     hunk(292, 292, "fn assign_lanes", [
       ["context", "fn assign_lanes("],
       ["context", "    oldest_first: &[String],"],
@@ -124,7 +118,7 @@ const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
       ["context", "}"],
     ]),
   ],
-  "src/components/SacredTimeline.tsx": [
+  "src/timeline/SacredTimeline.tsx": [
     hunk(486, 486, "tagged ? (", [
       ["context", "              {tagged ? ("],
       ["context", "                <polygon"],
@@ -139,7 +133,7 @@ const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
       ["context", "              )}"],
     ]),
   ],
-  "src/lib/newRail.ts": [
+  "src/timeline/newRail.ts": [
     hunk(0, 1, "", [
       ["addition", "export function railOffset(lane: number, sacred: number): number {"],
       ["addition", "  if (lane === sacred) return 0;"],
@@ -152,7 +146,7 @@ const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
       ["addition", "}"],
     ]),
   ],
-  "src/styles/chronomonitor.css": [
+  "src/ui/styles/chronomonitor.css": [
     hunk(1, 1, ".monitor-svg", [
       ["deletion", ".monitor-svg {"],
       ["addition", ".chronomonitor-svg {"],
@@ -178,7 +172,7 @@ const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
       ["addition", "No force-push. Local amend of unpublished HEAD only."],
     ]),
   ],
-  "src/components/HqMode.tsx": [
+  "src/github/HqMode.tsx": [
     hunk(326, 326, "async function reload", [
       ["context", "  async function reload() {"],
       ["context", "    if (!props.signedIn || !props.owner || !props.repoName) return;"],
@@ -193,7 +187,7 @@ const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
       ["context", "  }"],
     ]),
   ],
-  "src-tauri/src/github.rs": [
+  "src-tauri/src/github/pulls.rs": [
     hunk(473, 473, "pub async fn list_pulls", [
       ["context", "pub async fn list_pulls(owner: &str, repo: &str, filter: &str) -> Result<Vec<PullRequestSummary>> {"],
       ["deletion", "    let raw: Vec<Value> = get_json(&format!(\"/repos/{owner}/{repo}/pulls\")).await?;"],
@@ -207,7 +201,7 @@ const DIFF_BY_PATH: Record<string, FileDiff["hunks"]> = {
       ["context", "}"],
     ]),
   ],
-  "src-tauri/src/auth.rs": [
+  "src-tauri/src/github/auth.rs": [
     hunk(0, 1, "", [
       ["addition", "pub async fn login_begin() -> Result<DeviceLoginBegin> {"],
       ["addition", "    let text = post_oauth_form("],
@@ -351,9 +345,9 @@ export const PR2_REVIEWS: PullReview[] = [
 ];
 
 export const PR2_FILES: FileChange[] = [
-  { path: "src/components/HqMode.tsx", oldPath: null, status: "modified" },
-  { path: "src-tauri/src/github.rs", oldPath: null, status: "modified" },
-  { path: "src-tauri/src/auth.rs", oldPath: null, status: "added" },
+  { path: "src/github/HqMode.tsx", oldPath: null, status: "modified" },
+  { path: "src-tauri/src/github/pulls.rs", oldPath: null, status: "modified" },
+  { path: "src-tauri/src/github/auth.rs", oldPath: null, status: "added" },
 ];
 
 const TS_AUG_15 = Date.parse("2026-08-15T18:38:01Z") / 1000;

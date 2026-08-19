@@ -1,11 +1,11 @@
-import { btn, btnPrimary } from "../../lib/ui";
-import { FileKindIcon } from "../../components/FileKindIcon";
-import { PersonName } from "../../components/PersonName";
-import { RailStrip } from "../../components/RailStrip";
-import { TransmitButton } from "../../components/TransmitButton";
-import { AnomalyColumnSkeleton, CaseFileDetailSkeleton } from "../../components/TvaSkeleton";
-import { TvaJumble } from "../../components/TvaJumble";
-import { HintMark, TvaTerm } from "../../components/TvaTerm";
+import { btn, btnPrimary } from "@/ui/ui";
+import { FileKindIcon } from "@/ui/FileKindIcon";
+import { PersonName } from "@/auth/PersonName";
+import { RailStrip } from "@/shell/RailStrip";
+import { TransmitButton } from "@/ui/TransmitButton";
+import { AnomalyColumnSkeleton, CaseFileDetailSkeleton } from "@/ui/TvaSkeleton";
+import { TvaJumble } from "@/ui/TvaJumble";
+import { HintMark, TvaTerm } from "@/ui/TvaTerm";
 import { Frame, Pad, noop } from "../frame";
 import type { Scenario } from "../scenario";
 

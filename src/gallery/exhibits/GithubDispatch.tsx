@@ -1,4 +1,4 @@
-import { DispatchNotice } from "../../components/DispatchNotice";
+import { DispatchNotice } from "@/ui/DispatchNotice";
 import { DISPATCH_SPECIMENS } from "../scenario";
 import { Frame, Pad, noop } from "../frame";
 

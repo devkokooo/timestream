@@ -1,6 +1,7 @@
 export const GITHUB_REPO = "https://github.com/devkokooo/timestream";
 export const RELEASE_TAG = "v0.1.0";
 export const RELEASE_HREF = `${GITHUB_REPO}/releases/tag/${RELEASE_TAG}`;
+export const LICENSE_HREF = `${GITHUB_REPO}/blob/sacred/LICENSE`;
 export const GITHUB_PROFILE = "https://github.com/devkokooo";
 export const X_HREF = "https://x.com/devkokooo";
 export const DISCORD_HREF = "https://discord.gg/J3EPsBhKDG";

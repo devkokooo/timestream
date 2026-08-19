@@ -1,4 +1,4 @@
-import { StatusBar } from "../../components/StatusBar";
+import { StatusBar } from "@/shell/StatusBar";
 import { ORIGIN, REPO, SYNC } from "../fixtures";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { DocketFeed } from "../../../../src/components/DocketFeed";
-import { PrCompare } from "../../../../src/components/PrCompare";
-import { GithubUserProvider } from "../../../../src/lib/githubUserContext";
-import { buildPrDocket, collapseCommitRuns } from "../../../../src/lib/prDocket";
-import { stamp, stampGold } from "../../../../src/lib/ui";
-import { cn } from "../../../../src/lib/cn";
+import { DocketFeed } from "../../../../src/github/pulls/DocketFeed";
+import { PrCompare } from "../../../../src/github/pulls/PrCompare";
+import { AuthProvider } from "../../../../src/auth/AuthProvider";
+import { buildPrDocket, collapseCommitRuns } from "../../../../src/github/pulls/prDocket";
+import { stamp, stampGold } from "../../../../src/ui/ui";
+import { cn } from "../../../../src/ui/cn";
 import {
   HEAD_VARIANT,
   PR2,
@@ -26,7 +26,7 @@ export function PrDesk() {
   );
 
   return (
-    <GithubUserProvider user={TOUR_USER}>
+    <AuthProvider user={TOUR_USER}>
       <PrCompare
         compact
         repoPath={REPO_PATH}
@@ -52,6 +52,6 @@ export function PrDesk() {
         </p>
         <DocketFeed entries={docket} />
       </PrCompare>
-    </GithubUserProvider>
+    </AuthProvider>
   );
 }

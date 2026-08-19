@@ -1,4 +1,4 @@
-import { BureauHeader } from "../../components/BureauHeader";
+import { BureauHeader } from "@/shell/BureauHeader";
 import { ANALYST, ORIGIN, REPO } from "../fixtures";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";

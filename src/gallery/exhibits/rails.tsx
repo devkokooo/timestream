@@ -1,8 +1,8 @@
-import { HistoryRail } from "../../components/HistoryRail";
-import { LeftRail } from "../../components/LeftRail";
-import { TagsRail } from "../../components/TagsRail";
-import { VariantRail } from "../../components/VariantRail";
-import type { RailTab } from "../../lib/types";
+import { HistoryRail } from "@/timeline/HistoryRail";
+import { LeftRail } from "@/timeline/LeftRail";
+import { TagsRail } from "@/timeline/TagsRail";
+import { VariantRail } from "@/timeline/VariantRail";
+import type { RailTab } from "@/timeline/types";
 import { LINEAR, MANY_BRANCHES, SYNC, TAGGED, emptyTimeline } from "../fixtures";
 import { Frame, noop } from "../frame";
 import { useExhibitTab } from "../exhibitUi";

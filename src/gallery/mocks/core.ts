@@ -1,4 +1,4 @@
-import type { AppSettings } from "../../lib/types";
+import type { AppSettings } from "@/settings/types";
 import {
   AGENT_DOWN,
   AGENT_UP,

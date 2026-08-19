@@ -1,4 +1,4 @@
-import { FileKindIcon } from "../../../src/components/FileKindIcon";
+import { FileKindIcon } from "../../../src/ui/FileKindIcon";
 import {
   actionLabel,
   actionMark,
@@ -8,10 +8,10 @@ import {
   fileDisplayPath,
   flattenDiffRows,
   hunkLineCounts,
-} from "../../../src/lib/diffView";
-import { cn } from "../../../src/lib/cn";
-import { highlightLines, tokenClassName, type ThemedToken } from "../../../src/lib/syntaxHighlight";
-import { languageFromPath } from "../../../src/lib/syntaxLang";
+} from "../../../src/diff/diffView";
+import { cn } from "../../../src/ui/cn";
+import { highlightLines, tokenClassName, type ThemedToken } from "../../../src/diff/syntaxHighlight";
+import { languageFromPath } from "../../../src/diff/syntaxLang";
 import {
   actionColor,
   btn,
@@ -24,7 +24,7 @@ import {
   fileRowSelected,
   stampByAction,
   stampChrome,
-} from "../../../src/lib/ui";
+} from "../../../src/ui/ui";
 import { fileDiffFor, INITIAL_STATUS, REVIEW_FILES } from "../lib/tourData";
 
 const SELECTED = REVIEW_FILES[0];

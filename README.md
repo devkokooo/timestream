@@ -42,12 +42,14 @@ Fine-grained tokens work for clone, PRs, issues, releases, and Actions if you gr
 ## Test
 
 ```
-bun run test
 cargo test --manifest-path src-tauri/Cargo.toml
+bun run test
+bunx tsc --noEmit
+bunx vite build --config vite.gallery.config.ts
 bun run gallery
 ```
 
-`bun run test` and `cargo test` cover graph math, git fixtures, and view-model layout. `bun run gallery` is the visual UI suite: a TVA Specimen Desk at http://localhost:1422 (port 1420 stays reserved for `tauri dev`). Open each surface in SUCCESS / LOADING / ERROR / EMPTY without Tauri or a real repo. Bookmark a state with `#/welcome-gate/error`.
+`bun run test` and `cargo test` cover graph math, git fixtures, and view-model layout. `bunx tsc --noEmit` catches broken slice imports. The gallery production build compiles exhibits against production components. `bun run gallery` is the visual UI suite: a TVA Specimen Desk at http://localhost:1422 (port 1420 stays reserved for `tauri dev`). Open each surface in SUCCESS / LOADING / ERROR / EMPTY without Tauri or a real repo. Bookmark a state with `#/welcome-gate/error`.
 
 Fixtures cover linear history, many simultaneous branches, and branches that diverge for dozens of commits.
 
@@ -81,7 +83,7 @@ Opens at http://localhost:4321. Primary CTA is Get v0.1, with supported platform
 
 ## Design
 
-Orange tile, board-formed concrete, sacred gold veining, manila dossiers, analog grain. See `AGENTS.md`.
+See `src/` and `src-tauri/src/` for the feature map (timeline, worktree, remotes, ssh, auth, github, …). Design tokens live in `src/ui/styles/`. See `AGENTS.md`.
 
 ## License
 

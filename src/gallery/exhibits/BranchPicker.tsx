@@ -1,5 +1,5 @@
-import { BranchPicker } from "../../components/BranchPicker";
-import { StatusBar } from "../../components/StatusBar";
+import { BranchPicker } from "@/branches/BranchPicker";
+import { StatusBar } from "@/shell/StatusBar";
 import { ORIGIN, REPO, SYNC } from "../fixtures";
 import { Frame, noop, noopAsync } from "../frame";
 import type { Scenario } from "../scenario";

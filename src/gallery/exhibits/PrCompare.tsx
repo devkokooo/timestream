@@ -1,4 +1,4 @@
-import { PrCompare, type RequestDeskTab } from "../../components/PrCompare";
+import { PrCompare, type RequestDeskTab } from "@/github/pulls/PrCompare";
 import { MANY_BRANCHES, REPO } from "../fixtures";
 import { Frame, noop } from "../frame";
 import { useExhibitTab } from "../exhibitUi";

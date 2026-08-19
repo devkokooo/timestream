@@ -1,4 +1,4 @@
-import { WelcomeGate } from "../../components/WelcomeGate";
+import { WelcomeGate } from "@/remotes/WelcomeGate";
 import { ANALYST, CLONE_LOG, RECENT, SEARCH_HITS } from "../fixtures";
 import { Frame, noop } from "../frame";
 import { useExhibitTab } from "../exhibitUi";

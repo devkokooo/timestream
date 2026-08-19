@@ -1,4 +1,4 @@
-import { IdentityPicker } from "../../components/IdentityPicker";
+import { IdentityPicker } from "@/ssh/IdentityPicker";
 import { Frame, noop } from "../frame";
 
 export function IdentityPickerExhibit() {

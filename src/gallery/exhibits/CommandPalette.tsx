@@ -1,5 +1,5 @@
-import { CommandPalette } from "../../components/CommandPalette";
-import { defaultSettings } from "../../lib/settingsRegistry";
+import { CommandPalette } from "@/settings/CommandPalette";
+import { defaultSettings } from "@/settings/settingsRegistry";
 import { Frame, noop } from "../frame";
 import type { Scenario } from "../scenario";
 

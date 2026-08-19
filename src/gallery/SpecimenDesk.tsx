@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { GithubUserProvider } from "../lib/githubUserContext";
-import { cn } from "../lib/cn";
-import { btn, btnStow, eyebrow, stamp, stampChrome, stampGold } from "../lib/ui";
-import { RailStrip } from "../components/RailStrip";
+import { AuthProvider } from "@/auth/AuthProvider";
+import { cn } from "@/ui/cn";
+import { btn, btnStow, eyebrow, stamp, stampChrome, stampGold } from "@/ui/ui";
+import { RailStrip } from "@/shell/RailStrip";
 import { ANALYST } from "./fixtures";
 import { readHash, writeHash } from "./hash";
 import { EXHIBITS, exhibitById } from "./registry";
@@ -109,9 +109,9 @@ export function SpecimenDesk() {
           </div>
         </header>
         <div className="relative min-h-0 min-w-0 flex-1 isolate [transform:translateZ(0)]">
-          <GithubUserProvider user={ANALYST} key={`${exhibit.id}:${stampId}`}>
+          <AuthProvider user={ANALYST} key={`${exhibit.id}:${stampId}`}>
             {exhibit.render(stampId)}
-          </GithubUserProvider>
+          </AuthProvider>
         </div>
       </div>
     </div>
