@@ -98,10 +98,17 @@ async fn pull_node_id(owner: &str, repo: &str, number: u64) -> Result<String> {
         json!({ "owner": owner, "name": repo, "number": number }),
     )
     .await?;
-    pull_id_from_repo(&data).ok_or_else(|| AppError::msg("GITHUB_NOT_FOUND: pull request not found"))
+    pull_id_from_repo(&data)
+        .ok_or_else(|| AppError::msg("GITHUB_NOT_FOUND: pull request not found"))
 }
 
-async fn mutate_pull(owner: &str, repo: &str, number: u64, query: &str, extra: Value) -> Result<()> {
+async fn mutate_pull(
+    owner: &str,
+    repo: &str,
+    number: u64,
+    query: &str,
+    extra: Value,
+) -> Result<()> {
     let id = pull_node_id(owner, repo, number).await?;
     let mut variables = extra;
     if let Some(obj) = variables.as_object_mut() {
@@ -116,15 +123,47 @@ fn map_pr(v: &Value) -> PullRequestSummary {
     let base = v.get("base").cloned().unwrap_or(json!({}));
     PullRequestSummary {
         number: v.get("number").and_then(|x| x.as_u64()).unwrap_or(0),
-        title: v.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        state: v.get("state").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        title: v
+            .get("title")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        body: v
+            .get("body")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        state: v
+            .get("state")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         draft: v.get("draft").and_then(|x| x.as_bool()).unwrap_or(false),
-        html_url: v.get("html_url").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        head_ref: head.get("ref").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        head_sha: head.get("sha").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        base_ref: base.get("ref").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        base_sha: base.get("sha").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        html_url: v
+            .get("html_url")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        head_ref: head
+            .get("ref")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        head_sha: head
+            .get("sha")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        base_ref: base
+            .get("ref")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        base_sha: base
+            .get("sha")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         user_login: v.get("user").map(login).unwrap_or_default(),
         mergeable: v.get("mergeable").and_then(|x| x.as_bool()),
         labels: labels(v),
@@ -154,11 +193,7 @@ fn map_pull_counts(data: &Value) -> PullCounts {
 }
 
 pub async fn list_pull_counts(owner: &str, repo: &str) -> Result<PullCounts> {
-    let data = graphql(
-        PULL_COUNTS_QUERY,
-        json!({ "owner": owner, "name": repo }),
-    )
-    .await?;
+    let data = graphql(PULL_COUNTS_QUERY, json!({ "owner": owner, "name": repo })).await?;
     Ok(map_pull_counts(&data))
 }
 

@@ -100,13 +100,18 @@ pub fn parse_remote_url(url: &str) -> ParsedRemote {
 fn split_owner_repo(path: &str) -> (Option<String>, Option<String>) {
     let path = path.trim_start_matches('/');
     let mut parts = path.split('/');
-    let owner = parts.next().filter(|s| !s.is_empty()).map(|s| s.to_string());
+    let owner = parts
+        .next()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
     let name = parts.next().map(strip_git_suffix).filter(|s| !s.is_empty());
     (owner, name)
 }
 
 fn strip_git_suffix(name: &str) -> String {
-    name.trim_end_matches('/').trim_end_matches(".git").to_string()
+    name.trim_end_matches('/')
+        .trim_end_matches(".git")
+        .to_string()
 }
 
 pub fn list_remotes(path: &Path) -> Result<Vec<RemoteInfo>> {
@@ -134,9 +139,10 @@ pub fn github_origin(path: &Path) -> Result<Option<RemoteInfo>> {
         .find(|r| r.name == "origin" && r.host.as_deref() == Some("github.com"))
         .or_else(|| {
             // fall back to any github.com remote
-            list_remotes(path)
-                .ok()
-                .and_then(|all| all.into_iter().find(|r| r.host.as_deref() == Some("github.com")))
+            list_remotes(path).ok().and_then(|all| {
+                all.into_iter()
+                    .find(|r| r.host.as_deref() == Some("github.com"))
+            })
         }))
 }
 
@@ -163,12 +169,17 @@ fn ahead_behind_repo(repo: &Repository) -> Result<AheadBehind> {
             upstream: None,
         });
     }
-    let local = head.target().ok_or_else(|| AppError::msg("HEAD has no target"))?;
+    let local = head
+        .target()
+        .ok_or_else(|| AppError::msg("HEAD has no target"))?;
     let branch = git2::Branch::wrap(head);
     match branch.upstream() {
         Ok(up) => {
             let upstream_name = up.name()?.map(|s| s.to_string());
-            let remote_oid = up.get().target().ok_or_else(|| AppError::msg("upstream has no target"))?;
+            let remote_oid = up
+                .get()
+                .target()
+                .ok_or_else(|| AppError::msg("upstream has no target"))?;
             let (ahead, behind) = repo.graph_ahead_behind(local, remote_oid)?;
             Ok(AheadBehind {
                 ahead,
@@ -300,12 +311,7 @@ fn fetch_repo(repo: &Repository, remote_name: &str, auth: &GitAuth) -> Result<()
     })
 }
 
-pub fn fetch_refspec(
-    path: &Path,
-    remote_name: &str,
-    refspec: &str,
-    auth: &GitAuth,
-) -> Result<()> {
+pub fn fetch_refspec(path: &Path, remote_name: &str, refspec: &str, auth: &GitAuth) -> Result<()> {
     let repo = Repository::discover(path)?;
     with_ssh(auth, || {
         let mut remote = repo.find_remote(remote_name)?;
@@ -336,7 +342,8 @@ pub fn push_branch(
         .find_reference(&local_ref)?
         .target()
         .ok_or_else(|| AppError::msg("branch has no target"))?;
-    if let Ok(remote_ref) = repo.find_reference(&format!("refs/remotes/{remote_name}/{branch_name}"))
+    if let Ok(remote_ref) =
+        repo.find_reference(&format!("refs/remotes/{remote_name}/{branch_name}"))
     {
         if let Some(remote_oid) = remote_ref.target() {
             let (_ahead, behind) = repo.graph_ahead_behind(local_oid, remote_oid)?;
@@ -426,7 +433,11 @@ fn fast_forward_branch(
     required: bool,
 ) -> Result<()> {
     let remote_ref = format!("refs/remotes/{remote_name}/{branch_name}");
-    let Some(remote_oid) = repo.find_reference(&remote_ref).ok().and_then(|r| r.target()) else {
+    let Some(remote_oid) = repo
+        .find_reference(&remote_ref)
+        .ok()
+        .and_then(|r| r.target())
+    else {
         return if required {
             Err(AppError::msg("no upstream is configured"))
         } else {
@@ -721,12 +732,11 @@ mod tests {
         let local = Repository::open(&local_dir).unwrap();
         {
             let mut branch = local.find_branch(&trunk, git2::BranchType::Local).unwrap();
-            branch.set_upstream(Some(&format!("origin/{trunk}"))).unwrap();
+            branch
+                .set_upstream(Some(&format!("origin/{trunk}")))
+                .unwrap();
         }
-        assert_eq!(
-            local.head().unwrap().peel_to_commit().unwrap().id(),
-            first
-        );
+        assert_eq!(local.head().unwrap().peel_to_commit().unwrap().id(), first);
 
         let merged = write_commit(&origin, &origin_dir, "a.txt", "merged", "merge request");
 
@@ -750,10 +760,7 @@ mod tests {
         assert_eq!(pulled.behind, 0);
         assert_eq!(pulled.ahead, 0);
         let local = Repository::open(&local_dir).unwrap();
-        assert_eq!(
-            local.head().unwrap().peel_to_commit().unwrap().id(),
-            merged
-        );
+        assert_eq!(local.head().unwrap().peel_to_commit().unwrap().id(), merged);
         assert_eq!(
             std::fs::read_to_string(local_dir.join("a.txt")).unwrap(),
             "merged"
@@ -777,7 +784,9 @@ mod tests {
         let local = Repository::open(&local_dir).unwrap();
         {
             let mut branch = local.find_branch(&trunk, git2::BranchType::Local).unwrap();
-            branch.set_upstream(Some(&format!("origin/{trunk}"))).unwrap();
+            branch
+                .set_upstream(Some(&format!("origin/{trunk}")))
+                .unwrap();
         }
         let feature_commit = local.find_commit(first).unwrap();
         local.branch("pr-1", &feature_commit, false).unwrap();

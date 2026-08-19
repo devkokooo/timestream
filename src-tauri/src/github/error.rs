@@ -112,11 +112,7 @@ mod tests {
                 r#"{"message":"Service Unavailable"}"#,
                 "GITHUB_OUTAGE: Service Unavailable",
             ),
-            (
-                500,
-                "upstream exploded",
-                "GITHUB_OUTAGE: upstream exploded",
-            ),
+            (500, "upstream exploded", "GITHUB_OUTAGE: upstream exploded"),
             (
                 422,
                 r#"{"message":"Validation Failed","errors":[{"code":"invalid"}]}"#,
@@ -146,9 +142,6 @@ mod tests {
 
     #[test]
     fn empty_body_has_fallback_hint() {
-        assert_eq!(
-            msg(503, "  "),
-            "GITHUB_OUTAGE: no message from origin"
-        );
+        assert_eq!(msg(503, "  "), "GITHUB_OUTAGE: no message from origin");
     }
 }

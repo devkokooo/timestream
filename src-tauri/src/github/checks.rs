@@ -14,15 +14,8 @@ pub struct CheckRunSummary {
     pub head_sha: String,
 }
 
-pub async fn list_check_runs(
-    owner: &str,
-    repo: &str,
-    sha: &str,
-) -> Result<Vec<CheckRunSummary>> {
-    let raw: Value = get_json(&format!(
-        "/repos/{owner}/{repo}/commits/{sha}/check-runs"
-    ))
-    .await?;
+pub async fn list_check_runs(owner: &str, repo: &str, sha: &str) -> Result<Vec<CheckRunSummary>> {
+    let raw: Value = get_json(&format!("/repos/{owner}/{repo}/commits/{sha}/check-runs")).await?;
     let runs = raw
         .get("check_runs")
         .and_then(|x| x.as_array())
@@ -32,8 +25,16 @@ pub async fn list_check_runs(
         .iter()
         .map(|v| CheckRunSummary {
             id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
-            name: v.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-            status: v.get("status").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            name: v
+                .get("name")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            status: v
+                .get("status")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
             conclusion: v
                 .get("conclusion")
                 .and_then(|x| x.as_str())
@@ -56,7 +57,10 @@ pub async fn combined_status(owner: &str, repo: &str, sha: &str) -> Result<Strin
     if runs.is_empty() {
         return Ok("neutral".into());
     }
-    if runs.iter().any(|r| r.conclusion.as_deref() == Some("failure")) {
+    if runs
+        .iter()
+        .any(|r| r.conclusion.as_deref() == Some("failure"))
+    {
         return Ok("failure".into());
     }
     if runs.iter().any(|r| r.status != "completed") {

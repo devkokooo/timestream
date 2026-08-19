@@ -45,7 +45,10 @@ pub(crate) fn summary(repo: &Repository) -> Result<RepoSummary> {
     Ok(RepoSummary {
         path,
         name,
-        head: repo.head().ok().and_then(|h| h.target().map(|o| o.to_string())),
+        head: repo
+            .head()
+            .ok()
+            .and_then(|h| h.target().map(|o| o.to_string())),
         branch: current_branch(repo),
     })
 }
@@ -60,9 +63,7 @@ pub(crate) fn current_branch(repo: &Repository) -> Option<String> {
 }
 
 pub(crate) fn dunce_like(path: &Path) -> String {
-    let raw = path
-        .canonicalize()
-        .unwrap_or_else(|_| path.to_path_buf());
+    let raw = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let text = raw.to_string_lossy();
     text.strip_prefix(r"\\?\")
         .unwrap_or(&text)
@@ -220,8 +221,8 @@ mod tests {
         let mut index = h.repo.index().unwrap();
         let tree_id = index.write_tree().unwrap();
         let tree = h.repo.find_tree(tree_id).unwrap();
-        let sig = Signature::new("Analyst", "analyst@tva.local", &git2::Time::new(h.clock, 0))
-            .unwrap();
+        let sig =
+            Signature::new("Analyst", "analyst@tva.local", &git2::Time::new(h.clock, 0)).unwrap();
         h.repo
             .commit(
                 Some("HEAD"),

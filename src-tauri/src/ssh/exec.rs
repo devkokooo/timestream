@@ -19,16 +19,17 @@ thread_local! {
 
 pub fn ensure_registered() {
     static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        unsafe {
-            let _ = git2::transport::register("ssh", |remote: &Remote<'_>| {
-                Transport::smart(remote, false, OpensshSubtransport)
-            });
-        }
+    ONCE.call_once(|| unsafe {
+        let _ = git2::transport::register("ssh", |remote: &Remote<'_>| {
+            Transport::smart(remote, false, OpensshSubtransport)
+        });
     });
 }
 
-pub fn with_identity<T>(key: Option<&Path>, body: impl FnOnce() -> crate::error::Result<T>) -> crate::error::Result<T> {
+pub fn with_identity<T>(
+    key: Option<&Path>,
+    body: impl FnOnce() -> crate::error::Result<T>,
+) -> crate::error::Result<T> {
     ensure_registered();
     IDENTITY.with(|slot| {
         *slot.borrow_mut() = key.map(Path::to_path_buf);
@@ -152,7 +153,10 @@ pub fn ssh_args(target: &SshTarget, service: Service, key: Option<&Path>) -> Vec
         args.push(port.to_string());
     }
     args.push(format!("{}@{}", target.username, target.host));
-    args.push(format!("{command} '{}'", target.path.replace('\'', "'\\''")));
+    args.push(format!(
+        "{command} '{}'",
+        target.path.replace('\'', "'\\''")
+    ));
     args
 }
 
@@ -181,9 +185,8 @@ impl SmartSubtransport for OpensshSubtransport {
 }
 
 fn spawn_ssh(url: &str, service: Service) -> Result<SshStream, GitError> {
-    let target = parse_ssh_target(url).ok_or_else(|| {
-        GitError::from_str(&format!("unsupported SSH URL: {url}"))
-    })?;
+    let target = parse_ssh_target(url)
+        .ok_or_else(|| GitError::from_str(&format!("unsupported SSH URL: {url}")))?;
     let key = current_key();
     let args = ssh_args(&target, service, key.as_deref());
     let mut cmd = ssh::ssh_command();
@@ -311,7 +314,11 @@ mod tests {
     #[test]
     fn argv_uses_key_and_identities_only() {
         let target = parse_ssh_target("git@github.com:acme/app.git").unwrap();
-        let args = ssh_args(&target, Service::UploadPackLs, Some(Path::new("C:/Users/me/.ssh/id_ed25519")));
+        let args = ssh_args(
+            &target,
+            Service::UploadPackLs,
+            Some(Path::new("C:/Users/me/.ssh/id_ed25519")),
+        );
         assert!(args.contains(&"-i".into()));
         assert!(args.contains(&"IdentitiesOnly=yes".into()));
         assert!(args.contains(&"git@github.com".into()));

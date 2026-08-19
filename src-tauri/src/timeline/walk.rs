@@ -1,8 +1,6 @@
 use crate::diff::diff_for_commit;
 use crate::error::Result;
-use crate::git::{
-    current_branch, discover, file_change_from_delta, short_oid, FileChange,
-};
+use crate::git::{current_branch, discover, file_change_from_delta, short_oid, FileChange};
 use git2::{Repository, Signature};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -301,11 +299,7 @@ mod tests {
         h.checkout("long-feature");
         let mut variant_tips = Vec::new();
         for i in 1..=20 {
-            variant_tips.push(h.commit(
-                "feat.txt",
-                &format!("v{i}"),
-                &format!("variant {i}"),
-            ));
+            variant_tips.push(h.commit("feat.txt", &format!("v{i}"), &format!("variant {i}")));
         }
         h.checkout(&h.trunk());
 
@@ -394,9 +388,9 @@ mod tests {
         let shown = load_timeline_opts(&h.path, true).unwrap();
         assert_invariants(&shown);
         assert!(shown.nodes.iter().any(|n| {
-            n.refs.iter().any(|r| {
-                r.kind == crate::timeline::RefKind::Remote && r.name == "origin/feature"
-            })
+            n.refs
+                .iter()
+                .any(|r| r.kind == crate::timeline::RefKind::Remote && r.name == "origin/feature")
         }));
     }
 

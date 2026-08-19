@@ -117,10 +117,8 @@ pub fn layout_timeline(
         };
     }
 
-    let by_id: HashMap<String, RawCommit> = commits
-        .into_iter()
-        .map(|c| (c.id.clone(), c))
-        .collect();
+    let by_id: HashMap<String, RawCommit> =
+        commits.into_iter().map(|c| (c.id.clone(), c)).collect();
 
     let sacred_branch = pick_sacred(&refs, sacred_hint.as_deref());
     let sacred_tip = sacred_branch
@@ -206,7 +204,13 @@ pub fn layout_timeline(
         }
     }
 
-    let dossiers = build_dossiers(&refs, &by_id, &row_of, sacred_branch.as_deref(), head.as_deref());
+    let dossiers = build_dossiers(
+        &refs,
+        &by_id,
+        &row_of,
+        sacred_branch.as_deref(),
+        head.as_deref(),
+    );
 
     Timeline {
         nodes,
@@ -356,7 +360,10 @@ fn assign_lanes(
         } else {
             lanes[primary] = Some(parents_in_graph[0].clone());
             for parent in parents_in_graph.into_iter().skip(1) {
-                if lanes.iter().any(|lane| lane.as_deref() == Some(parent.as_str())) {
+                if lanes
+                    .iter()
+                    .any(|lane| lane.as_deref() == Some(parent.as_str()))
+                {
                     continue;
                 }
                 if let Some(empty) = lanes.iter().position(|lane| lane.is_none()) {
@@ -461,7 +468,11 @@ fn build_dossiers(
         let variant_anc = ancestors(&r.target, by_id);
         let exclusive = variant_anc.difference(&sacred_anc).count() as u32;
         let sacred_only = sacred_anc.difference(&variant_anc).count() as u32;
-        let commits_apart = if is_sacred { 0 } else { exclusive + sacred_only };
+        let commits_apart = if is_sacred {
+            0
+        } else {
+            exclusive + sacred_only
+        };
         let diverge_row = variant_anc
             .intersection(&sacred_anc)
             .filter_map(|id| row_of.get(id).copied())
@@ -831,7 +842,10 @@ pub mod tests {
             .expect("upstream dossier");
         assert!(up.is_upstream);
         assert_ne!(node(&tl, "c").column, 0);
-        assert!(node(&tl, "c").refs.iter().any(|r| r.kind == RefKind::Remote));
+        assert!(node(&tl, "c")
+            .refs
+            .iter()
+            .any(|r| r.kind == RefKind::Remote));
     }
 
     #[test]
@@ -843,9 +857,18 @@ pub mod tests {
             Some("main".into()),
         );
         assert_invariants(&tl);
-        assert_eq!(tl.dossiers.iter().filter(|d| d.name.contains("main")).count(), 1);
+        assert_eq!(
+            tl.dossiers
+                .iter()
+                .filter(|d| d.name.contains("main"))
+                .count(),
+            1
+        );
         assert!(!tl.dossiers.iter().any(|d| d.is_upstream));
-        assert!(node(&tl, "b").refs.iter().any(|r| r.kind == RefKind::Remote));
+        assert!(node(&tl, "b")
+            .refs
+            .iter()
+            .any(|r| r.kind == RefKind::Remote));
     }
 
     #[test]
@@ -857,18 +880,23 @@ pub mod tests {
                 c("c", &["b"], 3, "v2"),
                 c("d", &["c"], 4, "tip"),
             ],
-            vec![
-                branch("main", "d"),
-                tag("v1.0", "b"),
-                tag("v2.0", "c"),
-            ],
+            vec![branch("main", "d"), tag("v1.0", "b"), tag("v2.0", "c")],
             Some("d".into()),
             Some("main".into()),
         );
         assert_invariants(&tl);
-        assert!(tl.nodes.iter().all(|n| n.column == 0), "tags must not open variant lanes");
-        assert!(node(&tl, "b").refs.iter().any(|r| r.kind == RefKind::Tag && r.name == "v1.0"));
-        assert!(node(&tl, "c").refs.iter().any(|r| r.kind == RefKind::Tag && r.name == "v2.0"));
+        assert!(
+            tl.nodes.iter().all(|n| n.column == 0),
+            "tags must not open variant lanes"
+        );
+        assert!(node(&tl, "b")
+            .refs
+            .iter()
+            .any(|r| r.kind == RefKind::Tag && r.name == "v1.0"));
+        assert!(node(&tl, "c")
+            .refs
+            .iter()
+            .any(|r| r.kind == RefKind::Tag && r.name == "v2.0"));
         assert_eq!(tl.dossiers.len(), 1);
     }
 
@@ -880,7 +908,11 @@ pub mod tests {
                 c("b", &["a"], 2, "sacred"),
                 c("c", &["a"], 3, "feature"),
             ],
-            vec![branch("main", "b"), branch("feature", "c"), tag("v-feat", "c")],
+            vec![
+                branch("main", "b"),
+                branch("feature", "c"),
+                tag("v-feat", "c"),
+            ],
             Some("b".into()),
             Some("main".into()),
         );
@@ -888,6 +920,10 @@ pub mod tests {
         assert_eq!(node(&tl, "b").column, 0);
         assert_ne!(node(&tl, "c").column, 0);
         let cols: HashSet<i32> = tl.nodes.iter().map(|n| n.column).collect();
-        assert_eq!(cols.len(), 2, "tag must share the variant lane, not open a third");
+        assert_eq!(
+            cols.len(),
+            2,
+            "tag must share the variant lane, not open a third"
+        );
     }
 }

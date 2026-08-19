@@ -122,7 +122,8 @@ fn openssh_command(tool: &str) -> Command {
 
 #[cfg(windows)]
 fn windows_openssh_bin(exe: &str) -> Option<PathBuf> {
-    let root = PathBuf::from(std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into()));
+    let root =
+        PathBuf::from(std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into()));
     for dir in ["System32", "Sysnative"] {
         let path = root.join(dir).join("OpenSSH").join(exe);
         if path.is_file() {
@@ -340,7 +341,10 @@ fn try_start_ssh_agent_service(elevate: bool) -> bool {
             .status();
         return status.map(|s| s.success()).unwrap_or(false);
     }
-    let Ok(out) = hidden_command("sc.exe").args(["start", "ssh-agent"]).output() else {
+    let Ok(out) = hidden_command("sc.exe")
+        .args(["start", "ssh-agent"])
+        .output()
+    else {
         return false;
     };
     let text = format!(
@@ -494,11 +498,8 @@ mod tests {
 
     #[test]
     fn listed_identities_are_running() {
-        let probe = interpret_ssh_add_output(
-            Some(0),
-            "256 SHA256:abc+def analyst@tva (ED25519)\n",
-            "",
-        );
+        let probe =
+            interpret_ssh_add_output(Some(0), "256 SHA256:abc+def analyst@tva (ED25519)\n", "");
         assert!(probe.running);
         assert_eq!(probe.fingerprints, vec!["SHA256:abc+def"]);
     }

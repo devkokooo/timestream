@@ -33,12 +33,8 @@ impl Harness {
         let mut index = self.repo.index().unwrap();
         let tree_id = index.write_tree().unwrap();
         let tree = self.repo.find_tree(tree_id).unwrap();
-        let sig = Signature::new(
-            "Analyst",
-            "analyst@tva.local",
-            &Time::new(self.clock, 0),
-        )
-        .unwrap();
+        let sig =
+            Signature::new("Analyst", "analyst@tva.local", &Time::new(self.clock, 0)).unwrap();
         self.clock += 60;
         let parent = self.repo.head().ok().and_then(|h| h.peel_to_commit().ok());
         let parents: Vec<&git2::Commit> = parent.as_ref().into_iter().collect();

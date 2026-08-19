@@ -127,9 +127,7 @@ pub fn pull_ff_only(
         args.passphrase.as_deref(),
     )?;
     match branch.as_deref() {
-        Some(name) if !name.is_empty() => {
-            super::pull_ff_branch(&path, &remote, Some(name), &auth)
-        }
+        Some(name) if !name.is_empty() => super::pull_ff_branch(&path, &remote, Some(name), &auth),
         _ => super::pull_ff_only(&path, &remote, &auth),
     }
 }

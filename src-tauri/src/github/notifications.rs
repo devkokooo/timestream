@@ -24,8 +24,16 @@ pub async fn list_notifications() -> Result<Vec<NotificationItem>> {
             let subject = v.get("subject").cloned().unwrap_or(json!({}));
             let repo = v.get("repository").cloned().unwrap_or(json!({}));
             NotificationItem {
-                id: v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                reason: v.get("reason").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                id: v
+                    .get("id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                reason: v
+                    .get("reason")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
                 title: subject
                     .get("title")
                     .and_then(|x| x.as_str())

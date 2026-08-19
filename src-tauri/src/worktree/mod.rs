@@ -1,7 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{
-    discover, index_status, normalize_rel, wt_status, FileChange,
-};
+use crate::git::{discover, index_status, normalize_rel, wt_status, FileChange};
 use git2::{ObjectType, Repository, Signature, Status, StatusOptions};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -76,7 +74,14 @@ pub fn commit_changes(path: &Path, message: &str, amend: bool) -> Result<String>
 
     let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
     let parents: Vec<&git2::Commit> = parent.as_ref().into_iter().collect();
-    let oid = repo.commit(Some("HEAD"), &committer, &committer, message, &tree, &parents)?;
+    let oid = repo.commit(
+        Some("HEAD"),
+        &committer,
+        &committer,
+        message,
+        &tree,
+        &parents,
+    )?;
     Ok(oid.to_string())
 }
 
@@ -291,10 +296,7 @@ mod tests {
                 "test remote",
             )
             .unwrap();
-        let mut branch = h
-            .repo
-            .find_branch(&trunk, git2::BranchType::Local)
-            .unwrap();
+        let mut branch = h.repo.find_branch(&trunk, git2::BranchType::Local).unwrap();
         branch
             .set_upstream(Some(&format!("origin/{trunk}")))
             .unwrap();

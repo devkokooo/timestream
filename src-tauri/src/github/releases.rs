@@ -29,16 +29,31 @@ pub struct CreateRelease {
 fn map_release(v: &Value) -> ReleaseSummary {
     ReleaseSummary {
         id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
-        tag_name: v.get("tag_name").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        tag_name: v
+            .get("tag_name")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         name: v
             .get("name")
             .and_then(|x| x.as_str())
             .unwrap_or("")
             .to_string(),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        body: v
+            .get("body")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         draft: v.get("draft").and_then(|x| x.as_bool()).unwrap_or(false),
-        prerelease: v.get("prerelease").and_then(|x| x.as_bool()).unwrap_or(false),
-        html_url: v.get("html_url").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        prerelease: v
+            .get("prerelease")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false),
+        html_url: v
+            .get("html_url")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         published_at: v
             .get("published_at")
             .and_then(|x| x.as_str())

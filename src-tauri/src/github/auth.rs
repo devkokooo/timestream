@@ -218,10 +218,7 @@ fn explain_oauth_error(error: &str, description: Option<&str>) -> String {
 fn oauth_http_error(status: reqwest::StatusCode, text: &str) -> AppError {
     if let Ok(body) = serde_json::from_str::<AccessTokenResponse>(text) {
         if let Some(code) = body.error.as_deref() {
-            return AppError::msg(explain_oauth_error(
-                code,
-                body.error_description.as_deref(),
-            ));
+            return AppError::msg(explain_oauth_error(code, body.error_description.as_deref()));
         }
     }
     github_error::api_error(status, text.to_string())
@@ -498,7 +495,10 @@ mod tests {
         assert_eq!(user.email.as_deref(), Some("octocat@github.com"));
         assert_eq!(user.emails, vec!["octocat@github.com"]);
         let ipc = serde_json::to_value(&user).unwrap();
-        assert_eq!(ipc["avatarUrl"], "https://avatars.githubusercontent.com/u/1");
+        assert_eq!(
+            ipc["avatarUrl"],
+            "https://avatars.githubusercontent.com/u/1"
+        );
         assert_eq!(ipc["emails"], serde_json::json!(["octocat@github.com"]));
         assert!(ipc.get("avatar_url").is_none());
     }

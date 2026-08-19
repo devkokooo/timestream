@@ -16,31 +16,34 @@ use serde_json::{json, Value};
 const UA: &str = "timestream";
 
 #[allow(unused_imports)]
-pub use checks::{CheckRunSummary, combined_status, list_check_runs, rerun_job};
+pub use checks::{combined_status, list_check_runs, rerun_job, CheckRunSummary};
 #[allow(unused_imports)]
 pub use issues::{
-    CreateIssue, IssueComment, IssueSummary, add_issue_comment, create_issue, list_issue_comments,
-    list_issues, update_issue,
+    add_issue_comment, create_issue, list_issue_comments, list_issues, update_issue, CreateIssue,
+    IssueComment, IssueSummary,
 };
 #[allow(unused_imports)]
-pub use notifications::{NotificationItem, list_notifications};
+pub use notifications::{list_notifications, NotificationItem};
 #[allow(unused_imports)]
 pub use pulls::{
-    CreatePullRequest, PullCounts, PullRequestSummary, create_pull, get_pull, list_pull_counts,
-    list_pulls, merge_pull, update_pull,
+    create_pull, get_pull, list_pull_counts, list_pulls, merge_pull, update_pull,
+    CreatePullRequest, PullCounts, PullRequestSummary,
 };
 #[allow(unused_imports)]
-pub use releases::{
-    CreateRelease, ReleaseSummary, create_release, list_releases, update_release,
-};
+pub use releases::{create_release, list_releases, update_release, CreateRelease, ReleaseSummary};
 #[allow(unused_imports)]
 pub use reviews::{
-    PendingReviewComment, PullCommit, PullReview, ReviewComment, SubmitReview, list_pull_commits,
-    list_review_comments, list_reviews, reply_review_comment, submit_review,
+    list_pull_commits, list_review_comments, list_reviews, reply_review_comment, submit_review,
+    PendingReviewComment, PullCommit, PullReview, ReviewComment, SubmitReview,
 };
 #[allow(unused_imports)]
-pub use search::{RepoSearchHit, list_accessible_repos};
+pub use search::{list_accessible_repos, RepoSearchHit};
 
+#[allow(unused_imports)]
+pub use auth::DeviceLoginBegin;
+pub use auth::{
+    github_login_begin, github_login_pat, github_login_poll, github_logout, github_whoami,
+};
 pub use checks::{github_list_checks, github_rerun_job};
 pub use issues::{
     github_add_issue_comment, github_create_issue, github_list_issue_comments, github_list_issues,
@@ -57,11 +60,6 @@ pub use reviews::{
     github_reply_review_comment, github_submit_review,
 };
 pub use search::github_search_repos;
-pub use auth::{
-    github_login_begin, github_login_pat, github_login_poll, github_logout, github_whoami,
-};
-#[allow(unused_imports)]
-pub use auth::DeviceLoginBegin;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -128,7 +126,10 @@ pub(crate) async fn request(
 }
 
 pub(crate) async fn get_json<T: for<'de> Deserialize<'de>>(path: &str) -> Result<T> {
-    Ok(request(reqwest::Method::GET, path, None).await?.json().await?)
+    Ok(request(reqwest::Method::GET, path, None)
+        .await?
+        .json()
+        .await?)
 }
 
 fn graphql_errors(body: &Value) -> Option<String> {
@@ -175,7 +176,11 @@ pub(crate) fn labels(v: &Value) -> Vec<String> {
         .and_then(|x| x.as_array())
         .map(|arr| {
             arr.iter()
-                .filter_map(|l| l.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+                .filter_map(|l| {
+                    l.get("name")
+                        .and_then(|n| n.as_str())
+                        .map(|s| s.to_string())
+                })
                 .collect()
         })
         .unwrap_or_default()
@@ -193,10 +198,12 @@ fn map_repo_features(v: &Value) -> RepoFeatures {
     let disabled = v.get("disabled").and_then(|x| x.as_bool()).unwrap_or(false);
     let sealed = archived || disabled;
     RepoFeatures {
-        has_issues: !sealed && v.get("has_issues").and_then(|x| x.as_bool()).unwrap_or(true),
+        has_issues: !sealed
+            && v.get("has_issues")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(true),
         has_pull_requests: !sealed
-            && v
-                .get("has_pull_requests")
+            && v.get("has_pull_requests")
                 .and_then(|x| x.as_bool())
                 .unwrap_or(true),
         archived,

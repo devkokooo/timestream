@@ -40,10 +40,26 @@ pub struct CreateIssue {
 fn map_issue(v: &Value) -> IssueSummary {
     IssueSummary {
         number: v.get("number").and_then(|x| x.as_u64()).unwrap_or(0),
-        title: v.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        state: v.get("state").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        html_url: v.get("html_url").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        title: v
+            .get("title")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        body: v
+            .get("body")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        state: v
+            .get("state")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        html_url: v
+            .get("html_url")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         user_login: v.get("user").map(login).unwrap_or_default(),
         labels: labels(v),
         assignees: v
@@ -68,7 +84,11 @@ pub async fn list_issues(owner: &str, repo: &str, filter: &str) -> Result<Vec<Is
     ))
     .await?;
     let me = crate::github::auth::whoami().await.ok().flatten();
-    let mut out: Vec<_> = raw.iter().map(map_issue).filter(|i| !i.pull_request).collect();
+    let mut out: Vec<_> = raw
+        .iter()
+        .map(map_issue)
+        .filter(|i| !i.pull_request)
+        .collect();
     if filter == "assigned" {
         if let Some(user) = me.as_ref() {
             out.retain(|i| i.assignees.iter().any(|a| a == &user.login));
@@ -119,7 +139,11 @@ pub async fn list_issue_comments(
         .map(|v| IssueComment {
             id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
             user_login: v.get("user").map(login).unwrap_or_default(),
-            body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            body: v
+                .get("body")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
             created_at: created_at(v),
         })
         .collect())
@@ -141,7 +165,11 @@ pub async fn add_issue_comment(
     Ok(IssueComment {
         id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
         user_login: v.get("user").map(login).unwrap_or_default(),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        body: v
+            .get("body")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         created_at: created_at(&v),
     })
 }

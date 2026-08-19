@@ -180,7 +180,9 @@ pub fn save_to_path(path: &Path, settings: &AppSettings) -> Result<()> {
     apply_known(&mut doc, settings);
     let rendered = doc.to_string();
     if looks_like_secret(&rendered) {
-        return Err(AppError::msg("refusing to write secrets into settings.toml"));
+        return Err(AppError::msg(
+            "refusing to write secrets into settings.toml",
+        ));
     }
     fs::write(path, rendered)?;
     Ok(())
@@ -374,7 +376,9 @@ agent_autostart = true
         settings.ssh.default_key = Some("/home/.ssh/id_default".into());
         bind_ssh_key(&mut settings, r"C:\work\repo", "origin", "/home/.ssh/work");
         assert_eq!(
-            settings.resolve_ssh_key("C:/work/repo", "origin").as_deref(),
+            settings
+                .resolve_ssh_key("C:/work/repo", "origin")
+                .as_deref(),
             Some("/home/.ssh/work")
         );
         assert_eq!(

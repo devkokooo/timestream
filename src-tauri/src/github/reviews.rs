@@ -69,14 +69,25 @@ pub async fn list_review_comments(
 fn map_review_comment(v: &Value) -> ReviewComment {
     ReviewComment {
         id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
-        path: v.get("path").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        path: v
+            .get("path")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         line: v.get("line").and_then(|x| x.as_u64()).map(|n| n as u32),
         original_line: v
             .get("original_line")
             .and_then(|x| x.as_u64())
             .map(|n| n as u32),
-        side: v.get("side").and_then(|x| x.as_str()).map(|s| s.to_string()),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        side: v
+            .get("side")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        body: v
+            .get("body")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         user_login: v.get("user").map(login).unwrap_or_default(),
         diff_hunk: v
             .get("diff_hunk")
@@ -89,12 +100,13 @@ fn map_review_comment(v: &Value) -> ReviewComment {
 
 fn map_pull_commit(v: &Value) -> PullCommit {
     let commit = v.get("commit").cloned().unwrap_or(json!({}));
-    let message = commit
-        .get("message")
-        .and_then(|x| x.as_str())
-        .unwrap_or("");
+    let message = commit.get("message").and_then(|x| x.as_str()).unwrap_or("");
     let summary = message.lines().next().unwrap_or("").to_string();
-    let sha = v.get("sha").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let sha = v
+        .get("sha")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
     let author = v
         .get("author")
         .map(login)
@@ -145,8 +157,16 @@ fn map_review(v: &Value) -> PullReview {
     PullReview {
         id: v.get("id").and_then(|x| x.as_u64()).unwrap_or(0),
         user_login: v.get("user").map(login).unwrap_or_default(),
-        body: v.get("body").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        state: v.get("state").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        body: v
+            .get("body")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        state: v
+            .get("state")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
         submitted_at: v
             .get("submitted_at")
             .and_then(|x| x.as_str())
@@ -155,11 +175,7 @@ fn map_review(v: &Value) -> PullReview {
     }
 }
 
-pub async fn list_pull_commits(
-    owner: &str,
-    repo: &str,
-    number: u64,
-) -> Result<Vec<PullCommit>> {
+pub async fn list_pull_commits(owner: &str, repo: &str, number: u64) -> Result<Vec<PullCommit>> {
     let raw: Vec<Value> = get_json(&format!(
         "/repos/{owner}/{repo}/pulls/{number}/commits?per_page=100"
     ))
@@ -168,8 +184,10 @@ pub async fn list_pull_commits(
 }
 
 pub async fn list_reviews(owner: &str, repo: &str, number: u64) -> Result<Vec<PullReview>> {
-    let raw: Vec<Value> =
-        get_json(&format!("/repos/{owner}/{repo}/pulls/{number}/reviews?per_page=100")).await?;
+    let raw: Vec<Value> = get_json(&format!(
+        "/repos/{owner}/{repo}/pulls/{number}/reviews?per_page=100"
+    ))
+    .await?;
     Ok(raw
         .iter()
         .map(map_review)

@@ -18,11 +18,12 @@ use git::open_repository;
 use github::{
     github_add_issue_comment, github_create_issue, github_create_pull, github_create_release,
     github_get_pull, github_list_checks, github_list_issue_comments, github_list_issues,
-    github_list_notifications, github_list_pull_commits, github_list_pull_counts, github_list_pulls,
-    github_list_releases, github_list_review_comments, github_list_reviews, github_login_begin,
-    github_login_pat, github_login_poll, github_logout, github_merge_pull, github_repo_features,
-    github_rerun_job, github_reply_review_comment, github_search_repos, github_submit_review,
-    github_update_issue, github_update_pull, github_update_release, github_whoami,
+    github_list_notifications, github_list_pull_commits, github_list_pull_counts,
+    github_list_pulls, github_list_releases, github_list_review_comments, github_list_reviews,
+    github_login_begin, github_login_pat, github_login_poll, github_logout, github_merge_pull,
+    github_reply_review_comment, github_repo_features, github_rerun_job, github_search_repos,
+    github_submit_review, github_update_issue, github_update_pull, github_update_release,
+    github_whoami,
 };
 use remotes::commands::{
     ahead_behind, checkout_pull_request, clone_repository, delete_remote_tag, fetch_remote,

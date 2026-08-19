@@ -36,7 +36,9 @@ fn validate_branch_name(name: &str) -> Result<()> {
         return Err(AppError::msg("variant name is required"));
     }
     if name != name.trim() {
-        return Err(AppError::msg("variant name cannot start or end with whitespace"));
+        return Err(AppError::msg(
+            "variant name cannot start or end with whitespace",
+        ));
     }
     if name.eq_ignore_ascii_case("HEAD") {
         return Err(AppError::msg("HEAD is not a valid variant name"));
@@ -51,10 +53,7 @@ fn validate_branch_name(name: &str) -> Result<()> {
     }
 }
 
-fn find_local_branch<'repo>(
-    repo: &'repo Repository,
-    name: &str,
-) -> Result<git2::Branch<'repo>> {
+fn find_local_branch<'repo>(repo: &'repo Repository, name: &str) -> Result<git2::Branch<'repo>> {
     repo.find_branch(name, BranchType::Local)
         .map_err(|_| AppError::msg(format!("unknown variant '{name}'")))
 }

@@ -73,11 +73,28 @@ pub(crate) fn delete_secret(account: &str) -> Result<()> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CredentialHost {
+    GitHub,
+    Unknown,
+}
+
+fn credential_host(host: &str) -> CredentialHost {
+    match host
+        .trim()
+        .trim_end_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "github.com" | "gist.github.com" => CredentialHost::GitHub,
+        _ => CredentialHost::Unknown,
+    }
+}
+
 pub async fn credential_for(host: &str) -> Result<Option<String>> {
-    let host = host.trim().trim_end_matches('.').to_ascii_lowercase();
-    match host.as_str() {
-        "github.com" | "gist.github.com" => crate::github::auth::valid_token().await,
-        _ => Ok(None),
+    match credential_host(host) {
+        CredentialHost::GitHub => crate::github::auth::valid_token().await,
+        CredentialHost::Unknown => Ok(None),
     }
 }
 
@@ -87,18 +104,16 @@ mod tests {
 
     #[test]
     fn credential_for_github_hosts_uses_github_arm() {
-        let github = tauri::async_runtime::block_on(credential_for("github.com")).unwrap();
-        let gist = tauri::async_runtime::block_on(credential_for("gist.github.com")).unwrap();
-        let mixed = tauri::async_runtime::block_on(credential_for("GitHub.COM")).unwrap();
-        let _ = (github, gist, mixed);
+        for host in ["github.com", "gist.github.com", "GitHub.COM", "github.com."] {
+            assert_eq!(credential_host(host), CredentialHost::GitHub, "{host}");
+        }
     }
 
     #[test]
     fn credential_for_ignores_unknown_hosts() {
-        let none = tauri::async_runtime::block_on(credential_for("gitlab.com")).unwrap();
-        assert!(none.is_none());
-        let empty = tauri::async_runtime::block_on(credential_for("")).unwrap();
-        assert!(empty.is_none());
+        for host in ["gitlab.com", "", "github.example.com"] {
+            assert_eq!(credential_host(host), CredentialHost::Unknown, "{host}");
+        }
     }
 
     #[test]
