@@ -10,6 +10,8 @@ import { DispatchNotice } from "./DispatchNotice";
 import { TvaTerm } from "./TvaTerm";
 import type { GithubUser } from "../lib/types";
 
+const TIMESTREAM_GITHUB_APP = "https://github.com/apps/timestream-vcs";
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -34,11 +36,19 @@ export function AuthDialog({ open, onClose, onSignedIn }: Props) {
         </h2>
         <p className="mt-2 text-xs text-tva-paper-dim">
           Device login uses the Timestream GitHub App. Install the app on the account or
-          organization whose archives you need, then enter the code GitHub shows.
+          organization whose archives you need, then enter the code GitHub shows. If the
+          browser window does not open, use the install link below.
         </p>
         <button
           type="button"
-          className={`${btnPrimary} mt-3 inline-flex w-full items-center justify-center gap-2`}
+          className={`${btn} mt-5 inline-flex w-full items-center justify-center gap-2`}
+          onClick={() => void openUrl(TIMESTREAM_GITHUB_APP)}
+        >
+          Install the GitHub App
+        </button>
+        <button
+          type="button"
+          className={`${btnPrimary} mt-2 inline-flex w-full items-center justify-center gap-2`}
           disabled={busy}
           onClick={async () => {
             setError(null);

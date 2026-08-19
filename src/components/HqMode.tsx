@@ -1302,6 +1302,8 @@ function NeedClearance() {
   );
 }
 
+const TIMESTREAM_GITHUB_APP = "https://github.com/apps/timestream-vcs";
+
 function HqClearance({ onSignIn }: { onSignIn: () => void }) {
   return (
     <div className="flex w-full max-w-[28rem] flex-col items-center text-center">
@@ -1328,12 +1330,22 @@ function HqClearance({ onSignIn }: { onSignIn: () => void }) {
       </ul>
       <button
         type="button"
-        className={cn(btnPrimary, "mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5")}
+        className={cn(btn, "mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5")}
+        onClick={() => void openUrl(TIMESTREAM_GITHUB_APP)}
+      >
+        Install the GitHub App
+      </button>
+      <button
+        type="button"
+        className={cn(btnPrimary, "mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5")}
         onClick={onSignIn}
       >
         <SiGithub size={14} aria-hidden />
         Sign in with GitHub
       </button>
+      <p className={cn(emptyText, "mt-3 max-w-[24rem]")}>
+        If the sign-in window does not open, install Timestream on the account or organization first.
+      </p>
     </div>
   );
 }
