@@ -14,7 +14,7 @@ export const AUTHOR_EMAIL = "devkoko.vt@gmail.com";
 export const TOUR_USER: ForgeUser = {
   login: AUTHOR,
   name: "DevKoko",
-  avatarUrl: "https://avatars.githubusercontent.com/u/210086900?v=4",
+  avatarUrl: "/author-avatar.jpg",
   email: AUTHOR_EMAIL,
   emails: [AUTHOR_EMAIL],
 };

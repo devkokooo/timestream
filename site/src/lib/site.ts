@@ -6,7 +6,7 @@ export const GITHUB_PROFILE = "https://github.com/devkokooo";
 export const X_HREF = "https://x.com/devkokooo";
 export const DISCORD_HREF = "https://discord.gg/J3EPsBhKDG";
 export const AUTHOR_HREF = "https://devkoko.com";
-export const AUTHOR_AVATAR = "https://avatars.githubusercontent.com/u/210086900?v=4";
+export const AUTHOR_AVATAR = "/author-avatar.jpg";
 export const ORG_HREF = "https://forgeware.dev";
 export const SUPPORT_HREF = `${GITHUB_REPO}/issues`;
 export const ANNOUNCEMENT_HREF = "/blog/v0.1/";
