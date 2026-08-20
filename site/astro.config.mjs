@@ -15,7 +15,6 @@ const siteDeps = [
   "react-dom",
   "clsx",
   "react-icons",
-  "shiki",
   "@tanstack/react-virtual",
 ];
 
@@ -70,6 +69,11 @@ export default defineConfig({
           find: "@/ui/FileKindIcon",
           replacement: path.resolve(root, "src/ui/FileKindIcon.tsx"),
         },
+        // Plain-text diffs on the tour — drops Shiki wasm + language grammars (~200 KiB).
+        {
+          find: "@/diff/syntaxHighlight",
+          replacement: mock("syntaxHighlight.ts"),
+        },
         { find: "@", replacement: appSrc },
         { find: "@tauri-apps/api/core", replacement: mock("core.ts") },
         { find: "@tauri-apps/api/event", replacement: mock("event.ts") },
@@ -84,7 +88,7 @@ export default defineConfig({
       },
     },
     optimizeDeps: {
-      include: ["react", "react-dom", "react/jsx-runtime", "clsx", "@tanstack/react-virtual", "shiki"],
+      include: ["react", "react-dom", "react/jsx-runtime", "clsx", "@tanstack/react-virtual"],
     },
   },
   server: {

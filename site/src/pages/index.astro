@@ -15,7 +15,7 @@ import Footer from "../components/Footer.astro";
   <main id="main">
     <Hero />
     <Pitch />
-    <WorkPath client:only="react">
+    <WorkPath client:visible>
       <p class="px-5 py-16 text-sm text-tva-muted">Loading path…</p>
     </WorkPath>
     <Manifesto />

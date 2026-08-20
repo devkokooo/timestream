@@ -151,7 +151,19 @@ bun run test
 bun run bundle:release
 cargo test --manifest-path src-tauri/Cargo.toml
 cd site && bun install && bun run dev
+cd site && bun run bake:tokens   # after editing WorkPath / tour diff fixtures
 ```
+
+## Marketing site (`site/`)
+
+Separate Astro app (Netlify). Not part of `tauri dev` / `bun run test`.
+
+- WorkPath desks hydrate with `client:visible` and mount per-step near the viewport.
+- Diff syntax highlight on the tour is **baked**, not live Shiki: `site/src/lib/tourTokens.generated.ts`.
+- After changing hunk text in `site/src/lib/tourData.ts`, run `cd site && bun run bake:tokens` and commit the regenerated file.
+- Vite aliases stub `@/diff/syntaxHighlight` and slim `@/ui/FileKindIcon` so Shiki wasm/grammars never ship to the client. Shiki is a site **devDependency** for the bake script only.
+
+See `site/README.md`.
 
 ## Conventions
 

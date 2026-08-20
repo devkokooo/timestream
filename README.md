@@ -81,6 +81,14 @@ bun run dev
 
 Opens at http://localhost:4321. Primary CTA is Get v0.1, with supported platforms listed underneath, linking to the GitHub release.
 
+Tour diffs use **baked** syntax tokens (no Shiki in the browser). After editing hunk fixtures in `site/src/lib/tourData.ts`:
+
+```
+cd site && bun run bake:tokens
+```
+
+Commit the updated `site/src/lib/tourTokens.generated.ts`. Details: `site/README.md`.
+
 ## Design
 
 See `src/` and `src-tauri/src/` for the feature map (timeline, worktree, remotes, ssh, auth, github, …). Design tokens live in `src/ui/styles/`. See `AGENTS.md`.

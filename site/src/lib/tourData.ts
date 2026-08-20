@@ -1,3 +1,10 @@
+/**
+ * Marketing WorkPath fixtures (status, diffs, PR desk).
+ *
+ * After editing hunk line text below, regenerate syntax tokens:
+ *   cd site && bun run bake:tokens
+ * See site/README.md.
+ */
 import type { ForgeUser } from "../../../src/auth/types";
 import type { FileChange } from "../../../src/git/types";
 import type { FileDiff, RangeCompare } from "../../../src/diff/types";

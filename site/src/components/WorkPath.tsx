@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { SPECIMENS, type Topology } from "./specimens";
 import { COMMITS } from "../lib/tourData";
 
@@ -186,6 +186,67 @@ function StepDesk({ index }: { index: number }) {
   return <PrDesk />;
 }
 
+/** Mount each desk only when its step nears the viewport — keeps Review/PR chunks off the critical path. */
+function NearViewportDesk({
+  index,
+  wide,
+  fill,
+  framed = true,
+}: {
+  index: number;
+  wide?: boolean;
+  fill?: boolean;
+  framed?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setActive(true);
+        io.disconnect();
+      },
+      { rootMargin: "240px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const fallback = (
+    <p className="m-0 px-4 py-6 text-[0.75rem] text-tva-muted">Loading desk…</p>
+  );
+
+  return (
+    <div ref={ref}>
+      {!active ? (
+        framed ? (
+          <div
+            className={`dossier relative flex min-h-[22rem] flex-col ${
+              fill ? "h-full" : "h-[min(70vh,40rem)]"
+            }`}
+          >
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#161310]">{fallback}</div>
+          </div>
+        ) : (
+          fallback
+        )
+      ) : framed ? (
+        <DeskFrame wide={wide} fill={fill}>
+          <StepDesk index={index} />
+        </DeskFrame>
+      ) : (
+        <Suspense fallback={fallback}>
+          <StepDesk index={index} />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
 export function WorkPath() {
   return (
     <section id="path" className="border-t border-tva-gold/16">
@@ -221,19 +282,12 @@ export function WorkPath() {
                         : "lg:sticky lg:top-24"
                   }
                 >
-                  {"framed" in step && step.framed === false ? (
-                    <Suspense
-                      fallback={
-                        <p className="m-0 px-4 py-6 text-[0.75rem] text-tva-muted">Loading desk…</p>
-                      }
-                    >
-                      <StepDesk index={index} />
-                    </Suspense>
-                  ) : (
-                    <DeskFrame wide={step.wide} fill={"fillViewport" in step && step.fillViewport}>
-                      <StepDesk index={index} />
-                    </DeskFrame>
-                  )}
+                  <NearViewportDesk
+                    index={index}
+                    wide={step.wide}
+                    fill={"fillViewport" in step && step.fillViewport}
+                    framed={!("framed" in step && step.framed === false)}
+                  />
                 </div>
               </div>
             </article>
