@@ -19,7 +19,8 @@ To keep Lighthouse’s critical path short, the site does **not** ship Shiki (wa
 | `src/lib/tourData.ts` | Tour commits, status, and hunk fixtures |
 | `src/lib/tourTokens.generated.ts` | Pre-tokenized lines (do not edit by hand) |
 | `scripts/bake-tour-tokens.ts` | Runs Shiki once, writes the generated file |
-| `src/mocks/syntaxHighlight.ts` | Vite alias target for `@/diff/syntaxHighlight` |
+| `src/mocks/syntaxHighlight.ts` | Vite alias target for `@/diff/syntaxHighlight` (also used by OG card) |
+
 
 **When you change tour hunk text** (any `DIFF_BY_PATH` / `fileDiffFor` lines):
 

@@ -69,9 +69,17 @@ export default defineConfig({
           find: "@/ui/FileKindIcon",
           replacement: path.resolve(root, "src/ui/FileKindIcon.tsx"),
         },
-        // Plain-text diffs on the tour — drops Shiki wasm + language grammars (~200 KiB).
+        // Tour / OG diffs use baked tokens — never resolve the desktop Shiki module.
         {
           find: "@/diff/syntaxHighlight",
+          replacement: mock("syntaxHighlight.ts"),
+        },
+        {
+          find: path.resolve(appSrc, "diff/syntaxHighlight.ts"),
+          replacement: mock("syntaxHighlight.ts"),
+        },
+        {
+          find: path.resolve(appSrc, "diff/syntaxHighlight"),
           replacement: mock("syntaxHighlight.ts"),
         },
         { find: "@", replacement: appSrc },

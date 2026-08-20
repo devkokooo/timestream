@@ -10,7 +10,7 @@ import {
   hunkLineCounts,
 } from "../../../src/diff/diffView";
 import { cn } from "../../../src/ui/cn";
-import { highlightLines, tokenClassName, type ThemedToken } from "../../../src/diff/syntaxHighlight";
+import { highlightLines, tokenClassName, type ThemedToken } from "../mocks/syntaxHighlight";
 import { languageFromPath } from "../../../src/diff/syntaxLang";
 import {
   actionColor,
