@@ -1,3 +1,5 @@
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght-italic.css";
 @import "tailwindcss";
 @import "../../../src/ui/styles/effects.css";
 
@@ -18,9 +20,9 @@
   --color-tva-ink: #1a120c;
   --color-tva-stamp: #c23b22;
   --color-tva-muted: #9a8b74;
-  --font-display: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
-  --font-ui: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --font-display: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --font-ui: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
 }
 
 @layer base {

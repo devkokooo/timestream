@@ -38,7 +38,13 @@ function resolveAppSrcSiteDeps() {
 }
 
 export default defineConfig({
-  site: process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_PRIME_URL,
+  site:
+    process.env.PUBLIC_SITE_URL ||
+    process.env.URL ||
+    process.env.DEPLOY_PRIME_URL ||
+    "https://timestream.vc",
+  // Match Netlify's directory URLs so sitemap/links never 301 to a trailing slash.
+  trailingSlash: "always",
   output: "static",
   adapter: netlify(),
   integrations: [react()],

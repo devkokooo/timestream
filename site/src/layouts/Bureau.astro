@@ -16,7 +16,8 @@ interface Props {
 }
 
 const { title = SITE_TITLE, description = SITE_DESCRIPTION } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+const pathname = Astro.url.pathname.endsWith("/") ? Astro.url.pathname : `${Astro.url.pathname}/`;
+const canonical = new URL(pathname === "//" ? "/" : pathname, Astro.site ?? Astro.url);
 const ogImage = new URL(SITE_OG_IMAGE, canonical);
 ---
 
@@ -48,12 +49,6 @@ const ogImage = new URL(SITE_OG_IMAGE, canonical);
     <meta name="twitter:image:alt" content={SITE_OG_ALT} />
     <meta name="theme-color" content="#161310" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body class="bg-tva-concrete text-tva-paper antialiased">
     <a

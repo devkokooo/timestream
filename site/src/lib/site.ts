@@ -9,7 +9,7 @@ export const AUTHOR_HREF = "https://devkoko.com";
 export const AUTHOR_AVATAR = "https://avatars.githubusercontent.com/u/210086900?v=4";
 export const ORG_HREF = "https://forgeware.dev";
 export const SUPPORT_HREF = `${GITHUB_REPO}/issues`;
-export const ANNOUNCEMENT_HREF = "/blog/v0.1";
+export const ANNOUNCEMENT_HREF = "/blog/v0.1/";
 export const SITE_TITLE = "Timestream VCS";
 export const SITE_DESCRIPTION =
   "A TVA-styled Git client with GitHub integration. See the graph, review diffs, push over SSH, and open pull requests from GitHub.";
