@@ -1,4 +1,6 @@
 ---
+import { ClientRouter } from "astro:transitions";
+import jetbrainsMonoLatin from "@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url";
 import "../styles/global.css";
 import {
   SITE_DESCRIPTION,
@@ -49,6 +51,14 @@ const ogImage = new URL(SITE_OG_IMAGE, canonical);
     <meta name="twitter:image:alt" content={SITE_OG_ALT} />
     <meta name="theme-color" content="#161310" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href={jetbrainsMonoLatin}
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <ClientRouter />
   </head>
   <body class="bg-tva-concrete text-tva-paper antialiased">
     <a

@@ -48,8 +48,21 @@ export default defineConfig({
   output: "static",
   adapter: netlify(),
   integrations: [react()],
+  // Prefetch on hover/viewport so MPA clicks feel instant (also default with ClientRouter).
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "hover",
+  },
+  build: {
+    // Eliminates the render-blocking `/_astro/*.css` round-trip Lighthouse flags (~350ms).
+    inlineStylesheets: "always",
+  },
   vite: {
     plugins: [resolveAppSrcSiteDeps(), tailwindcss()],
+    build: {
+      // Keep fonts as separate files — never base64 them into the critical CSS/HTML.
+      assetsInlineLimit: 0,
+    },
     resolve: {
       alias: [
         // Slim tour icon map — full desktop catalog is ~100 KiB unused on the site.
