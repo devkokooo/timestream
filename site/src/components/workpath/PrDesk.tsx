@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DocketFeed } from "../../../../src/github/pulls/DocketFeed";
 import { PrCompare } from "../../../../src/github/pulls/PrCompare";
 import { AuthProvider } from "../../../../src/auth/AuthProvider";
 import { buildPrDocket, collapseCommitRuns } from "../../../../src/github/pulls/prDocket";
 import { stamp, stampGold } from "../../../../src/ui/ui";
 import { cn } from "../../../../src/ui/cn";
+import type { DiffMode } from "../../../../src/diff/types";
 import {
   HEAD_VARIANT,
   PR2,
@@ -16,19 +17,29 @@ import {
   SACRED,
   TOUR_USER,
 } from "../../lib/tourData";
+import { useIsNarrow } from "../../lib/useIsNarrow";
 
 export function PrDesk() {
+  const narrow = useIsNarrow();
   const [head, setHead] = useState(HEAD_VARIANT);
   const [base, setBase] = useState(SACRED);
+  const [diffMode, setDiffMode] = useState<DiffMode>(narrow ? "inline" : "split");
   const docket = useMemo(
     () => collapseCommitRuns(buildPrDocket(PR2, PR2_COMMITS, PR2_COMMENTS, PR2_REVIEWS, [])),
     [],
   );
 
+  useEffect(() => {
+    setDiffMode(narrow ? "inline" : "split");
+  }, [narrow]);
+
   return (
     <AuthProvider user={TOUR_USER}>
       <PrCompare
         compact
+        layout={narrow ? "stack" : "columns"}
+        diffMode={diffMode}
+        onDiffMode={setDiffMode}
         repoPath={REPO_PATH}
         timeline={PR2_TIMELINE}
         currentBranch={HEAD_VARIANT}

@@ -21,7 +21,7 @@ const posts = listBlogPosts();
   <main id="main" class="mx-auto max-w-3xl px-5 py-20 md:px-8 md:py-28">
     <span class="stamp stamp-gold mb-6 w-fit">ARCHIVE</span>
     <p class="eyebrow mb-3">Bureau filings</p>
-    <h1 class="mb-3 font-display text-[clamp(1.8rem,5vw,3rem)] leading-tight font-semibold tracking-[-0.03em]">
+    <h1 class="mb-3 max-w-full font-display text-[clamp(1.35rem,5.5vw+0.4rem,3rem)] leading-[1.15] font-semibold tracking-tight break-words md:tracking-[-0.03em]">
       Dispatches
     </h1>
     <p class="mb-12 max-w-xl text-sm leading-relaxed text-tva-paper-dim">
@@ -49,7 +49,7 @@ const posts = listBlogPosts();
                     {readTimeLabel(post.readMinutes)}
                   </span>
                 </div>
-                <h2 class="mb-2 font-display text-[1.15rem] leading-snug font-semibold tracking-[-0.02em] text-tva-paper group-hover:text-tva-gold-bright md:text-[1.25rem]">
+                <h2 class="mb-2 max-w-full font-display text-[clamp(1rem,2.5vw+0.65rem,1.25rem)] leading-snug font-semibold tracking-tight break-words text-tva-paper group-hover:text-tva-gold-bright">
                   {post.title}
                 </h2>
                 <p class="m-0 mb-4 text-sm leading-relaxed text-tva-paper-dim">

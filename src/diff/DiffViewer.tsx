@@ -227,7 +227,7 @@ export function DiffViewer({
           fill
           count={rows.length}
           estimateSize={(index) => estimateDiffRowSize(rows[index])}
-          getItemKey={(index) => diffRowKey(rows[index])}
+          getItemKey={(index) => diffRowKey(rows[index], index)}
           minWidth={minWidth}
           measure={false}
           onRangeChange={onRangeChange}
@@ -295,6 +295,7 @@ function stickyHunkHeader(
   const row = rows[startIndex];
   if (!row || row.type === "header" || !hunks) return null;
   const hunk = hunks[row.hunkIndex];
+  if (!hunk) return null;
   const key = hunkKey(hunk);
   return (
     <div className="pointer-events-auto mx-2.5">
@@ -400,7 +401,7 @@ function SplitDiff({
             fill
             count={rows.length}
             estimateSize={(index) => estimateDiffRowSize(rows[index])}
-            getItemKey={(index) => `L-${diffRowKey(rows[index])}`}
+            getItemKey={(index) => `L-${diffRowKey(rows[index], index)}`}
             minWidth={minWidth}
             measure={false}
             viewportRef={leftRef}
@@ -418,7 +419,7 @@ function SplitDiff({
             fill
             count={rows.length}
             estimateSize={(index) => estimateDiffRowSize(rows[index])}
-            getItemKey={(index) => `R-${diffRowKey(rows[index])}`}
+            getItemKey={(index) => `R-${diffRowKey(rows[index], index)}`}
             minWidth={minWidth}
             measure={false}
             viewportRef={rightRef}
@@ -468,7 +469,8 @@ function splitPaneRow(
   return <SplitCellView cell={cell} tokens={tokens} />;
 }
 
-function diffRowKey(row: DiffViewRow): string {
+function diffRowKey(row: DiffViewRow | undefined, index: number): string {
+  if (!row) return `missing-${index}`;
   if (row.type === "header") return `h-${row.key}`;
   if (row.type === "inline") return `i-${row.hunkIndex}-${row.lineIndex}`;
   return `s-${row.hunkIndex}-${row.rowIndex}`;

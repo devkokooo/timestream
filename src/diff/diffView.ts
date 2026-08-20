@@ -191,7 +191,8 @@ export function flattenDiffRows(
   return rows;
 }
 
-export function estimateDiffRowSize(row: DiffViewRow): number {
+export function estimateDiffRowSize(row: DiffViewRow | undefined): number {
+  if (!row) return DIFF_LINE_HEIGHT;
   return row.type === "header" ? DIFF_HEADER_HEIGHT : DIFF_LINE_HEIGHT;
 }
 

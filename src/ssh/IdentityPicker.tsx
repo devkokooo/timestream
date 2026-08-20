@@ -35,9 +35,10 @@ export function IdentityPicker({ open, onClose, onChoose, inline = false }: Prop
     if (!open) return;
     void Promise.all([listSshKeys(), sshAgentStatus()])
       .then(([nextKeys, nextAgent]) => {
-        setKeys(nextKeys);
+        const keys = Array.isArray(nextKeys) ? nextKeys : [];
+        setKeys(keys);
         setAgent(nextAgent);
-        setSelected(nextKeys[0]?.path ?? null);
+        setSelected(keys[0]?.path ?? null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [open]);

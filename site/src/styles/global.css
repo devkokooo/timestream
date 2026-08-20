@@ -56,6 +56,12 @@
     --site-header: 3.75rem;
   }
 
+  @media (max-width: 767px) {
+    html {
+      font-size: 100%;
+    }
+  }
+
   html,
   body {
     margin: 0;

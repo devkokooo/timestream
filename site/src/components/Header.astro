@@ -14,15 +14,16 @@ const links = [
   id="site-header"
   class="sticky top-0 z-30 border-b border-tva-gold/16 bg-tva-concrete/92 backdrop-blur-[6px]"
 >
-  <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-3 md:px-8">
-    <a href="/" class="flex items-center gap-3">
-      <img src="/timestream-logo.svg" alt="" class="size-8" width="32" height="32" />
-      <span class="flex flex-col">
+  <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3 md:px-8">
+    <a href="/" class="flex shrink-0 items-center gap-3" aria-label="TIMESTREAM">
+      <img src="/timestream-logo.svg" alt="" class="size-8 shrink-0" width="32" height="32" />
+      <span class="hidden flex-col sm:flex" aria-hidden="true">
         <span class="eyebrow leading-none">Chronomonitoring</span>
         <span class="mt-1 font-display text-[0.8125rem] font-semibold tracking-[0.18em]">TIMESTREAM</span>
       </span>
     </a>
-    <nav class="hidden items-center gap-6 md:flex" aria-label="Bureau">
+
+    <nav class="hidden items-center gap-6 lg:flex" aria-label="Bureau">
       {
         links.map((link) => (
           <a
@@ -34,13 +35,37 @@ const links = [
         ))
       }
     </nav>
-    <div class="flex items-center gap-2">
+
+    <div class="relative z-40 flex shrink-0 items-center gap-2">
       <DownloadButtons compact />
       <a class="btn" href={GITHUB_REPO} target="_blank" rel="noreferrer">
         <GithubMark />
         <span class="hidden sm:inline">View on GitHub</span>
         <span class="sm:hidden">GitHub</span>
       </a>
+      <details id="bureau-menu" class="relative lg:hidden">
+        <summary
+          class="btn relative z-10 inline-flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden"
+          aria-label="Open bureau navigation"
+        >
+          Menu
+        </summary>
+        <nav
+          class="absolute top-[calc(100%+0.5rem)] right-0 z-50 flex min-w-[11rem] flex-col border border-tva-gold/25 bg-tva-concrete-mid py-1 shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
+          aria-label="Bureau"
+        >
+          {
+            links.map((link) => (
+              <a
+                href={link.href}
+                class="px-3 py-2.5 text-[0.6875rem] uppercase tracking-[0.16em] text-tva-paper-dim hover:bg-tva-orange/12 hover:text-tva-gold-bright"
+              >
+                {link.label}
+              </a>
+            ))
+          }
+        </nav>
+      </details>
     </div>
   </div>
 </header>
@@ -54,5 +79,21 @@ const links = [
     };
     sync();
     new ResizeObserver(sync).observe(header);
+
+    const menu = document.getElementById("bureau-menu");
+    if (!(menu instanceof HTMLDetailsElement)) return;
+
+    menu.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        menu.open = false;
+      });
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (!menu.open) return;
+      const target = event.target;
+      if (target instanceof Node && menu.contains(target)) return;
+      menu.open = false;
+    });
   })();
 </script>

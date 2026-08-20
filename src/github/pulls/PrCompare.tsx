@@ -45,6 +45,14 @@ interface Props {
   onTab?: (tab: RequestDeskTab) => void;
   /** Tighter file list and chrome for marketing-site embeds. */
   compact?: boolean;
+  /**
+   * `columns` — desktop file list + diff (default).
+   * `stack` — list or full-width diff with back control (mobile preview).
+   */
+  layout?: "columns" | "stack";
+  /** Initial / controlled diff mode. Site tour sets `inline` on narrow viewports. */
+  diffMode?: DiffMode;
+  onDiffMode?: (mode: DiffMode) => void;
 }
 
 export function PrCompare({
@@ -63,6 +71,9 @@ export function PrCompare({
   tab: tabProp,
   onTab,
   compact = false,
+  layout = "columns",
+  diffMode: diffModeProp,
+  onDiffMode,
 }: Props) {
   const compareHead = headSpec || head;
   const compareBase = baseSpec || base;
@@ -78,7 +89,17 @@ export function PrCompare({
   const [filePath, setFilePath] = useState<string | null>(null);
   const [diff, setDiff] = useState<FileDiff | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
-  const [diffMode, setDiffMode] = useState<DiffMode>("split");
+  const [diffModeState, setDiffModeState] = useState<DiffMode>(diffModeProp ?? "split");
+  const diffMode = diffModeProp ?? diffModeState;
+  const setDiffMode = (mode: DiffMode) => {
+    onDiffMode?.(mode);
+    if (diffModeProp === undefined) setDiffModeState(mode);
+  };
+  const stacked = layout === "stack";
+
+  useEffect(() => {
+    if (diffModeProp !== undefined) setDiffModeState(diffModeProp);
+  }, [diffModeProp]);
 
   const branches = useMemo(
     () => branchChoices(timeline, [currentBranch, sacredBranch, head, base, ...extraBranches]),
@@ -148,6 +169,47 @@ export function PrCompare({
 
   const commitCount = compare?.commits.length ?? 0;
   const fileCount = compare?.files.length ?? 0;
+  const showFileDiff = Boolean(filePath);
+  const showFileList = !stacked || !showFileDiff;
+
+  const fileList = (
+    <aside
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden bg-[#1b1713]",
+        !stacked && "border-r border-tva-gold/16",
+      )}
+    >
+      <FileColumn
+        files={compare?.files ?? []}
+        selectedPath={filePath}
+        onOpen={setFilePath}
+        loading={loading}
+        empty={same || !head || !base}
+        compact={compact}
+      />
+    </aside>
+  );
+
+  const fileDiff = filePath ? (
+    <DiffViewer
+      compact={compact}
+      file={selectedFile}
+      diff={diff}
+      mode={diffMode}
+      error={diffError}
+      onMode={setDiffMode}
+      onClose={() => {
+        setFilePath(null);
+        setDiff(null);
+        setDiffError(null);
+      }}
+    />
+  ) : (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#16120e] px-6">
+      <p className={eyebrow}>Variance record</p>
+      <p className={cn(emptyText, "mt-2")}>Select a record from the file list.</p>
+    </div>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -235,43 +297,22 @@ export function PrCompare({
       ) : null}
 
       {tab === "files" ? (
-        <div
-          className={cn(
-            "grid min-h-0 flex-1 overflow-hidden",
-            compact ? "grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-[220px_minmax(0,1fr)]",
-          )}
-        >
-          <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713]">
-            <FileColumn
-              files={compare?.files ?? []}
-              selectedPath={filePath}
-              onOpen={setFilePath}
-              loading={loading}
-              empty={same || !head || !base}
-              compact={compact}
-            />
-          </aside>
-          {filePath ? (
-            <DiffViewer
-              compact={compact}
-              file={selectedFile}
-              diff={diff}
-              mode={diffMode}
-              error={diffError}
-              onMode={setDiffMode}
-              onClose={() => {
-                setFilePath(null);
-                setDiff(null);
-                setDiffError(null);
-              }}
-            />
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#16120e] px-6">
-              <p className={eyebrow}>Variance record</p>
-              <p className={cn(emptyText, "mt-2")}>Select a record from the file list.</p>
-            </div>
-          )}
-        </div>
+        stacked ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {showFileList ? fileList : null}
+            {showFileDiff ? fileDiff : null}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 overflow-hidden",
+              compact ? "grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-[220px_minmax(0,1fr)]",
+            )}
+          >
+            {fileList}
+            {fileDiff}
+          </div>
+        )
       ) : null}
     </div>
   );
@@ -434,7 +475,7 @@ function CommitEventCard({
   const [diff, setDiff] = useState<FileDiff | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
   const narrative = detail ? parseCommitBody(detail.body).narrative : "";
-  const selectedFile = detail?.files.find((file) => file.path === filePath) ?? null;
+  const selectedFile = detail?.files?.find((file) => file.path === filePath) ?? null;
   const when = ledgerWhen(commit.timestamp, now);
 
   useEffect(() => {
@@ -445,7 +486,7 @@ function CommitEventCard({
       .then((next) => {
         if (cancelled) return;
         setDetail(next);
-        setFilePath((current) => current ?? next.files[0]?.path ?? null);
+        setFilePath((current) => current ?? next.files?.[0]?.path ?? null);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -524,10 +565,10 @@ function CommitEventCard({
               {narrative}
             </p>
           ) : null}
-          {detail && detail.files.length === 0 ? (
+          {detail && (detail.files?.length ?? 0) === 0 ? (
             <p className={emptyText}>No records in this event.</p>
           ) : null}
-          {detail && detail.files.length > 0 ? (
+          {detail && (detail.files?.length ?? 0) > 0 ? (
             <>
               <h4 className="m-0 mb-1 text-[10px] uppercase tracking-[0.14em] text-tva-gold">
                 Records <span className="text-tva-muted">{detail.files.length}</span>
@@ -675,12 +716,13 @@ function FileColumn({
           fill
           count={files.length}
           estimateSize={(index) =>
-            compact ? 44 : files[index].path === selectedPath ? 56 : 40
+            compact ? 44 : files[index]?.path === selectedPath ? 56 : 40
           }
-          getItemKey={(index) => files[index].path}
+          getItemKey={(index) => files[index]?.path ?? index}
         >
           {(index) => {
             const item = files[index];
+            if (!item) return null;
             const tone = actionTone(item.status);
             const mark = actionMark(item.status);
             const markTitle = actionMarkTitle(item.status);

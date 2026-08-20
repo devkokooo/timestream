@@ -206,6 +206,7 @@ describe("flattenDiffRows", () => {
     expect(rows[3]).toMatchObject({ type: "inline", lineIndex: 2 });
     expect(estimateDiffRowSize(rows[0])).toBe(36);
     expect(estimateDiffRowSize(rows[1])).toBe(19);
+    expect(estimateDiffRowSize(undefined)).toBe(19);
   });
 
   it("omits lines when the hunk is marked read", () => {

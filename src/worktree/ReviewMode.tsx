@@ -58,7 +58,14 @@ interface Props {
   children?: ReactNode;
   /** Narrower columns and tighter chrome for marketing-site embeds. */
   compact?: boolean;
+  /**
+   * `columns` — desktop three-pane desk (default).
+   * `stack` — one pane at a time with Anomalies / Diff / Case segments (mobile preview).
+   */
+  layout?: "columns" | "stack";
 }
+
+type StackPane = "anomalies" | "diff" | "case";
 
 export function ReviewMode({
   status,
@@ -81,11 +88,13 @@ export function ReviewMode({
   onPull,
   children,
   compact = false,
+  layout = "columns",
 }: Props) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [amend, setAmend] = useState(false);
   const [filing, setFiling] = useState(false);
+  const [stackPane, setStackPane] = useState<StackPane>("anomalies");
   const loading = status == null;
   const staged = status?.staged ?? [];
   const unfiled = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
@@ -94,6 +103,7 @@ export function ReviewMode({
   const canRevise = canReviseLastFiling(sync, onBranch, hasHead);
   const ahead = sync?.ahead ?? 0;
   const canFile = !busy && hasSubject && (amend ? canRevise : staged.length > 0);
+  const stacked = layout === "stack";
 
   useEffect(() => {
     if (amend && !canRevise) setAmend(false);
@@ -104,6 +114,11 @@ export function ReviewMode({
     setTitle((current) => (current.trim() ? current : headFiling.summary.slice(0, 72)));
     setBody((current) => (current.trim() ? current : headFiling.body));
   }, [amend, headFiling]);
+
+  useEffect(() => {
+    if (!stacked || !selected) return;
+    setStackPane("diff");
+  }, [stacked, selected?.side, selected?.path]);
 
   const runAll = useCallback(async (paths: string[], act: (path: string) => void | Promise<void>) => {
     for (const path of paths) {
@@ -128,6 +143,218 @@ export function ReviewMode({
     }
   }
 
+  const anomalies = (
+    <aside
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden bg-[#1b1713]",
+        stacked ? "h-full min-h-0 flex-1" : "border-r border-tva-gold/16",
+      )}
+    >
+      <Column
+        title="UNFILED"
+        side="unstaged"
+        items={unfiled}
+        action="file"
+        selectedPath={selected?.side === "unstaged" ? selected.path : null}
+        onOpen={onOpenFile}
+        onClick={onStage}
+        onAll={() => runAll(unfiled.map((item) => item.path), onStage)}
+        loading={loading}
+        empty="No unfiled variance."
+        compact={compact}
+      />
+      <Column
+        title="FILED (STAGED)"
+        side="staged"
+        items={staged}
+        action="unfile"
+        selectedPath={selected?.side === "staged" ? selected.path : null}
+        onOpen={onOpenFile}
+        onClick={onUnstage}
+        onAll={() => runAll(staged.map((item) => item.path), onUnstage)}
+        loading={loading}
+        empty="Nothing staged for filing."
+        compact={compact}
+      />
+    </aside>
+  );
+
+  const diffPane = (
+    <div
+      className={cn(
+        "flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#16120e]",
+        stacked && "h-full flex-1",
+      )}
+    >
+      {children ? (
+        children
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#16120e] px-6">
+          <p className={eyebrow}>Review desk</p>
+          <p className={cn(emptyText, "mt-2")}>Select an unfiled or filed record.</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const caseForm = (
+    <form
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden bg-[#16120e]",
+        stacked ? "h-full flex-1" : "border-l border-tva-gold/16",
+        compact ? "gap-2.5 px-4 pt-3.5 pb-4" : "gap-2.5 px-[18px] pt-4 pb-[18px]",
+      )}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+      onKeyDown={(e: ReactKeyboardEvent<HTMLFormElement>) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          e.preventDefault();
+          void submit();
+        }
+      }}
+    >
+      <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">CASE NOTE</h3>
+      <label className="flex flex-col gap-1.5">
+        <span className={fieldLabel}>Subject</span>
+        <input
+          className={fieldInput}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Subject of this filing"
+          maxLength={72}
+          autoComplete="off"
+        />
+      </label>
+      <label className="flex min-h-0 flex-1 flex-col gap-1.5">
+        <span className={fieldLabel}>Addendum</span>
+        <textarea
+          className={cn(
+            fieldInput,
+            "flex-1 resize-none leading-[1.45]",
+            compact ? "min-h-[6rem]" : "min-h-[7rem]",
+          )}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Optional case note for this filing"
+        />
+      </label>
+      <label className="flex items-center gap-2.5 text-[11px] text-tva-muted">
+        <input
+          type="checkbox"
+          checked={amend}
+          disabled={!canRevise}
+          onChange={(e) => toggleAmend(e.target.checked)}
+        />
+        Revise last filing
+      </label>
+      {!canRevise && hasHead && onBranch ? (
+        <p className="m-0 text-[11px] text-tva-muted">Last filing already uploaded to HQ</p>
+      ) : null}
+      <p className="m-0 text-[11px] text-tva-muted">
+        {amend
+          ? staged.length
+            ? `${staged.length} record${staged.length === 1 ? "" : "s"} will fold into the last filing`
+            : "Case note only — no new records staged"
+          : staged.length
+            ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
+            : "File at least one record before submitting"}
+      </p>
+      <TransmitButton
+        active={filing}
+        disabled={!canFile}
+        idleClass={btnPrimary}
+        onClick={() => void submit()}
+        title={amend ? "Amend last filing" : "File variant"}
+        label={amend ? "Revising…" : "Filing…"}
+        flavor={amend ? "Revise last filing" : "File variant"}
+        noun={amend ? "Amend" : "File variant"}
+        busyNoun={amend ? "Revising…" : "Filing…"}
+        onPrimary
+      />
+      <div className="mt-auto flex flex-col gap-2 border-t border-tva-gold/16 pt-3">
+        <TransmitButton
+          active={fetching}
+          disabled={busy}
+          idleClass={btn}
+          onClick={onFetch}
+          title="Fetch from origin"
+          label="Fetching…"
+          flavor="Dispatch"
+          noun="Fetch"
+          busyNoun="Fetching…"
+        />
+        <TransmitButton
+          active={pulling}
+          disabled={busy}
+          idleClass={btn}
+          onClick={onPull}
+          title="Fast-forward pull"
+          label="Pulling…"
+          flavor="Sync inbound"
+          noun="Pull"
+          busyNoun="Pulling…"
+        />
+        <TransmitButton
+          active={pushing}
+          disabled={busy || pushed}
+          idleClass={ahead > 0 && !pushed ? btnPrimary : btn}
+          onClick={onPush}
+          title="Push branch"
+          label="Pushing…"
+          flavor={
+            pushed
+              ? "Uploaded to HQ"
+              : ahead > 0
+                ? `Upload to HQ · ${ahead} ahead`
+                : "Upload to HQ"
+          }
+          noun={pushed ? "Pushed" : "Push"}
+          busyNoun="Pushing…"
+          onPrimary={ahead > 0 && !pushed}
+        />
+      </div>
+    </form>
+  );
+
+  if (stacked) {
+    return (
+      <div data-workspace className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 border-b border-tva-gold/16 bg-[#1b1713]" role="tablist" aria-label="Review panes">
+          {(
+            [
+              { id: "anomalies", label: "Anomalies" },
+              { id: "diff", label: "Diff" },
+              { id: "case", label: "Case" },
+            ] as const
+          ).map((pane) => (
+            <button
+              key={pane.id}
+              type="button"
+              role="tab"
+              aria-selected={stackPane === pane.id}
+              className={cn(
+                "min-h-11 flex-1 border-0 border-b-2 bg-transparent px-2 py-2.5 text-[0.625rem] uppercase tracking-[0.14em]",
+                stackPane === pane.id
+                  ? "border-tva-orange text-tva-gold-bright"
+                  : "border-transparent text-tva-muted",
+              )}
+              onClick={() => setStackPane(pane.id)}
+            >
+              {pane.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" role="tabpanel">
+          {stackPane === "anomalies" ? anomalies : null}
+          {stackPane === "diff" ? diffPane : null}
+          {stackPane === "case" ? caseForm : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-workspace
@@ -138,163 +365,9 @@ export function ReviewMode({
           : "grid-cols-[260px_minmax(0,1fr)_320px]",
       )}
     >
-      <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713]">
-        <Column
-          title="UNFILED"
-          side="unstaged"
-          items={unfiled}
-          action="file"
-          selectedPath={selected?.side === "unstaged" ? selected.path : null}
-          onOpen={onOpenFile}
-          onClick={onStage}
-          onAll={() => runAll(unfiled.map((item) => item.path), onStage)}
-          loading={loading}
-          empty="No unfiled variance."
-          compact={compact}
-        />
-        <Column
-          title="FILED (STAGED)"
-          side="staged"
-          items={staged}
-          action="unfile"
-          selectedPath={selected?.side === "staged" ? selected.path : null}
-          onOpen={onOpenFile}
-          onClick={onUnstage}
-          onAll={() => runAll(staged.map((item) => item.path), onUnstage)}
-          loading={loading}
-          empty="Nothing staged for filing."
-          compact={compact}
-        />
-      </aside>
-
-      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#16120e]">
-        {children ? (
-          children
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(243,226,194,0.04),transparent_28%),#16120e] px-6">
-            <p className={eyebrow}>Review desk</p>
-            <p className={cn(emptyText, "mt-2")}>Select an unfiled or filed record.</p>
-          </div>
-        )}
-      </div>
-
-      <form
-        className={cn(
-          "flex min-h-0 flex-col overflow-hidden border-l border-tva-gold/16 bg-[#16120e]",
-          compact ? "gap-2.5 px-4 pt-3.5 pb-4" : "gap-2.5 px-[18px] pt-4 pb-[18px]",
-        )}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-        onKeyDown={(e: ReactKeyboardEvent<HTMLFormElement>) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-            e.preventDefault();
-            void submit();
-          }
-        }}
-      >
-        <h3 className="m-0 text-[11px] tracking-[0.14em] text-tva-gold">CASE NOTE</h3>
-        <label className="flex flex-col gap-1.5">
-          <span className={fieldLabel}>Subject</span>
-          <input
-            className={fieldInput}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Subject of this filing"
-            maxLength={72}
-            autoComplete="off"
-          />
-        </label>
-        <label className="flex min-h-0 flex-1 flex-col gap-1.5">
-          <span className={fieldLabel}>Addendum</span>
-          <textarea
-            className={cn(
-              fieldInput,
-              "flex-1 resize-none leading-[1.45]",
-              compact ? "min-h-[6rem]" : "min-h-[7rem]",
-            )}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Optional case note for this filing"
-          />
-        </label>
-        <label className="flex items-center gap-2.5 text-[11px] text-tva-muted">
-          <input
-            type="checkbox"
-            checked={amend}
-            disabled={!canRevise}
-            onChange={(e) => toggleAmend(e.target.checked)}
-          />
-          Revise last filing
-        </label>
-        {!canRevise && hasHead && onBranch ? (
-          <p className="m-0 text-[11px] text-tva-muted">Last filing already uploaded to HQ</p>
-        ) : null}
-        <p className="m-0 text-[11px] text-tva-muted">
-          {amend
-            ? staged.length
-              ? `${staged.length} record${staged.length === 1 ? "" : "s"} will fold into the last filing`
-              : "Case note only — no new records staged"
-            : staged.length
-              ? `${staged.length} record${staged.length === 1 ? "" : "s"} ready to file`
-              : "File at least one record before submitting"}
-        </p>
-        <TransmitButton
-          active={filing}
-          disabled={!canFile}
-          idleClass={btnPrimary}
-          onClick={() => void submit()}
-          title={amend ? "Amend last filing" : "File variant"}
-          label={amend ? "Revising…" : "Filing…"}
-          flavor={amend ? "Revise last filing" : "File variant"}
-          noun={amend ? "Amend" : "File variant"}
-          busyNoun={amend ? "Revising…" : "Filing…"}
-          onPrimary
-        />
-        <div className="mt-auto flex flex-col gap-2 border-t border-tva-gold/16 pt-3">
-          <TransmitButton
-            active={fetching}
-            disabled={busy}
-            idleClass={btn}
-            onClick={onFetch}
-            title="Fetch from origin"
-            label="Fetching…"
-            flavor="Dispatch"
-            noun="Fetch"
-            busyNoun="Fetching…"
-          />
-          <TransmitButton
-            active={pulling}
-            disabled={busy}
-            idleClass={btn}
-            onClick={onPull}
-            title="Fast-forward pull"
-            label="Pulling…"
-            flavor="Sync inbound"
-            noun="Pull"
-            busyNoun="Pulling…"
-          />
-          <TransmitButton
-            active={pushing}
-            disabled={busy || pushed}
-            idleClass={ahead > 0 && !pushed ? btnPrimary : btn}
-            onClick={onPush}
-            title="Push branch"
-            label="Pushing…"
-            flavor={
-              pushed
-                ? "Uploaded to HQ"
-                : ahead > 0
-                  ? `Upload to HQ · ${ahead} ahead`
-                  : "Upload to HQ"
-            }
-            noun={pushed ? "Pushed" : "Push"}
-            busyNoun="Pushing…"
-            onPrimary={ahead > 0 && !pushed}
-          />
-        </div>
-      </form>
+      {anomalies}
+      {diffPane}
+      {caseForm}
     </div>
   );
 }
@@ -360,12 +433,13 @@ function Column({
           fill
           count={items.length}
           estimateSize={(index) =>
-            compact ? 44 : items[index].path === selectedPath ? 56 : 40
+            compact ? 44 : items[index]?.path === selectedPath ? 56 : 40
           }
-          getItemKey={(index) => `${action}-${items[index].path}`}
+          getItemKey={(index) => `${action}-${items[index]?.path ?? index}`}
         >
           {(index) => {
             const item = items[index];
+            if (!item) return null;
             const tone = actionTone(item.status);
             const mark = actionMark(item.status);
             const markTitle = actionMarkTitle(item.status);

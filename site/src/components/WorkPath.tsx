@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { SPECIMENS, type Topology } from "./specimens";
 import { COMMITS } from "../lib/tourData";
+import { useIsNarrow } from "../lib/useIsNarrow";
 
 const ReviewDesk = lazy(() => import("./workpath/ReviewDesk").then((mod) => ({ default: mod.ReviewDesk })));
 const PushDesk = lazy(() => import("./workpath/PushDesk").then((mod) => ({ default: mod.PushDesk })));
@@ -98,7 +99,7 @@ function Chronomonitor({
                 className="node-hit"
                 cx={node.x}
                 cy={node.y}
-                r={24}
+                r={36}
                 onClick={() => onSelect(trunkIndex)}
               />
             ) : null}
@@ -134,7 +135,7 @@ function LocalDesk() {
             <button
               key={id}
               type="button"
-              className={`border px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.14em] ${
+              className={`min-h-9 border px-2.5 py-1.5 text-[0.625rem] uppercase tracking-[0.14em] ${
                 topology === id
                   ? "border-tva-orange bg-tva-orange/16 text-tva-gold-bright"
                   : "border-tva-gold/20 text-tva-muted"
@@ -159,12 +160,27 @@ function LocalDesk() {
   );
 }
 
-function DeskFrame({ children, wide, fill }: { children: ReactNode; wide?: boolean; fill?: boolean }) {
+function DeskFrame({
+  children,
+  wide,
+  fill,
+  narrow,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  fill?: boolean;
+  narrow?: boolean;
+}) {
+  const heightClass = fill
+    ? "h-full min-h-0"
+    : narrow
+      ? "h-[min(78dvh,36rem)] min-h-[22rem]"
+      : "h-[min(70vh,40rem)] min-h-[22rem]";
   return (
     <div
-      className={`dossier relative flex min-h-[22rem] flex-col ${
-        fill ? "h-full" : "h-[min(70vh,40rem)]"
-      } ${wide ? "overflow-x-auto overflow-y-hidden" : "overflow-hidden"}`}
+      className={`dossier relative flex flex-col ${heightClass} ${
+        wide && !narrow ? "overflow-x-auto overflow-y-hidden" : "overflow-hidden"
+      }`}
     >
       <div className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-[#161310] ${wide ? "w-full min-w-0" : ""}`}>
         <Suspense
@@ -200,6 +216,7 @@ function NearViewportDesk({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(false);
+  const narrow = useIsNarrow();
 
   useEffect(() => {
     const el = ref.current;
@@ -220,22 +237,24 @@ function NearViewportDesk({
     <p className="m-0 px-4 py-6 text-[0.75rem] text-tva-muted">Loading desk…</p>
   );
 
+  const placeholderHeight = fill
+    ? "h-full"
+    : narrow
+      ? "h-[min(78dvh,36rem)]"
+      : "h-[min(70vh,40rem)]";
+
   return (
-    <div ref={ref}>
+    <div ref={ref} className={fill ? "h-full min-h-0" : undefined}>
       {!active ? (
         framed ? (
-          <div
-            className={`dossier relative flex min-h-[22rem] flex-col ${
-              fill ? "h-full" : "h-[min(70vh,40rem)]"
-            }`}
-          >
+          <div className={`dossier relative flex flex-col ${placeholderHeight} ${fill ? "min-h-0" : "min-h-[22rem]"}`}>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#161310]">{fallback}</div>
           </div>
         ) : (
           fallback
         )
       ) : framed ? (
-        <DeskFrame wide={wide} fill={fill}>
+        <DeskFrame wide={wide} fill={fill} narrow={narrow}>
           <StepDesk index={index} />
         </DeskFrame>
       ) : (
@@ -252,46 +271,56 @@ export function WorkPath() {
     <section id="path" className="border-t border-tva-gold/16">
       <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-24">
         <div className="flex flex-col gap-16 md:gap-24">
-          {STEPS.map((step, index) => (
-            <article key={step.id} className="min-h-[min(72vh,38rem)]">
-              <div
-                className={
-                  step.wide
-                    ? "flex flex-col gap-8"
-                    : "grid items-start gap-8 lg:grid-cols-2 lg:gap-14"
-                }
+          {STEPS.map((step, index) => {
+            const fillViewport = "fillViewport" in step && step.fillViewport;
+            return (
+              <article
+                key={step.id}
+                className={fillViewport ? undefined : "min-h-[min(72vh,38rem)]"}
               >
-                <div>
-                  <p className="eyebrow mb-3">{step.id}</p>
-                  <h3 className="mb-3 font-display text-2xl tracking-[0.04em] text-tva-gold">{step.title}</h3>
-                  <p className="m-0 max-w-prose text-sm leading-relaxed text-tva-paper-dim">{step.body}</p>
-                  <ul className="mt-4 flex list-none flex-wrap gap-2 p-0">
-                    {step.chips.map((chip) => (
-                      <li key={chip} className="chip">
-                        {chip}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
                 <div
                   className={
-                    "fillViewport" in step && step.fillViewport
-                      ? "h-[calc(100dvh-var(--site-header))] py-4"
-                      : step.wide
-                        ? undefined
-                        : "lg:sticky lg:top-24"
+                    step.wide
+                      ? "flex flex-col gap-8"
+                      : "grid items-start gap-8 lg:grid-cols-2 lg:gap-14"
                   }
                 >
-                  <NearViewportDesk
-                    index={index}
-                    wide={step.wide}
-                    fill={"fillViewport" in step && step.fillViewport}
-                    framed={!("framed" in step && step.framed === false)}
-                  />
+                  <div>
+                    <p className="eyebrow mb-3">{step.id}</p>
+                    <h3 className="mb-3 font-display text-2xl tracking-[0.04em] text-tva-gold">
+                      {step.title}
+                    </h3>
+                    <p className="m-0 max-w-prose text-sm leading-relaxed text-tva-paper-dim">
+                      {step.body}
+                    </p>
+                    <ul className="mt-4 flex list-none flex-wrap gap-2 p-0">
+                      {step.chips.map((chip) => (
+                        <li key={chip} className="chip">
+                          {chip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div
+                    className={
+                      fillViewport
+                        ? "h-[calc(100dvh-var(--site-header)-1.5rem)] min-h-[22rem] max-h-[48rem]"
+                        : step.wide
+                          ? undefined
+                          : "lg:sticky lg:top-24"
+                    }
+                  >
+                    <NearViewportDesk
+                      index={index}
+                      wide={step.wide}
+                      fill={fillViewport}
+                      framed={!("framed" in step && step.framed === false)}
+                    />
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

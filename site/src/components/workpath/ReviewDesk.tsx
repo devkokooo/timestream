@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DiffViewer } from "../../../../src/diff/DiffViewer";
 import { ReviewMode } from "../../../../src/worktree/ReviewMode";
 import type { AnomalySide } from "../../../../src/worktree/ReviewMode";
@@ -6,6 +6,7 @@ import type { DiffMode } from "../../../../src/diff/types";
 import type { FileChange } from "../../../../src/git/types";
 import type { StatusPayload } from "../../../../src/worktree/types";
 import { fileDiffFor, INITIAL_STATUS, REVIEW_FILES, SYNC } from "../../lib/tourData";
+import { useIsNarrow } from "../../lib/useIsNarrow";
 
 function cloneStatus(status: StatusPayload): StatusPayload {
   return {
@@ -50,6 +51,7 @@ function findFile(status: StatusPayload, path: string): FileChange | null {
 }
 
 export function ReviewDesk() {
+  const narrow = useIsNarrow();
   const [status, setStatus] = useState(() => cloneStatus(INITIAL_STATUS));
   const [selected, setSelected] = useState<{ side: AnomalySide; path: string } | null>({
     side: "staged",
@@ -61,7 +63,11 @@ export function ReviewDesk() {
   const [pushing, setPushing] = useState(false);
   const [pushed, setPushed] = useState(false);
   const [sync, setSync] = useState(SYNC);
-  const [diffMode, setDiffMode] = useState<DiffMode>("split");
+  const [diffMode, setDiffMode] = useState<DiffMode>(narrow ? "inline" : "split");
+
+  useEffect(() => {
+    setDiffMode(narrow ? "inline" : "split");
+  }, [narrow]);
 
   const selectedFile = selected ? findFile(status, selected.path) : null;
   const diff = selectedFile ? fileDiffFor(selectedFile.path, selectedFile.status) : null;
@@ -74,6 +80,7 @@ export function ReviewDesk() {
   return (
     <ReviewMode
       compact
+      layout={narrow ? "stack" : "columns"}
       status={status}
       selected={selected}
       onOpenFile={(side, path) => setSelected({ side, path })}
