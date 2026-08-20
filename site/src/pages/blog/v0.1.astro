@@ -2,42 +2,46 @@
 import Bureau from "../../layouts/Bureau.astro";
 import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
-import { AUTHOR_AVATAR, AUTHOR_HREF } from "../../lib/site";
 import DownloadButtons from "../../components/DownloadButtons.astro";
+import { formatPostDates, getBlogPost, readTimeLabel } from "../../lib/blog";
 
 export const prerender = true;
+
+const post = getBlogPost("v0.1");
+if (!post) throw new Error("Missing blog registry entry for v0.1");
 ---
 
-<Bureau
-  title="v0.1 Initial release — TIMESTREAM"
-  description="The first public cut of Timestream: a local-first Git client, visualized TVA-style."
->
+<Bureau title={`v0.1 ${post.title} - Timestream VCS`} description={post.description}>
   <Header />
   <main id="main" class="mx-auto max-w-3xl px-5 py-20 md:px-8 md:py-28">
-    <span class="stamp stamp-gold mb-6 w-fit">v0.1</span>
+    <span class="stamp stamp-gold mb-6 w-fit">{post.stamp}</span>
     <p class="eyebrow mb-3">Dispatch</p>
     <h1 class="mb-4 font-display text-[clamp(1.8rem,5vw,3rem)] leading-tight font-semibold tracking-[-0.03em]">
-      Initial release
+      {post.title}
     </h1>
     <div class="filing">
-      <p class="meta">
-        18 August 2026 ·
+      <div class="meta flex flex-col gap-1.5">
         <a
-          class="inline-flex items-center gap-1.5 align-middle"
-          href={AUTHOR_HREF}
+          class="inline-flex w-fit items-center gap-1.5"
+          href={post.author.href}
           target="_blank"
           rel="noreferrer"
         >
           <img
-            src={AUTHOR_AVATAR}
+            src={post.author.avatar}
             alt=""
             width="18"
             height="18"
             class="size-[1.125rem] rounded-full object-cover ring-1 ring-tva-gold/35"
           />
-          DevKokooo
+          {post.author.name}
         </a>
-      </p>
+        <p class="mt-1">
+          {formatPostDates(post)}
+          <span class="mx-2 text-tva-gold/35" aria-hidden="true">·</span>
+          {readTimeLabel(post.readMinutes)}
+        </p>
+      </div>
       <p>
         First public working release of Timestream, a post-modern local-first Git client, TVA-styled. Cross-platform and open-sourced under AGPL-3.0.
       </p>
@@ -138,7 +142,10 @@ export const prerender = true;
     </div>
     <div class="mt-10 flex flex-col items-start gap-3">
       <DownloadButtons github />
-      <a class="btn" href="/">Return to bureau</a>
+      <div class="flex flex-wrap gap-2">
+        <a class="btn" href="/blog">All dispatches</a>
+        <a class="btn" href="/">Return to bureau</a>
+      </div>
     </div>
   </main>
   <Footer />

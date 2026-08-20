@@ -12,7 +12,7 @@ export const SUPPORT_HREF = `${GITHUB_REPO}/issues`;
 export const ANNOUNCEMENT_HREF = "/blog/v0.1";
 export const SITE_TITLE = "Timestream VCS";
 export const SITE_DESCRIPTION =
-  "A post-modern Git client, visualized TVA-style. See the graph, review diffs, push over SSH, and open pull requests from GitHub.";
+  "A TVA-styled Git client with GitHub integration. See the graph, review diffs, push over SSH, and open pull requests from GitHub.";
 export const SITE_OG_IMAGE = "/og.png";
 export const SITE_OG_WIDTH = 2400;
 export const SITE_OG_HEIGHT = 1260;

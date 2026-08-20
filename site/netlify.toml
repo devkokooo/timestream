@@ -1,3 +1,7 @@
 [build]
   command = "bun run build"
   publish = "dist"
+
+# Full history so blog published/updated dates resolve from git log.
+[build.environment]
+  GIT_DEPTH = "0"

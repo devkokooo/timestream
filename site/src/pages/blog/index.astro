@@ -1,0 +1,76 @@
+---
+import Bureau from "../../layouts/Bureau.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import {
+  formatPostDates,
+  listBlogPosts,
+  readTimeLabel,
+} from "../../lib/blog";
+
+export const prerender = true;
+
+const posts = listBlogPosts();
+---
+
+<Bureau
+  title="Dispatches - Timestream VCS"
+  description="Official release notes and updates from Timestream."
+>
+  <Header />
+  <main id="main" class="mx-auto max-w-3xl px-5 py-20 md:px-8 md:py-28">
+    <span class="stamp stamp-gold mb-6 w-fit">ARCHIVE</span>
+    <p class="eyebrow mb-3">Bureau filings</p>
+    <h1 class="mb-3 font-display text-[clamp(1.8rem,5vw,3rem)] leading-tight font-semibold tracking-[-0.03em]">
+      Dispatches
+    </h1>
+    <p class="mb-12 max-w-xl text-sm leading-relaxed text-tva-paper-dim">
+      Official release notes and updates from Timestream.
+    </p>
+
+    {
+      posts.length === 0 ? (
+        <p class="text-sm text-tva-muted">No dispatches on file yet.</p>
+      ) : (
+        <ul class="m-0 flex list-none flex-col gap-4 p-0">
+          {posts.map((post) => (
+            <li>
+              <a
+                href={`/blog/${post.slug}`}
+                class="dossier group block p-5 transition-[border-color,box-shadow] hover:border-tva-orange/55 hover:shadow-[inset_0_0_0_1px_rgba(232,93,4,0.22)] md:p-6"
+              >
+                <div class="mb-3 flex flex-wrap items-center gap-3">
+                  <span class="stamp stamp-gold stamp-flat">{post.stamp}</span>
+                  <span class="text-[0.6875rem] uppercase tracking-[0.14em] text-tva-muted">
+                    {formatPostDates(post)}
+                    <span class="mx-2 text-tva-gold/35" aria-hidden="true">
+                      ·
+                    </span>
+                    {readTimeLabel(post.readMinutes)}
+                  </span>
+                </div>
+                <h2 class="mb-2 font-display text-[1.15rem] leading-snug font-semibold tracking-[-0.02em] text-tva-paper group-hover:text-tva-gold-bright md:text-[1.25rem]">
+                  {post.title}
+                </h2>
+                <p class="m-0 mb-4 text-sm leading-relaxed text-tva-paper-dim">
+                  {post.description}
+                </p>
+                <div class="flex items-center gap-2 text-[0.6875rem] uppercase tracking-[0.12em] text-tva-muted">
+                  <img
+                    src={post.author.avatar}
+                    alt=""
+                    width="18"
+                    height="18"
+                    class="size-[1.125rem] rounded-full object-cover ring-1 ring-tva-gold/35"
+                  />
+                  <span>{post.author.name}</span>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </main>
+  <Footer />
+</Bureau>
