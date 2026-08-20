@@ -1,4 +1,4 @@
-import { FileKindIcon } from "../../../src/ui/FileKindIcon";
+import { FileKindIcon } from "../ui/FileKindIcon";
 import {
   actionLabel,
   actionMark,

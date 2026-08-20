@@ -51,13 +51,18 @@ export default defineConfig({
   vite: {
     plugins: [resolveAppSrcSiteDeps(), tailwindcss()],
     resolve: {
-      alias: {
-        "@": appSrc,
-        "@tauri-apps/api/core": mock("core.ts"),
-        "@tauri-apps/api/event": mock("event.ts"),
-        "@tauri-apps/plugin-dialog": mock("dialog.ts"),
-        "@tauri-apps/plugin-opener": mock("opener.ts"),
-      },
+      alias: [
+        // Slim tour icon map — full desktop catalog is ~100 KiB unused on the site.
+        {
+          find: "@/ui/FileKindIcon",
+          replacement: path.resolve(root, "src/ui/FileKindIcon.tsx"),
+        },
+        { find: "@", replacement: appSrc },
+        { find: "@tauri-apps/api/core", replacement: mock("core.ts") },
+        { find: "@tauri-apps/api/event", replacement: mock("event.ts") },
+        { find: "@tauri-apps/plugin-dialog", replacement: mock("dialog.ts") },
+        { find: "@tauri-apps/plugin-opener", replacement: mock("opener.ts") },
+      ],
       dedupe: ["react", "react-dom", "clsx", "react-icons", "@tanstack/react-virtual"],
     },
     server: {
