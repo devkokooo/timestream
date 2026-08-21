@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { DeskLoading } from "./DeskLoading";
 import { SPECIMENS, type Topology } from "./specimens";
 import { COMMITS } from "../lib/tourData";
 import { useIsNarrow } from "../lib/useIsNarrow";
@@ -183,11 +184,7 @@ function DeskFrame({
       }`}
     >
       <div className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-[#161310] ${wide ? "w-full min-w-0" : ""}`}>
-        <Suspense
-          fallback={
-            <p className="m-0 px-4 py-6 text-[0.75rem] text-tva-muted">Loading desk…</p>
-          }
-        >
+        <Suspense fallback={<DeskLoading />}>
           {children}
         </Suspense>
       </div>
@@ -233,9 +230,7 @@ function NearViewportDesk({
     return () => io.disconnect();
   }, []);
 
-  const fallback = (
-    <p className="m-0 px-4 py-6 text-[0.75rem] text-tva-muted">Loading desk…</p>
-  );
+  const fallback = <DeskLoading />;
 
   const placeholderHeight = fill
     ? "h-full"

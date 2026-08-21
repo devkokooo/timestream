@@ -369,6 +369,42 @@
   text-shadow: 0 0 8px rgba(232, 184, 109, 0.35);
 }
 
+/* WorkPath desk lazy-load chronometer */
+@keyframes desk-clock-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes desk-clock-rim-pulse {
+  0%,
+  100% {
+    stroke-opacity: 0.4;
+  }
+  50% {
+    stroke-opacity: 0.85;
+  }
+}
+
+.desk-clock-hour {
+  transform-origin: 0 0;
+  animation: desk-clock-spin 48s linear infinite;
+}
+
+.desk-clock-minute {
+  transform-origin: 0 0;
+  animation: desk-clock-spin 8s linear infinite;
+}
+
+.desk-clock-second {
+  transform-origin: 0 0;
+  animation: desk-clock-spin 1.5s linear infinite;
+}
+
+.desk-clock-rim {
+  animation: desk-clock-rim-pulse 2.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -380,5 +416,24 @@
 
   .tva-jumble {
     animation: none;
+  }
+
+  .desk-clock-hour,
+  .desk-clock-minute,
+  .desk-clock-second,
+  .desk-clock-rim {
+    animation: none;
+  }
+
+  .desk-clock-hour {
+    transform: rotate(40deg);
+  }
+
+  .desk-clock-minute {
+    transform: rotate(200deg);
+  }
+
+  .desk-clock-second {
+    transform: rotate(120deg);
   }
 }
