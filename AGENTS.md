@@ -1,6 +1,8 @@
 # Timestream — Agent Guide
 
-Local-first Git client. The commit graph is rendered as a TVA Chronomonitor: a glowing Sacred Timeline with variant branches as spurs.
+A local-first TVA-styled Git client with GitHub integration.
+
+The commit graph is rendered as a TVA Chronomonitor: a glowing Sacred Timeline with variant branches as spurs.
 
 ## Stack
 

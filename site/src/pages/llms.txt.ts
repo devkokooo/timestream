@@ -26,7 +26,7 @@ export const GET: APIRoute = ({ site, url }) => {
 
 > ${SITE_DESCRIPTION}
 
-Timestream is a local-first desktop Git client (Tauri + React).
+Timestream is a local-first TVA-styled Git client with GitHub integration.
 The commit graph is a TVA Chronomonitor: a Sacred Timeline with variant branches as spurs.
 Open source under AGPL-3.0.
 Primary forge integration is GitHub (clone, fetch, ff-only pull, push, PRs, issues, releases).

@@ -1,5 +1,5 @@
 # 🕰️ Timestream
-A post-modern Git client, visualized TVA-style
+A local-first TVA-styled Git client with GitHub integration.
 
 <img width="1918" height="1033" alt="image" src="https://github.com/user-attachments/assets/42582399-9ec8-4f67-ba53-d63e0fd931ce" />
 

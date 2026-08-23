@@ -1,8 +1,7 @@
 [package]
 name = "timestream"
 version = "0.1.0"
-description = "Local-first Git client with a TVA Chronomonitor timeline"
-authors = ["you"]
+description = "A local-first TVA-styled Git client with GitHub integration."
 license = "AGPL-3.0-or-later"
 edition = "2021"
 

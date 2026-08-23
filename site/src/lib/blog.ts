@@ -41,7 +41,7 @@ const BLOG_POSTS: BlogPostMeta[] = [
     slug: "v0.1",
     title: "Initial release",
     description:
-      "First public working release of Timestream, a post-modern local-first Git client, TVA-styled. Cross-platform and open-sourced under AGPL-3.0.",
+      "First public working release of Timestream, a local-first TVA-styled Git client with GitHub integration. Cross-platform and open-sourced under AGPL-3.0.",
     stamp: "v0.1",
     author: {
       name: "DevKokooo",
