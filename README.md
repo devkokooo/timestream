@@ -93,6 +93,18 @@ Commit the updated `site/src/lib/tourTokens.generated.ts`. Details: `site/README
 
 See `src/` and `src-tauri/src/` for the feature map (timeline, worktree, remotes, ssh, auth, github, …). Design tokens live in `src/ui/styles/`. See `AGENTS.md`.
 
+## Code of Ethics
+
+This project is governed by a Protestant Code of Ethics rooted in Scripture, the Psalms, the Ten Commandments, and software craftsmanship as service. See [CODE_OF_ETHICS.md](CODE_OF_ETHICS.md).
+
+We seek to love God and our neighbors, act with truth and humility, practice justice and mercy, and treat code as stewardship. This is a **one-way covenant**: we treat you well regardless of how you treat us.
+
+Participation does **not** require belief in Christianity or agreement with these principles. People of all faiths and no faith are welcome to use and contribute.
+
+Salvation is by grace through faith alone ([Eph 2:8-9](https://www.esv.org/Ephesians+2:8)); this Code is a response to grace, not a condition for it.
+
 ## License
 
 GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
+
+The developer adheres to the Protestant Code of Ethics in [CODE_OF_ETHICS.md](CODE_OF_ETHICS.md). That Code is not a condition of use or contribution.

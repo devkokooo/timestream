@@ -4,6 +4,25 @@ A local-first TVA-styled Git client with GitHub integration.
 
 The commit graph is rendered as a TVA Chronomonitor: a glowing Sacred Timeline with variant branches as spurs.
 
+## Ethos (read first)
+
+Timestream’s direction is godly craftsmanship: code as vocation, stewardship, and neighbor-love. Maintainers pledge the spirit of [CODE_OF_ETHICS.md](CODE_OF_ETHICS.md) - a one-way covenant to users and contributors. Belief is not required of agents or contributors; the fruit of that covenant in this repo is.
+
+When you work here, prefer:
+
+- **Diligence and care** over haste or clever tricks
+- **Clarity over cleverness**; avoid needless complexity
+- **Truth in speech and diffs** - no false peace, no deceptive UX, no silent footguns
+- **Service over acclaim** - measure success by how well the tool serves the user
+- **Leave the project better than you found it**
+- **Credit others’ work**; do not exploit users or contributors
+- **Mercy in reviews and docs** - reviews and documentation are service
+- **Steward secrets and history** - keychain for credentials; never rewrite published history; no force-push helpers
+
+Do not add features that harvest, deceive, or coerce. Prefer local-first honesty: the user owns their worktree; the app is a careful steward of it.
+
+Full clauses, grace disclaimer, and theological roots: [CODE_OF_ETHICS.md](CODE_OF_ETHICS.md).
+
 ## Stack
 
 - **Desktop:** Tauri 2 (Rust) + React 18 + TypeScript + Vite
@@ -176,3 +195,4 @@ See `site/README.md`.
 - No secrets in the repo. No force-push or published-history rewrite helpers
 - Prefer small modules and table-driven tests over snapshots of SVG markup
 - Tests live in the slice they lock
+- Prefer clarity, diligence, and leaving the project better than you found it (see Ethos / CODE_OF_ETHICS.md)
