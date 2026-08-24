@@ -11,6 +11,8 @@ This document is modeled after the "instruments of good works" from Chapter 4 of
 - **The Ten Commandments** - moral law summarized by love of God and neighbor
 - **Software craftsmanship** - code as service, stewardship, and neighbor-love
 
+[Original code here](https://github.com/devkokooo/christian-code-of-ethics)
+
 ## 2. Purpose and Scope of Application
 
 No one is required to follow this Code, to know this Code, or even to agree that this Code is good. The founder believes that anyone who follows these principles will live a happier, more productive, and more faithful life, but individuals are free to dispute or ignore this advice if they wish.
