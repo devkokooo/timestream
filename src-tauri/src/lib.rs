@@ -13,7 +13,10 @@ mod worktree;
 use branches::{
     create_local_branch, delete_local_branch, get_branches, rename_local_branch, switch_branch,
 };
-use diff::{compare_range, get_file_diff, get_range_file_diff, get_worktree_diff};
+use diff::{
+    compare_range, get_file_diff, get_file_sides, get_range_file_diff, get_range_file_sides,
+    get_worktree_diff, get_worktree_file_sides,
+};
 use git::open_repository;
 use github::{
     github_add_issue_comment, github_create_issue, github_create_pull, github_create_release,
@@ -48,6 +51,9 @@ pub fn run() {
             get_worktree_diff,
             compare_range,
             get_range_file_diff,
+            get_file_sides,
+            get_worktree_file_sides,
+            get_range_file_sides,
             get_branches,
             switch_branch,
             create_local_branch,

@@ -8,6 +8,11 @@ import { BureauHeader } from "@/shell/BureauHeader";
 import { CommandPalette, type PaletteCommand } from "@/settings/CommandPalette";
 import { DiffViewer } from "@/diff/DiffViewer";
 import { useDiffPane } from "@/diff/useDiffPane";
+import {
+  fileSidesToPierre,
+  getFileSides,
+  getWorktreeFileSides,
+} from "@/diff/api";
 import { Docket } from "@/timeline/Docket";
 import { DispatchNotice } from "@/ui/DispatchNotice";
 import { HqMode } from "@/github/HqMode";
@@ -69,6 +74,28 @@ export default function App() {
     status: session.status,
   });
   afterQuietLoadRef.current = diffPane.refreshOpenWorktreeDiff;
+
+  const loadCommitSides = useCallback(async () => {
+    const path = session.repo?.path;
+    const sha = session.selectedId;
+    const target = diffPane.activeTarget;
+    if (!path || !sha || !target || target.kind !== "commit") {
+      return { oldFile: null, newFile: null };
+    }
+    const sides = await getFileSides(path, sha, target.path);
+    return fileSidesToPierre(sides);
+  }, [diffPane.activeTarget, session.repo?.path, session.selectedId]);
+
+  const loadWorktreeSides = useCallback(async () => {
+    const path = session.repo?.path;
+    const target = diffPane.diffTarget;
+    if (!path || !target || target.kind === "commit") {
+      return { oldFile: null, newFile: null };
+    }
+    const sides = await getWorktreeFileSides(path, target.path, target.kind === "staged");
+    return fileSidesToPierre(sides);
+  }, [diffPane.diffTarget, session.repo?.path]);
+
   const worktree = useWorktree({
     repo: session.repo,
     timeline: session.timeline,
@@ -463,6 +490,7 @@ export default function App() {
               error={diffPane.diffError}
               onMode={diffPane.setDiffMode}
               onClose={worktree.closeReview}
+              loadSides={loadWorktreeSides}
               onFile={
                 diffPane.diffTarget.kind === "unstaged" && diffPane.selectedFile
                   ? async () => {
@@ -599,6 +627,7 @@ export default function App() {
                 onMode={diffPane.setDiffMode}
                 onClose={diffPane.closeDiff}
                 reviewComments={github.reviewComments}
+                loadSides={loadCommitSides}
               />
             ) : null}
           </div>

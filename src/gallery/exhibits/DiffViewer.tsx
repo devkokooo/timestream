@@ -1,4 +1,5 @@
 import { DiffViewer } from "@/diff/DiffViewer";
+import { fileSidesToPierre, getFileSides } from "@/diff/api";
 import { BINARY_DIFF, EMPTY_DIFF, FILES, REVIEW_COMMENTS, TEXT_DIFF } from "../fixtures";
 import { Frame, noop, noopAsync } from "../frame";
 import { SPECIMEN_ERROR, type Scenario } from "../scenario";
@@ -24,6 +25,14 @@ export function DiffViewerExhibit({ scenario }: { scenario: Scenario }) {
         onClose={noop}
         onFile={noopAsync}
         reviewComments={scenario === "success" ? REVIEW_COMMENTS : undefined}
+        loadSides={
+          scenario === "success"
+            ? async () => {
+                const sides = await getFileSides("/specimen", "abc", file.path);
+                return fileSidesToPierre(sides);
+              }
+            : undefined
+        }
       />
     </Frame>
   );

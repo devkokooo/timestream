@@ -28,6 +28,15 @@ export interface FileDiff {
   hunks: DiffHunk[];
 }
 
+export interface FileSides {
+  path: string;
+  oldPath: string | null;
+  status: string;
+  binary: boolean;
+  oldContents: string | null;
+  newContents: string | null;
+}
+
 export interface RangeCommit {
   id: string;
   shortId: string;

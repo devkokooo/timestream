@@ -75,6 +75,29 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
     case "get_worktree_diff":
     case "get_range_file_diff":
       return (empty ? EMPTY_DIFF : TEXT_DIFF) as T;
+    case "get_file_sides":
+    case "get_worktree_file_sides":
+    case "get_range_file_sides":
+      return (
+        empty
+          ? {
+              path: TEXT_DIFF.path,
+              oldPath: null,
+              status: "modified",
+              binary: false,
+              oldContents: null,
+              newContents: null,
+            }
+          : {
+              path: TEXT_DIFF.path,
+              oldPath: null,
+              status: "modified",
+              binary: false,
+              oldContents: "fn assign_lanes(nodes: &[Node]) {\n    let gap = 24;\n    for node in nodes {\n    }\n}\n",
+              newContents:
+                "fn assign_lanes(nodes: &[Node]) {\n    let gap = lane_gap(nodes.len());\n    for node in nodes {\n        node.column = sacred_or_spur(node);\n    }\n}\n",
+            }
+      ) as T;
     case "compare_range":
       return (
         empty

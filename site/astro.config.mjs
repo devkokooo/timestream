@@ -82,6 +82,19 @@ export default defineConfig({
           find: path.resolve(appSrc, "diff/syntaxHighlight"),
           replacement: mock("syntaxHighlight.ts"),
         },
+        // Pierre Diffs stays in the desktop app; tour uses a static baked-token body.
+        {
+          find: "@/diff/PierreDiffSurface",
+          replacement: mock("PierreDiffSurface.tsx"),
+        },
+        {
+          find: path.resolve(appSrc, "diff/PierreDiffSurface.tsx"),
+          replacement: mock("PierreDiffSurface.tsx"),
+        },
+        {
+          find: path.resolve(appSrc, "diff/PierreDiffSurface"),
+          replacement: mock("PierreDiffSurface.tsx"),
+        },
         { find: "@", replacement: appSrc },
         { find: "@tauri-apps/api/core", replacement: mock("core.ts") },
         { find: "@tauri-apps/api/event", replacement: mock("event.ts") },

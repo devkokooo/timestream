@@ -335,6 +335,163 @@ fn collect_file_diff(diff: &git2::Diff<'_>, rel: &str) -> Result<FileDiff> {
     })
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileSides {
+    pub path: String,
+    pub old_path: Option<String>,
+    pub status: String,
+    pub binary: bool,
+    pub old_contents: Option<String>,
+    pub new_contents: Option<String>,
+}
+
+fn looks_binary(bytes: &[u8]) -> bool {
+    bytes.iter().take(8000).any(|&b| b == 0)
+}
+
+fn decode_blob(bytes: &[u8]) -> (Option<String>, bool) {
+    if looks_binary(bytes) {
+        return (None, true);
+    }
+    (Some(String::from_utf8_lossy(bytes).into_owned()), false)
+}
+
+fn tree_file_bytes(
+    repo: &Repository,
+    tree: &git2::Tree<'_>,
+    rel: &str,
+) -> Result<Option<Vec<u8>>> {
+    match tree.get_path(Path::new(rel)) {
+        Ok(entry) => {
+            let obj = entry.to_object(repo)?;
+            let blob = obj.peel_to_blob()?;
+            Ok(Some(blob.content().to_vec()))
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+fn index_file_bytes(repo: &Repository, rel: &str) -> Result<Option<Vec<u8>>> {
+    let index = repo.index()?;
+    match index.get_path(Path::new(rel), 0) {
+        Some(entry) => {
+            let blob = repo.find_blob(entry.id)?;
+            Ok(Some(blob.content().to_vec()))
+        }
+        None => Ok(None),
+    }
+}
+
+fn workdir_file_bytes(repo: &Repository, rel: &str) -> Result<Option<Vec<u8>>> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| AppError::msg("repository has no workdir"))?;
+    let path = workdir.join(rel);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    Ok(Some(std::fs::read(&path)?))
+}
+
+fn sides_from_bytes(
+    path: String,
+    old_path: Option<String>,
+    status: String,
+    old_bytes: Option<Vec<u8>>,
+    new_bytes: Option<Vec<u8>>,
+) -> FileSides {
+    let (old_contents, old_bin) = match old_bytes.as_deref() {
+        Some(b) => decode_blob(b),
+        None => (None, false),
+    };
+    let (new_contents, new_bin) = match new_bytes.as_deref() {
+        Some(b) => decode_blob(b),
+        None => (None, false),
+    };
+    FileSides {
+        path,
+        old_path,
+        status,
+        binary: old_bin || new_bin,
+        old_contents: if old_bin { None } else { old_contents },
+        new_contents: if new_bin { None } else { new_contents },
+    }
+}
+
+pub fn load_file_sides(path: &Path, sha: &str, rel: &str) -> Result<FileSides> {
+    let repo = discover(path)?;
+    let rel = normalize_rel(rel)?;
+    let meta = load_file_diff(path, sha, &rel)?;
+    let (commit, _) = diff_for_commit(&repo, sha)?;
+    let new_tree = commit.tree()?;
+    let old_tree = commit.parents().next().and_then(|p| p.tree().ok());
+    let old_rel = meta.old_path.as_deref().unwrap_or(meta.path.as_str());
+    let old_bytes = match old_tree.as_ref() {
+        Some(tree) => tree_file_bytes(&repo, tree, old_rel)?,
+        None => None,
+    };
+    let new_bytes = tree_file_bytes(&repo, &new_tree, &meta.path)?;
+    Ok(sides_from_bytes(
+        meta.path,
+        meta.old_path,
+        meta.status,
+        old_bytes,
+        new_bytes,
+    ))
+}
+
+pub fn load_worktree_file_sides(path: &Path, rel: &str, staged: bool) -> Result<FileSides> {
+    let repo = discover(path)?;
+    let rel = normalize_rel(rel)?;
+    let meta = load_worktree_diff(path, &rel, staged)?;
+    let old_rel = meta.old_path.as_deref().unwrap_or(meta.path.as_str());
+    let (old_bytes, new_bytes) = if staged {
+        let head_tree = repo.head().ok().and_then(|head| head.peel_to_tree().ok());
+        let old = match head_tree.as_ref() {
+            Some(tree) => tree_file_bytes(&repo, tree, old_rel)?,
+            None => None,
+        };
+        let new = index_file_bytes(&repo, &meta.path)?;
+        (old, new)
+    } else {
+        let old = index_file_bytes(&repo, old_rel)?;
+        let new = workdir_file_bytes(&repo, &meta.path)?;
+        // Untracked: not in index — old stays None, new from workdir.
+        (old, new)
+    };
+    Ok(sides_from_bytes(
+        meta.path,
+        meta.old_path,
+        meta.status,
+        old_bytes,
+        new_bytes,
+    ))
+}
+
+pub fn load_range_file_sides(path: &Path, base: &str, head: &str, rel: &str) -> Result<FileSides> {
+    let repo = discover(path)?;
+    let rel = normalize_rel(rel)?;
+    let meta = load_range_file_diff(path, base, head, &rel)?;
+    let (base_commit, head_commit, merge_base, _) = range_diff(&repo, base, head)?;
+    let old_tree = if let Some(oid) = merge_base {
+        repo.find_commit(oid)?.tree()?
+    } else {
+        base_commit.tree()?
+    };
+    let new_tree = head_commit.tree()?;
+    let old_rel = meta.old_path.as_deref().unwrap_or(meta.path.as_str());
+    let old_bytes = tree_file_bytes(&repo, &old_tree, old_rel)?;
+    let new_bytes = tree_file_bytes(&repo, &new_tree, &meta.path)?;
+    Ok(sides_from_bytes(
+        meta.path,
+        meta.old_path,
+        meta.status,
+        old_bytes,
+        new_bytes,
+    ))
+}
+
 #[tauri::command]
 pub fn get_file_diff(path: String, sha: String, rel: String) -> Result<FileDiff> {
     load_file_diff(&PathBuf::from(path), &sha, &rel)
@@ -358,6 +515,26 @@ pub fn get_range_file_diff(
     rel: String,
 ) -> Result<FileDiff> {
     load_range_file_diff(&PathBuf::from(path), &base, &head, &rel)
+}
+
+#[tauri::command]
+pub fn get_file_sides(path: String, sha: String, rel: String) -> Result<FileSides> {
+    load_file_sides(&PathBuf::from(path), &sha, &rel)
+}
+
+#[tauri::command]
+pub fn get_worktree_file_sides(path: String, rel: String, staged: bool) -> Result<FileSides> {
+    load_worktree_file_sides(&PathBuf::from(path), &rel, staged)
+}
+
+#[tauri::command]
+pub fn get_range_file_sides(
+    path: String,
+    base: String,
+    head: String,
+    rel: String,
+) -> Result<FileSides> {
+    load_range_file_sides(&PathBuf::from(path), &base, &head, &rel)
 }
 
 #[cfg(test)]
@@ -527,5 +704,49 @@ mod tests {
         assert_eq!(cmp.behind, 0);
         assert!(cmp.commits.is_empty());
         assert!(cmp.files.is_empty());
+    }
+
+    #[test]
+    fn file_sides_cover_added_edited_deleted() {
+        let mut h = Harness::new();
+        h.commit("keep.txt", "alpha\nbeta\ngamma\n", "root");
+        let added = h.commit("fresh.txt", "new record\n", "add file");
+        let added_sides = load_file_sides(&h.path, &added, "fresh.txt").unwrap();
+        assert_eq!(added_sides.status, "added");
+        assert!(added_sides.old_contents.is_none());
+        assert_eq!(added_sides.new_contents.as_deref(), Some("new record\n"));
+
+        let edited = h.commit("keep.txt", "alpha\nBETA\ngamma\ndelta\n", "edit file");
+        let edited_sides = load_file_sides(&h.path, &edited, "keep.txt").unwrap();
+        assert_eq!(edited_sides.status, "modified");
+        assert_eq!(
+            edited_sides.old_contents.as_deref(),
+            Some("alpha\nbeta\ngamma\n")
+        );
+        assert_eq!(
+            edited_sides.new_contents.as_deref(),
+            Some("alpha\nBETA\ngamma\ndelta\n")
+        );
+
+        let deleted = h.rm("fresh.txt", "delete file");
+        let deleted_sides = load_file_sides(&h.path, &deleted, "fresh.txt").unwrap();
+        assert_eq!(deleted_sides.status, "deleted");
+        assert_eq!(deleted_sides.old_contents.as_deref(), Some("new record\n"));
+        assert!(deleted_sides.new_contents.is_none());
+    }
+
+    #[test]
+    fn worktree_sides_cover_unstaged_and_untracked() {
+        let mut h = Harness::new();
+        h.commit("keep.txt", "alpha\nbeta\n", "root");
+        fs::write(h.path.join("keep.txt"), "alpha\nBETA\n").unwrap();
+        let unstaged = load_worktree_file_sides(&h.path, "keep.txt", false).unwrap();
+        assert_eq!(unstaged.old_contents.as_deref(), Some("alpha\nbeta\n"));
+        assert_eq!(unstaged.new_contents.as_deref(), Some("alpha\nBETA\n"));
+
+        fs::write(h.path.join("fresh.txt"), "brand new\n").unwrap();
+        let untracked = load_worktree_file_sides(&h.path, "fresh.txt", false).unwrap();
+        assert!(untracked.old_contents.is_none());
+        assert_eq!(untracked.new_contents.as_deref(), Some("brand new\n"));
     }
 }

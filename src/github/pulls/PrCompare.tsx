@@ -1,5 +1,5 @@
+import { compareRange, getFileDiff, getFileSides, getRangeFileDiff, getRangeFileSides, fileSidesToPierre } from "@/diff/api";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { compareRange, getFileDiff, getRangeFileDiff } from "@/diff/api";
 import { getCommit } from "@/timeline/api";
 import { cn } from "@/ui/cn";
 import { parseCommitBody } from "@/timeline/commitTrailers";
@@ -198,6 +198,14 @@ export function PrCompare({
       mode={diffMode}
       error={diffError}
       onMode={setDiffMode}
+      loadSides={
+        repoPath && filePath
+          ? async () => {
+              const sides = await getRangeFileSides(repoPath, compareBase, compareHead, filePath);
+              return fileSidesToPierre(sides);
+            }
+          : undefined
+      }
       onClose={() => {
         setFilePath(null);
         setDiff(null);
@@ -593,6 +601,14 @@ function CommitEventCard({
                     mode={diffMode}
                     error={diffError}
                     onMode={onMode}
+                    loadSides={
+                      repoPath && filePath
+                        ? async () => {
+                            const sides = await getFileSides(repoPath, commit.id, filePath);
+                            return fileSidesToPierre(sides);
+                          }
+                        : undefined
+                    }
                     onClose={() => {
                       setFilePath(null);
                       setDiff(null);

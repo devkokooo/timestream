@@ -8,6 +8,9 @@ export const IPC_COMMANDS = [
   "get_worktree_diff",
   "compare_range",
   "get_range_file_diff",
+  "get_file_sides",
+  "get_worktree_file_sides",
+  "get_range_file_sides",
   "get_branches",
   "switch_branch",
   "create_local_branch",
@@ -66,4 +69,4 @@ export const IPC_COMMANDS = [
   "github_search_repos",
 ] as const;
 
-export const IPC_COMMAND_COUNT = 64;
+export const IPC_COMMAND_COUNT = 67;

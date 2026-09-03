@@ -20,6 +20,7 @@ To keep Lighthouse’s critical path short, the site does **not** ship Shiki (wa
 | `src/lib/tourTokens.generated.ts` | Pre-tokenized lines (do not edit by hand) |
 | `scripts/bake-tour-tokens.ts` | Runs Shiki once, writes the generated file |
 | `src/mocks/syntaxHighlight.ts` | Vite alias target for `@/diff/syntaxHighlight` (also used by OG card) |
+| `src/mocks/PierreDiffSurface.tsx` | Vite alias for desktop Pierre Diffs body (static baked-token renderer) |
 
 
 **When you change tour hunk text** (any `DIFF_BY_PATH` / `fileDiffFor` lines):
@@ -30,4 +31,4 @@ bun run bake:tokens
 
 Then commit `src/lib/tourTokens.generated.ts` with the fixture change. Shiki is a **devDependency** for this script only.
 
-Related Vite aliases in `astro.config.mjs`: slim `FileKindIcon`, mocked Tauri APIs, baked `syntaxHighlight`.
+Related Vite aliases in `astro.config.mjs`: slim `FileKindIcon`, mocked Tauri APIs, baked `syntaxHighlight`, stubbed `PierreDiffSurface` (keeps `@pierre/diffs` out of the marketing bundle).
