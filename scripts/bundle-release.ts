@@ -10,6 +10,7 @@
  *
  * Usage:
  *   bun scripts/bundle-release.ts
+ *   bun scripts/bundle-release.ts --nightly
  *   bun scripts/bundle-release.ts --skip-tests
  *   bun scripts/bundle-release.ts --out ./release
  *   bun scripts/bundle-release.ts --target aarch64-apple-darwin
@@ -23,8 +24,10 @@ import {
   readdirSync,
   readFileSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -56,6 +59,8 @@ const BUNDLES: Record<Host, BundleKind> = {
   },
 };
 
+type SemVer = { major: number; minor: number; patch: number };
+
 function host(): Host {
   switch (process.platform) {
     case "win32":
@@ -76,6 +81,7 @@ function parseArgs(argv: string[]) {
 Usage: bun scripts/bundle-release.ts [options]
 
 Options:
+  --nightly        Next minor after latest v* tag + commit-hash filename
   --skip-tests     Skip bun/cargo tests
   --out <dir>      Output directory (default: ./release)
   --target <triple>
@@ -87,12 +93,15 @@ Options:
 
   let outDir = join(root, "release");
   let skipTests = false;
+  let nightly = false;
   let target: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--skip-tests") {
       skipTests = true;
+    } else if (arg === "--nightly") {
+      nightly = true;
     } else if (arg === "--out") {
       const value = argv[++i];
       if (!value) throw new Error("--out requires a directory");
@@ -106,7 +115,7 @@ Options:
     }
   }
 
-  return { outDir, skipTests, target };
+  return { outDir, skipTests, nightly, target };
 }
 
 function readSyncedVersion(): string {
@@ -129,6 +138,83 @@ function readSyncedVersion(): string {
     );
   }
   return tauri.version;
+}
+
+function parseSemVer(raw: string): SemVer | null {
+  const match = raw.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function formatSemVer(v: SemVer): string {
+  return `${v.major}.${v.minor}.${v.patch}`;
+}
+
+function compareSemVer(a: SemVer, b: SemVer): number {
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  return a.patch - b.patch;
+}
+
+function bumpMinor(version: string): string {
+  const parsed = parseSemVer(version);
+  if (!parsed) throw new Error(`Not a plain semver X.Y.Z: ${version}`);
+  return formatSemVer({ major: parsed.major, minor: parsed.minor + 1, patch: 0 });
+}
+
+function gitCapture(args: string[]): string {
+  const result = spawnSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const err = (result.stderr || result.stdout || "").trim();
+    throw new Error(`git ${args.join(" ")} failed${err ? `: ${err}` : ""}`);
+  }
+  return (result.stdout || "").trim();
+}
+
+/** Highest plain semver among local tags matching `v*`, or null if none. */
+function latestReleaseVersion(): string | null {
+  const listed = gitCapture(["tag", "--list", "v*"]);
+  if (!listed) return null;
+
+  let best: SemVer | null = null;
+  for (const line of listed.split("\n")) {
+    const tag = line.trim();
+    if (!tag.startsWith("v")) continue;
+    const parsed = parseSemVer(tag.slice(1));
+    if (!parsed) continue;
+    if (!best || compareSemVer(parsed, best) > 0) best = parsed;
+  }
+  return best ? formatSemVer(best) : null;
+}
+
+function shortSha(): string {
+  const sha = gitCapture(["rev-parse", "--short=7", "HEAD"]);
+  if (!/^[0-9a-f]{7}$/i.test(sha)) {
+    throw new Error(`Unexpected short SHA from git: ${sha}`);
+  }
+  return sha.toLowerCase();
+}
+
+function nightlyBaseVersion(synced: string): string {
+  const latest = latestReleaseVersion();
+  if (!latest) return synced;
+  return bumpMinor(latest);
+}
+
+function withNightlySuffix(name: string, sha: string): string {
+  const i = name.lastIndexOf(".");
+  const suffix = `${sha}-nightly`;
+  if (i <= 0) return `${name}-${suffix}`;
+  return `${name.slice(0, i)}-${suffix}${name.slice(i)}`;
 }
 
 function run(cmd: string, args: string[]): void {
@@ -166,11 +252,16 @@ function sha256(path: string): string {
 }
 
 const platform = host();
-const { outDir, skipTests, target } = parseArgs(process.argv.slice(2));
-const version = readSyncedVersion();
+const { outDir, skipTests, nightly, target } = parseArgs(process.argv.slice(2));
+const syncedVersion = readSyncedVersion();
+const version = nightly ? nightlyBaseVersion(syncedVersion) : syncedVersion;
+const commitSha = nightly ? shortSha() : null;
 const spec = BUNDLES[platform];
 
-console.log(`Timestream ${version} — bundling ${spec.flag} on ${platform}${target ? ` (${target})` : ""}`);
+const label = nightly ? `nightly ${version}+${commitSha}` : version;
+console.log(
+  `Timestream ${label} — bundling ${spec.flag} on ${platform}${target ? ` (${target})` : ""}`,
+);
 
 if (!process.env.TIMESTREAM_GITHUB_CLIENT_ID) {
   console.warn(
@@ -187,7 +278,22 @@ const tauriArgs = ["run", "tauri", "build", "--bundles", spec.flag];
 if (target) {
   tauriArgs.push("--target", target);
 }
-run(process.execPath, tauriArgs);
+
+let nightlyConfigPath: string | undefined;
+if (nightly && version !== syncedVersion) {
+  // File path avoids Windows shell mangling of inline JSON --config.
+  nightlyConfigPath = join(tmpdir(), `timestream-nightly-${commitSha}.json`);
+  writeFileSync(nightlyConfigPath, `${JSON.stringify({ version })}\n`, "utf8");
+  tauriArgs.push("--config", nightlyConfigPath);
+}
+
+try {
+  run(process.execPath, tauriArgs);
+} finally {
+  if (nightlyConfigPath && existsSync(nightlyConfigPath)) {
+    unlinkSync(nightlyConfigPath);
+  }
+}
 
 const artifacts = listFiles(join(bundleDir(target), spec.subdir)).filter((path) => {
   const name = basename(path);
@@ -204,16 +310,18 @@ mkdirSync(outDir, { recursive: true });
 
 const checksums: string[] = [];
 for (const src of artifacts) {
-  const dest = join(outDir, basename(src));
+  const outName =
+    nightly && commitSha ? withNightlySuffix(basename(src), commitSha) : basename(src);
+  const dest = join(outDir, outName);
   copyFileSync(src, dest);
   const digest = sha256(dest);
-  checksums.push(`${digest}  ${basename(src)}`);
-  console.log(`copied ${basename(src)}`);
+  checksums.push(`${digest}  ${outName}`);
+  console.log(`copied ${outName}`);
 }
 
 writeFileSync(join(outDir, "SHA256SUMS"), `${checksums.join("\n")}\n`, "utf8");
 
-console.log(`\nRelease artifacts in ${outDir}`);
+console.log(`\n${nightly ? "Nightly" : "Release"} artifacts in ${outDir}`);
 for (const line of checksums) console.log(`  ${line}`);
 console.log(
   `\nThis host produced ${platform} only. Linux AppImage and macOS DMG are built by .github/workflows/release.yml.`,

@@ -169,7 +169,8 @@ bun install
 bun run tauri dev
 bun run gallery
 bun run test
-bun run bundle:release
+bun run bundle:release   # version-number filename only (official)
+bun run bundle:nightly   # next minor after latest v* tag + -<sha>-nightly filename
 cargo test --manifest-path src-tauri/Cargo.toml
 cd site && bun install && bun run dev
 cd site && bun run bake:tokens   # after editing WorkPath / tour diff fixtures

@@ -63,7 +63,9 @@ Fixtures cover linear history, many simultaneous branches, and branches that div
 | Linux   | AppImage    |
 | macOS   | DMG         |
 
-Output lands in `release/` with `SHA256SUMS`. Pass `--skip-tests` to skip Vitest/Cargo, `--out <dir>` to change the destination.
+Output lands in `release/` with `SHA256SUMS`. Pass `--skip-tests` to skip Vitest/Cargo, `--out <dir>` to change the destination. Filenames use the synced version number only (e.g. `Timestream_0.1.0_x64-setup.exe`).
+
+`bun run bundle:nightly` is the local nightly path: same host installer, but the bundled version is the **next minor after the latest local `v*` tag** (e.g. after `v0.1.0`, nightlies are `0.2.0`), and the copied filename ends with `-<shortSha>-nightly` (e.g. `Timestream_0.2.0_x64-setup-a1b2c3d-nightly.exe`). With no `v*` tags yet, it uses the synced package version as the base. Version files on disk are not modified.
 
 To ship all three, push a version tag (`v0.1.0`) or run **Actions → Release → Run workflow** and enter that tag. Both build Windows NSIS, Linux AppImage, and macOS arm64 + x64 DMGs, then open a draft GitHub release on the tag (created on the workflow SHA if it does not exist yet). Set the `TIMESTREAM_GITHUB_CLIENT_ID` repository secret so the GitHub App client ID is baked in.
 
