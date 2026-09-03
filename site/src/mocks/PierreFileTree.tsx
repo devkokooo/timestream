@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import type { FileChange } from "../../../src/git/types";
 import { cn } from "../../../src/ui/cn";
 import {
   actionMark,
   actionTone,
   fileDisplayName,
-  fileDisplayPath,
 } from "../../../src/diff/diffView";
 import { actionColor, fileRowSelected } from "../../../src/ui/ui";
 
@@ -49,7 +48,26 @@ function buildDirTree(files: FileChange[]): DirNode {
     }
     dir.files.push(file);
   }
-  return root;
+  return flattenEmptyDirectories(root);
+}
+
+/** Match Pierre `flattenEmptyDirectories`: fold `a/ → b/` into `a/b` when b is the only child. */
+function flattenEmptyDirectories(node: DirNode): DirNode {
+  const dirs = new Map<string, DirNode>();
+  for (const child of node.dirs.values()) {
+    let collapsed = flattenEmptyDirectories(child);
+    while (collapsed.dirs.size === 1 && collapsed.files.length === 0) {
+      const only = collapsed.dirs.values().next().value as DirNode;
+      collapsed = {
+        name: `${collapsed.name}/${only.name}`,
+        path: only.path,
+        dirs: only.dirs,
+        files: only.files,
+      };
+    }
+    dirs.set(collapsed.path, collapsed);
+  }
+  return { name: node.name, path: node.path, dirs, files: node.files };
 }
 
 function sortedDirs(dir: DirNode): DirNode[] {
@@ -58,6 +76,13 @@ function sortedDirs(dir: DirNode): DirNode[] {
 
 function sortedFiles(dir: DirNode): FileChange[] {
   return [...dir.files].sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function toggleDir(path: string, current: Set<string>): Set<string> {
+  const next = new Set(current);
+  if (next.has(path)) next.delete(path);
+  else next.add(path);
+  return next;
 }
 
 export function PierreFileTree({ files, selectedPath, onSelectPath, action, className }: PierreFileTreeProps) {
@@ -76,35 +101,26 @@ export function PierreFileTree({ files, selectedPath, onSelectPath, action, clas
     setExpanded(allDirs);
   }, [dirTree]);
 
-  const renderDir = (dir: DirNode, depth: number): JSX.Element[] => {
-    const out: JSX.Element[] = [];
+  const renderDir = (dir: DirNode, depth: number): ReactElement[] => {
+    const out: ReactElement[] = [];
 
     for (const child of sortedDirs(dir)) {
       const isOpen = expanded.has(child.path);
       out.push(
-        <div
+        <button
           key={`d:${child.path}`}
-          className="flex w-full select-none items-center gap-2 border-0 bg-transparent py-[6px] pr-1 text-left font-mono text-[12px] text-tva-gold hover:bg-tva-orange/10"
+          type="button"
+          className="flex w-full cursor-pointer select-none items-center gap-2 border-0 bg-transparent py-[6px] pr-1 text-left font-mono text-[12px] leading-[19px] text-tva-gold hover:bg-tva-orange/10"
           style={{ paddingLeft: depth * 12 + 6 }}
+          onClick={() => setExpanded((current) => toggleDir(child.path, current))}
         >
-          <button
-            type="button"
-            className="border-0 bg-transparent p-0 text-left"
-            onClick={() => {
-              setExpanded((current) => {
-                const next = new Set(current);
-                if (next.has(child.path)) next.delete(child.path);
-                else next.add(child.path);
-                return next;
-              });
-            }}
-          >
-            <span className="mr-2 inline-block w-[12px] text-center" aria-hidden>
-              {isOpen ? "▾" : "▸"}
-            </span>
+          <span className="mr-2 inline-block w-[12px] shrink-0 text-center text-[12px]" aria-hidden>
+            {isOpen ? "▾" : "▸"}
+          </span>
+          <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12px]">
             {child.name}
-          </button>
-        </div>,
+          </span>
+        </button>,
       );
       if (isOpen) out.push(...renderDir(child, depth + 1));
     }
@@ -119,7 +135,7 @@ export function PierreFileTree({ files, selectedPath, onSelectPath, action, clas
         <div
           key={`f:${file.path}`}
           className={cn(
-            "group flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent py-1.5 pr-1 text-left font-mono text-xs hover:bg-tva-orange/8",
+            "group flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent py-1.5 pr-1 text-left font-mono text-[12px] leading-[19px] hover:bg-tva-orange/8",
             selected && fileRowSelected,
             badgeCls,
           )}
@@ -127,21 +143,24 @@ export function PierreFileTree({ files, selectedPath, onSelectPath, action, clas
           role="button"
           tabIndex={0}
           onClick={() => onSelectPath?.(file.path)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelectPath?.(file.path);
+            }
+          }}
         >
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{fileDisplayName(file)}</span>
-            </div>
-            {selected ? (
-              <div className="mt-0.5 break-all text-[10px] leading-snug text-tva-muted">{fileDisplayPath(file)}</div>
-            ) : null}
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12px]">
+              {fileDisplayName(file)}
+            </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-[11px] font-semibold tracking-[0.12em]">{mark}</span>
             {action ? (
               <button
                 type="button"
-                className="shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold"
+                className="shrink-0 cursor-pointer border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold"
                 onClick={(e) => {
                   e.stopPropagation();
                   void action.onAction(file.path);
@@ -159,9 +178,14 @@ export function PierreFileTree({ files, selectedPath, onSelectPath, action, clas
   };
 
   return (
-    <div className={cn("h-full min-h-0 overflow-auto bg-[#16120e] text-tva-paper", className)}>
+    // Absolute px type — site html is 130% and rem-based Tailwind would inflate rows.
+    <div
+      className={cn(
+        "h-full min-h-0 overflow-auto bg-[#16120e] font-mono text-[12px] leading-[19px] text-tva-paper",
+        className,
+      )}
+    >
       {renderDir(dirTree, 0)}
     </div>
   );
 }
-

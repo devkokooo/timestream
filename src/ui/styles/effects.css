@@ -256,7 +256,16 @@
 }
 
 .diff-line.empty {
-  background: rgba(0, 0, 0, 0.18);
+  background-color: #16120e;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent calc(3px * 1.414),
+    rgba(232, 184, 109, 0.14) calc(3px * 1.414),
+    rgba(232, 184, 109, 0.14) calc(4px * 1.414)
+  );
+  background-size: 8px 8px;
+  background-position: 5px 0;
 }
 
 .diff-line.addition .diff-gutter-row {
@@ -268,7 +277,16 @@
 }
 
 .diff-line.empty .diff-gutter-row {
-  background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)), #16120e;
+  background-color: #16120e;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent calc(3px * 1.414),
+    rgba(232, 184, 109, 0.14) calc(3px * 1.414),
+    rgba(232, 184, 109, 0.14) calc(4px * 1.414)
+  );
+  background-size: 8px 8px;
+  background-position: 5px 0;
 }
 
 .diff-line.addition .diff-mark,

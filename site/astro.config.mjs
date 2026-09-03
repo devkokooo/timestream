@@ -95,6 +95,9 @@ export default defineConfig({
           find: path.resolve(appSrc, "diff/PierreDiffSurface"),
           replacement: mock("PierreDiffSurface.tsx"),
         },
+        // Belt-and-suspenders: never resolve the Pierre packages from parent node_modules.
+        { find: "@pierre/diffs/react", replacement: mock("pierreDiffsReact.ts") },
+        { find: "@pierre/diffs", replacement: mock("pierreDiffs.ts") },
         // Pierre File Trees stays in the desktop app; tour uses a lightweight interactive mock.
         {
           find: "@/diff/PierreFileTree",
@@ -108,6 +111,8 @@ export default defineConfig({
           find: path.resolve(appSrc, "diff/PierreFileTree"),
           replacement: mock("PierreFileTree.tsx"),
         },
+        { find: "@pierre/trees/react", replacement: mock("pierreTreesReact.ts") },
+        { find: "@pierre/trees", replacement: mock("pierreTrees.ts") },
         { find: "@", replacement: appSrc },
         { find: "@tauri-apps/api/core", replacement: mock("core.ts") },
         { find: "@tauri-apps/api/event", replacement: mock("event.ts") },

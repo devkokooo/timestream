@@ -37,6 +37,13 @@ export interface FileSides {
   newContents: string | null;
 }
 
+/** Shape accepted by Pierre `loadDiffFiles` — kept local so site/api never import `@pierre/diffs`. */
+export interface PierreFileContents {
+  name: string;
+  contents: string;
+  cacheKey?: string;
+}
+
 export interface RangeCommit {
   id: string;
   shortId: string;

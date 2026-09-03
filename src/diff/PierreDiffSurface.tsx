@@ -4,7 +4,6 @@ import {
   type CodeViewItem,
   type CodeViewReactOptions,
   type DiffLineAnnotation,
-  type FileContents,
 } from "@pierre/diffs/react";
 import { hunkKey } from "@/diff/diffView";
 import { HunkHeader } from "@/diff/HunkHeader";
@@ -14,7 +13,7 @@ import {
   TIMESTREAM_THEME,
   TIMESTREAM_UNSAFE_CSS,
 } from "@/diff/pierreTheme";
-import type { DiffHunk, DiffMode, FileDiff } from "@/diff/types";
+import type { DiffHunk, DiffMode, FileDiff, PierreFileContents } from "@/diff/types";
 import type { ReviewComment } from "@/github/reviews/types";
 import { PersonName } from "@/auth/PersonName";
 import { emptyText } from "@/ui/ui";
@@ -22,8 +21,8 @@ import { cn } from "@/ui/cn";
 import { TvaScrollRails, useTvaScrollTarget } from "@/ui/TvaScrollArea";
 
 export type DiffSidesLoader = () => Promise<{
-  oldFile: FileContents | null;
-  newFile: FileContents | null;
+  oldFile: PierreFileContents | null;
+  newFile: PierreFileContents | null;
 }>;
 
 export interface PierreDiffSurfaceProps {

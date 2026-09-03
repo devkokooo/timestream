@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FileContents } from "@pierre/diffs";
-import type { FileDiff, FileSides, RangeCompare } from "./types";
+import type { FileDiff, FileSides, PierreFileContents, RangeCompare } from "./types";
 
 export function getFileDiff(path: string, sha: string, rel: string): Promise<FileDiff> {
   return invoke("get_file_diff", { path, sha, rel });
@@ -48,10 +47,10 @@ export function getRangeFileSides(
   return invoke("get_range_file_sides", { path, base, head, rel });
 }
 
-/** Map Timestream FileSides into Pierre FileContents for loadDiffFiles. */
+/** Map Timestream FileSides into Pierre file contents for loadDiffFiles. */
 export function fileSidesToPierre(sides: FileSides): {
-  oldFile: FileContents | null;
-  newFile: FileContents | null;
+  oldFile: PierreFileContents | null;
+  newFile: PierreFileContents | null;
 } {
   if (sides.binary) return { oldFile: null, newFile: null };
   const newName = sides.path;
