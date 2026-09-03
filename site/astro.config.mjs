@@ -95,6 +95,19 @@ export default defineConfig({
           find: path.resolve(appSrc, "diff/PierreDiffSurface"),
           replacement: mock("PierreDiffSurface.tsx"),
         },
+        // Pierre File Trees stays in the desktop app; tour uses a lightweight interactive mock.
+        {
+          find: "@/diff/PierreFileTree",
+          replacement: mock("PierreFileTree.tsx"),
+        },
+        {
+          find: path.resolve(appSrc, "diff/PierreFileTree.tsx"),
+          replacement: mock("PierreFileTree.tsx"),
+        },
+        {
+          find: path.resolve(appSrc, "diff/PierreFileTree"),
+          replacement: mock("PierreFileTree.tsx"),
+        },
         { find: "@", replacement: appSrc },
         { find: "@tauri-apps/api/core", replacement: mock("core.ts") },
         { find: "@tauri-apps/api/event", replacement: mock("event.ts") },

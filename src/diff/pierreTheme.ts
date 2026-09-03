@@ -199,3 +199,65 @@ code,
   background: transparent !important;
 }
 `;
+
+/** VS Code-shaped theme for `themeToTreeStyles` — TVA board, not Pierre cyan. */
+export const TIMESTREAM_TREE_THEME = {
+  name: "timestream-tva",
+  type: "dark" as const,
+  bg: TVA_BG,
+  fg: TVA_FG,
+  colors: {
+    "sideBar.background": TVA_BG,
+    "sideBar.foreground": TVA_FG,
+    "sideBar.border": TVA_SEP,
+    "sideBarSectionHeader.foreground": TVA_MUTED,
+    "list.activeSelectionBackground": "rgba(232, 93, 4, 0.22)",
+    "list.activeSelectionForeground": "#f4c430",
+    "list.focusBackground": "rgba(232, 93, 4, 0.18)",
+    "list.focusOutline": "#e85d04",
+    "list.hoverBackground": "rgba(232, 93, 4, 0.10)",
+    "editor.selectionBackground": "rgba(232, 93, 4, 0.22)",
+    "input.background": "#120e0b",
+    "input.border": "rgba(232, 184, 109, 0.25)",
+    "scrollbarSlider.background": "rgba(232, 93, 4, 0.45)",
+    "gitDecoration.addedResourceForeground": TVA_ADD,
+    "gitDecoration.modifiedResourceForeground": TVA_GOLD,
+    "gitDecoration.deletedResourceForeground": TVA_DEL,
+    "gitDecoration.untrackedResourceForeground": "#e8d5a3",
+    "gitDecoration.renamedResourceForeground": "#ff7a1a",
+  },
+};
+
+/** Shadow-DOM overrides — host `light-dark()` defaults otherwise fight TVA. */
+export const TIMESTREAM_TREE_UNSAFE_CSS = `
+:host {
+  color-scheme: dark !important;
+  --trees-accent-override: #e85d04;
+  --trees-fg-override: ${TVA_FG} !important;
+  --trees-fg-muted-override: ${TVA_MUTED} !important;
+  --trees-bg-override: ${TVA_BG} !important;
+  --trees-font-family-override: "JetBrains Mono", ui-monospace, monospace;
+  --trees-font-size-override: 12px;
+  --trees-selected-bg-override: rgba(232, 93, 4, 0.18);
+  --trees-selected-fg-override: #f4c430;
+  --trees-status-added-override: ${TVA_ADD};
+  --trees-status-modified-override: ${TVA_GOLD};
+  --trees-status-deleted-override: ${TVA_DEL};
+  --trees-status-renamed-override: #ff7a1a;
+  --trees-status-untracked-override: #e8d5a3;
+  background: ${TVA_BG} !important;
+  color: ${TVA_FG} !important;
+  scrollbar-width: none !important;
+}
+:host::-webkit-scrollbar,
+[data-file-tree-virtualized-root]::-webkit-scrollbar,
+[data-file-tree-virtualized-scroll="true"]::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+[data-file-tree-virtualized-scroll="true"] {
+  scrollbar-width: none !important;
+  scrollbar-gutter: auto !important;
+}
+`;

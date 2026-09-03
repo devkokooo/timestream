@@ -2,11 +2,11 @@
  * Marketing stand-in for `@/diff/PierreDiffSurface` — no @pierre/diffs / Shiki.
  */
 import { useMemo } from "react";
-import { flattenDiffRows, type DiffViewRow } from "../../../../src/diff/diffView";
-import { languageFromPath } from "../../../../src/diff/syntaxLang";
-import type { DiffMode, FileDiff } from "../../../../src/diff/types";
-import type { ReviewComment } from "../../../../src/github/reviews/types";
-import { cn } from "../../../../src/ui/cn";
+import { flattenDiffRows, type DiffViewRow } from "../../../src/diff/diffView";
+import { languageFromPath } from "../../../src/diff/syntaxLang";
+import type { DiffMode, FileDiff } from "../../../src/diff/types";
+import type { ReviewComment } from "../../../src/github/reviews/types";
+import { cn } from "../../../src/ui/cn";
 import { bakedLineTokens, type BakedToken } from "../lib/tourTokens.generated";
 
 export type DiffSidesLoader = () => Promise<{

@@ -3,28 +3,16 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getCommit } from "@/timeline/api";
 import { cn } from "@/ui/cn";
 import { parseCommitBody } from "@/timeline/commitTrailers";
-import { actionMark, actionMarkTitle, actionTone, fileDisplayName, fileDisplayPath } from "@/diff/diffView";
-import { isTestFile } from "@/diff/fileKind";
 import { branchChoices, githubRefName, groupLedgerByDay, ledgerWhen, sameGitRef } from "@/github/pulls/prRefs";
-import {
-  actionColor,
-  btn,
-  emptyText,
-  eyebrow,
-  fieldInput,
-  fileRowPad,
-  fileRowSelected,
-  TEST_FILE_HEX,
-} from "@/ui/ui";
+import { btn, emptyText, eyebrow, fieldInput } from "@/ui/ui";
 import type { CommitDetail, Timeline } from "@/timeline/types";
 import type { DiffMode, FileDiff, RangeCompare } from "@/diff/types";
 import type { FileChange } from "@/git/types";
 import { DiffViewer } from "@/diff/DiffViewer";
 import { PersonName } from "@/auth/PersonName";
-import { FileKindIcon } from "@/ui/FileKindIcon";
 import { TvaTerm } from "@/ui/TvaTerm";
 import { TvaScrollArea } from "@/ui/TvaScrollArea";
-import { TvaVirtualList } from "@/ui/TvaVirtualList";
+import { PierreFileTree } from "@/diff/PierreFileTree";
 
 export type RequestDeskTab = "conversation" | "commits" | "files";
 
@@ -581,16 +569,8 @@ function CommitEventCard({
               <h4 className="m-0 mb-1 text-[10px] uppercase tracking-[0.14em] text-tva-gold">
                 Records <span className="text-tva-muted">{detail.files.length}</span>
               </h4>
-              <div className="mb-2">
-                {detail.files.map((file) => (
-                  <CommitFileRow
-                    key={`${file.status}-${file.path}`}
-                    file={file}
-                    selected={filePath === file.path}
-                    onOpen={() => setFilePath(file.path)}
-                    compact={compact}
-                  />
-                ))}
+              <div className="relative mb-2 h-[min(16rem,40vh)] min-h-[8rem] overflow-hidden">
+                <PierreFileTree files={detail.files} selectedPath={filePath} onSelectPath={setFilePath} />
               </div>
               {filePath ? (
                 <div className="flex h-[min(36rem,55vh)] flex-col overflow-hidden border border-tva-gold/16">
@@ -624,67 +604,6 @@ function CommitEventCard({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function CommitFileRow({
-  file,
-  selected,
-  onOpen,
-  compact = false,
-}: {
-  file: FileChange;
-  selected: boolean;
-  onOpen: () => void;
-  compact?: boolean;
-}) {
-  const tone = actionTone(file.status);
-  const mark = actionMark(file.status);
-  const markTitle = actionMarkTitle(file.status);
-  const test = isTestFile(file.path);
-  return (
-    <button
-      type="button"
-      title={fileDisplayPath(file)}
-      aria-label={`${markTitle} · ${fileDisplayPath(file)}`}
-      className={cn(
-        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center border-0 border-b border-dashed border-tva-gold/12 pr-1 text-left font-mono hover:bg-tva-orange/8",
-        compact ? "min-h-11 gap-1.5 py-1.5 text-[11px] leading-tight" : "min-h-8 gap-2.5 py-1.5 text-xs",
-        fileRowPad,
-        actionColor[tone],
-        selected && fileRowSelected,
-      )}
-      onClick={onOpen}
-    >
-      <span className="flex min-w-0 items-center gap-1.5 text-inherit">
-        <FileKindIcon path={file.path} color={test ? TEST_FILE_HEX : undefined} />
-        <span className="min-w-0 overflow-hidden">
-          <span
-            className={cn(
-              "block overflow-hidden text-ellipsis whitespace-nowrap",
-              compact && "text-[11px]",
-            )}
-          >
-            {fileDisplayName(file)}
-          </span>
-          {compact || selected ? (
-            <span
-              className={cn(
-                "mt-0.5 block text-[10px] leading-snug text-tva-muted",
-                compact
-                  ? "overflow-hidden text-ellipsis whitespace-nowrap"
-                  : "break-all",
-              )}
-            >
-              {fileDisplayPath(file)}
-            </span>
-          ) : null}
-        </span>
-      </span>
-      <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
-        {mark}
-      </span>
-    </button>
   );
 }
 
@@ -726,70 +645,9 @@ function FileColumn({
           <div className={emptyText}>No records changed.</div>
         </TvaScrollArea>
       ) : (
-        <TvaVirtualList
-          className="min-h-0 flex-1"
-          axis="y"
-          fill
-          count={files.length}
-          estimateSize={(index) =>
-            compact ? 44 : files[index]?.path === selectedPath ? 56 : 40
-          }
-          getItemKey={(index) => files[index]?.path ?? index}
-        >
-          {(index) => {
-            const item = files[index];
-            if (!item) return null;
-            const tone = actionTone(item.status);
-            const mark = actionMark(item.status);
-            const markTitle = actionMarkTitle(item.status);
-            const selected = selectedPath === item.path;
-            const test = isTestFile(item.path);
-            return (
-              <button
-                type="button"
-                title={fileDisplayPath(item)}
-                aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
-                className={cn(
-                  "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center border-0 border-b border-dashed border-tva-gold/12 pr-2 text-left font-mono hover:bg-tva-orange/8",
-                  compact ? "min-h-11 gap-1.5 py-1.5 text-[11px] leading-tight" : "min-h-10 gap-2.5 py-2 text-xs",
-                  fileRowPad,
-                  actionColor[tone],
-                  selected && fileRowSelected,
-                )}
-                onClick={() => onOpen(item.path)}
-              >
-                <span className="flex min-w-0 items-center gap-1.5 text-inherit">
-                  <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
-                  <span className="min-w-0 overflow-hidden">
-                    <span
-                      className={cn(
-                        "block overflow-hidden text-ellipsis whitespace-nowrap",
-                        compact && "text-[11px]",
-                      )}
-                    >
-                      {fileDisplayName(item)}
-                    </span>
-                    {compact || selected ? (
-                      <span
-                        className={cn(
-                          "mt-0.5 block text-[10px] leading-snug text-tva-muted",
-                          compact
-                            ? "overflow-hidden text-ellipsis whitespace-nowrap"
-                            : "break-all",
-                        )}
-                      >
-                        {fileDisplayPath(item)}
-                      </span>
-                    ) : null}
-                  </span>
-                </span>
-                <span className="w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
-                  {mark}
-                </span>
-              </button>
-            );
-          }}
-        </TvaVirtualList>
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <PierreFileTree files={files} selectedPath={selectedPath} onSelectPath={onOpen} />
+        </div>
       )}
     </div>
   );

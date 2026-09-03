@@ -35,7 +35,7 @@ export function Docket({
           Stow
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden [&_aside]:border-0">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden [&_aside]:h-full [&_aside]:border-0">
         <CaseFile
           node={node}
           detail={detail}

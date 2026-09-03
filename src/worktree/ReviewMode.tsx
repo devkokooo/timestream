@@ -3,35 +3,19 @@ import {
   useEffect,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { canReviseLastFiling } from "@/worktree/amendFiling";
 import { composeCommitMessage } from "@/worktree/commitMessage";
 import { cn } from "@/ui/cn";
-import { actionMark, actionMarkTitle, actionTone, fileDisplayName, fileDisplayPath } from "@/diff/diffView";
-import { isTestFile } from "@/diff/fileKind";
-import {
-  actionColor,
-  btn,
-  btnPrimary,
-  btnStow,
-  emptyText,
-  eyebrow,
-  fieldInput,
-  fieldLabel,
-  fileRowPad,
-  fileRowSelected,
-  TEST_FILE_HEX,
-} from "@/ui/ui";
+import { btn, btnPrimary, btnStow, emptyText, eyebrow, fieldInput, fieldLabel } from "@/ui/ui";
 import type { AheadBehind } from "@/remotes/types";
 import type { FileChange } from "@/git/types";
 import type { StatusPayload } from "@/worktree/types";
-import { FileKindIcon } from "@/ui/FileKindIcon";
 import { AnomalyColumnSkeleton } from "@/ui/TvaSkeleton";
 import { TransmitButton } from "@/ui/TransmitButton";
 import { TvaScrollArea } from "@/ui/TvaScrollArea";
-import { TvaVirtualList } from "@/ui/TvaVirtualList";
+import { PierreFileTree } from "@/diff/PierreFileTree";
 
 export type AnomalySide = "staged" | "unstaged";
 
@@ -427,83 +411,14 @@ function Column({
           <div className={emptyText}>{empty}</div>
         </TvaScrollArea>
       ) : (
-        <TvaVirtualList
-          className="min-h-0 flex-1"
-          axis="y"
-          fill
-          count={items.length}
-          estimateSize={(index) =>
-            compact ? 44 : items[index]?.path === selectedPath ? 56 : 40
-          }
-          getItemKey={(index) => `${action}-${items[index]?.path ?? index}`}
-        >
-          {(index) => {
-            const item = items[index];
-            if (!item) return null;
-            const tone = actionTone(item.status);
-            const mark = actionMark(item.status);
-            const markTitle = actionMarkTitle(item.status);
-            const selected = selectedPath === item.path;
-            const test = isTestFile(item.path);
-            return (
-              <div
-                className={cn(
-                  "relative grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center border-0 border-b border-dashed border-tva-gold/12 pr-2 font-mono group hover:bg-tva-orange/8",
-                  compact ? "min-h-11 gap-1.5 py-1.5 text-[11px] leading-tight" : "min-h-10 gap-2.5 py-2 text-xs",
-                  fileRowPad,
-                  actionColor[tone],
-                  selected && fileRowSelected,
-                )}
-              >
-                <button
-                  type="button"
-                  title={fileDisplayPath(item)}
-                  aria-label={`${markTitle} · ${fileDisplayPath(item)}`}
-                  className="absolute inset-0 z-0 border-0 bg-transparent"
-                  onClick={() => onOpen(side, item.path)}
-                />
-                <span className="pointer-events-none relative z-[1] flex min-w-0 items-center gap-1.5 text-inherit group-hover:text-tva-gold-bright">
-                  <FileKindIcon path={item.path} color={test ? TEST_FILE_HEX : undefined} />
-                  <span className="min-w-0 overflow-hidden">
-                    <span
-                      className={cn(
-                        "block overflow-hidden text-ellipsis whitespace-nowrap",
-                        compact && "text-[11px]",
-                      )}
-                    >
-                      {fileDisplayName(item)}
-                    </span>
-                    {compact || selected ? (
-                      <span
-                        className={cn(
-                          "mt-0.5 block text-[10px] leading-snug text-tva-muted",
-                          compact
-                            ? "overflow-hidden text-ellipsis whitespace-nowrap"
-                            : "break-all",
-                        )}
-                      >
-                        {fileDisplayPath(item)}
-                      </span>
-                    ) : null}
-                  </span>
-                </span>
-                <span className="pointer-events-none relative z-[1] w-4 shrink-0 text-center text-[11px] font-semibold" title={markTitle}>
-                  {mark}
-                </span>
-                <button
-                  type="button"
-                  className="relative z-[1] shrink-0 border border-tva-gold/35 bg-transparent px-2 py-[3px] text-[10px] uppercase tracking-[0.1em] text-tva-gold enabled:hover:border-tva-orange enabled:hover:text-tva-gold-bright disabled:hover:border-tva-gold/35 disabled:hover:text-tva-gold"
-                  onClick={(e: ReactMouseEvent) => {
-                    e.stopPropagation();
-                    void onClick(item.path);
-                  }}
-                >
-                  {verb}
-                </button>
-              </div>
-            );
-          }}
-        </TvaVirtualList>
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <PierreFileTree
+            files={items}
+            selectedPath={selectedPath}
+            onSelectPath={(path) => onOpen(side, path)}
+            action={{ label: verb, onAction: onClick }}
+          />
+        </div>
       )}
     </div>
   );

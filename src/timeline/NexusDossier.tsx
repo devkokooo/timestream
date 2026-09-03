@@ -1,25 +1,12 @@
 import { useMemo, type ReactNode } from "react";
 import { cn } from "@/ui/cn";
 import { formatPerson, parseCommitBody, type Trailer } from "@/timeline/commitTrailers";
-import { actionLabel, fileAction, fileDisplayName, fileDisplayPath } from "@/diff/diffView";
-import { isTestFile } from "@/diff/fileKind";
-import {
-  actionColor,
-  btnStow,
-  emptyText,
-  eyebrow,
-  fileRowPad,
-  panelTitle,
-  stamp,
-  stampGold,
-  TEST_FILE_HEX,
-} from "@/ui/ui";
+import { btnStow, emptyText, eyebrow, panelTitle, stamp, stampGold } from "@/ui/ui";
 import type { CommitDetail, TimelineNode } from "@/timeline/types";
-import type { FileChange } from "@/git/types";
-import { FileKindIcon } from "@/ui/FileKindIcon";
 import { PersonName } from "@/auth/PersonName";
 import { CaseFileDetailSkeleton } from "@/ui/TvaSkeleton";
 import { TvaScrollArea } from "@/ui/TvaScrollArea";
+import { PierreFileTree } from "@/diff/PierreFileTree";
 
 interface Props {
   node: TimelineNode;
@@ -180,11 +167,9 @@ export function NexusDossier({
           ) : (detail?.files ?? []).length === 0 ? (
             <p className={emptyText}>No files on this filing.</p>
           ) : (
-            <ul className="m-0 list-none p-0">
-              {(detail?.files ?? []).map((file) => (
-                <FileRow key={`${file.status}-${file.path}`} file={file} onOpen={onOpenFile} />
-              ))}
-            </ul>
+            <div className="relative h-[min(22rem,50vh)] min-h-[12rem] overflow-hidden">
+              <PierreFileTree files={detail?.files ?? []} selectedPath={null} onSelectPath={onOpenFile} />
+            </div>
           )}
         </Section>
       </TvaScrollArea>
@@ -236,39 +221,6 @@ function People({
         <p className={emptyText}>{empty}</p>
       )}
     </Section>
-  );
-}
-
-function FileRow({ file, onOpen }: { file: FileChange; onOpen?: (path: string) => void }) {
-  const action = fileAction(file.status);
-  const test = isTestFile(file.path);
-  const inner = (
-    <>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <FileKindIcon path={file.path} color={test ? TEST_FILE_HEX : undefined} />
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap">{fileDisplayName(file)}</span>
-      </span>
-      <span className="shrink-0 text-[10px] tracking-[0.12em]">{actionLabel(action)}</span>
-    </>
-  );
-  const cls = cn(
-    "flex w-full items-center justify-between gap-2 border-0 border-b border-dashed border-tva-gold/12 bg-transparent py-1.5 pr-1 text-left font-mono text-xs",
-    fileRowPad,
-    actionColor[action],
-  );
-  if (!onOpen) {
-    return (
-      <li className={cls} title={fileDisplayPath(file)}>
-        {inner}
-      </li>
-    );
-  }
-  return (
-    <li>
-      <button type="button" title={fileDisplayPath(file)} className={cn(cls, "hover:bg-tva-orange/8")} onClick={() => onOpen(file.path)}>
-        {inner}
-      </button>
-    </li>
   );
 }
 
