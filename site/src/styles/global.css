@@ -307,6 +307,37 @@
     font-style: italic;
   }
 
+  .filing figure {
+    margin: 0;
+  }
+
+  .filing figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 22%, transparent);
+  }
+
+  .filing figure.shot-panel {
+    max-width: 17rem;
+  }
+
+  .filing figure.shot-panel img {
+    width: auto;
+    max-width: 100%;
+    max-height: 22rem;
+    object-fit: contain;
+    object-position: top left;
+  }
+
+  .filing figcaption {
+    margin-top: 0.45rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-tva-muted);
+  }
+
   .filing strong {
     color: var(--color-tva-paper);
     font-weight: 600;
@@ -315,6 +346,12 @@
   .filing code {
     font-size: 0.8125em;
     color: var(--color-tva-gold);
+    padding: 0.12em 0.4em;
+    border-radius: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-tva-gold) 22%, transparent);
+    background: color-mix(in srgb, var(--color-tva-ink) 65%, var(--color-tva-concrete-high));
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
 
   .filing a {

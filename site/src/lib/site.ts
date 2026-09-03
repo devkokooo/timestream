@@ -1,6 +1,18 @@
 export const GITHUB_REPO = "https://github.com/devkokooo/timestream";
-export const RELEASE_TAG = "v0.1.0";
-export const RELEASE_HREF = `${GITHUB_REPO}/releases/tag/${RELEASE_TAG}`;
+
+/** Short CTA stamp from a full git tag (`v0.1.0` → `v0.1`). */
+export function releaseLabel(tag: string): string {
+  return tag.replace(/\.0$/, "");
+}
+
+export function releaseHref(tag: string): string {
+  return `${GITHUB_REPO}/releases/tag/${tag}`;
+}
+
+export const RELEASE_TAG = "v0.2.0";
+export const RELEASE_HREF = releaseHref(RELEASE_TAG);
+/** Short stamp for CTAs (`v0.2.0` → `v0.2`). */
+export const RELEASE_LABEL = releaseLabel(RELEASE_TAG);
 export const LICENSE_HREF = `${GITHUB_REPO}/blob/sacred/LICENSE`;
 export const GITHUB_PROFILE = "https://github.com/devkokooo";
 export const X_HREF = "https://x.com/devkokooo";
@@ -9,7 +21,7 @@ export const AUTHOR_HREF = "https://devkoko.com";
 export const AUTHOR_AVATAR = "/author-avatar.jpg";
 export const ORG_HREF = "https://forgeware.dev";
 export const SUPPORT_HREF = `${GITHUB_REPO}/issues`;
-export const ANNOUNCEMENT_HREF = "/blog/v0.1/";
+export const ANNOUNCEMENT_HREF = "/blog/v0.2/";
 export const SITE_TITLE = "Timestream VCS";
 export const SITE_DESCRIPTION =
   "A local-first TVA-styled Git client with GitHub integration. Traverse your commit history on the timeline, review diffs, push over SSH, and open pull requests from GitHub.";

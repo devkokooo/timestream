@@ -1,6 +1,6 @@
 ---
 import DownloadButtons from "./DownloadButtons.astro";
-import { ANNOUNCEMENT_HREF } from "../lib/site";
+import { ANNOUNCEMENT_HREF, RELEASE_LABEL } from "../lib/site";
 ---
 
 <section class="relative overflow-hidden">
@@ -13,8 +13,8 @@ import { ANNOUNCEMENT_HREF } from "../lib/site";
       href={ANNOUNCEMENT_HREF}
       class="mt-7 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 border border-tva-gold/35 bg-[#1b1713] px-3 py-2 text-[0.6875rem] uppercase tracking-[0.12em] text-tva-paper-dim hover:border-tva-orange hover:text-tva-gold-bright"
     >
-      <span class="stamp stamp-gold stamp-flat">v0.1</span>
-      <span>Initial release</span>
+      <span class="stamp stamp-gold stamp-flat">{RELEASE_LABEL}</span>
+      <span>Performance and git UX</span>
       <span class="text-tva-gold">Learn more →</span>
     </a>
     <DownloadButtons class="mt-8" align="center" github />

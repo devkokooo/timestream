@@ -38,6 +38,19 @@ export type BlogPost = BlogPostMeta & {
 
 const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "v0.2",
+    title: "Performance and Git UX",
+    description:
+      "Pierre diffs and file trees for review performance, local tag (seal) management off GitHub HQ, and a desk for named remotes.",
+    stamp: "v0.2",
+    author: {
+      name: "DevKokooo",
+      href: AUTHOR_HREF,
+      avatar: AUTHOR_AVATAR,
+    },
+    published: "2026-09-03",
+  },
+  {
     slug: "v0.1",
     title: "Initial release",
     description:

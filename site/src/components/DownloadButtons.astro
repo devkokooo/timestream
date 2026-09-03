@@ -1,29 +1,45 @@
 ---
 import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
 import GithubMark from "./GithubMark.astro";
-import { GITHUB_REPO, LICENSE_HREF, RELEASE_HREF, RELEASE_TAG } from "../lib/site";
+import {
+  GITHUB_REPO,
+  LICENSE_HREF,
+  RELEASE_TAG,
+  releaseHref,
+  releaseLabel,
+} from "../lib/site";
 
 interface Props {
   class?: string;
   align?: "center" | "start";
   compact?: boolean;
   github?: boolean;
+  /** Full git tag for this filing (`v0.1.0`). Defaults to the current release. */
+  tag?: string;
 }
 
-const { class: className, align = "start", compact = false, github = false } = Astro.props;
+const {
+  class: className,
+  align = "start",
+  compact = false,
+  github = false,
+  tag = RELEASE_TAG,
+} = Astro.props;
 const centered = align === "center";
+const label = releaseLabel(tag);
+const href = releaseHref(tag);
 ---
 
 {
   compact ? (
-    <a class:list={["btn-primary", className]} href={RELEASE_HREF} target="_blank" rel="noreferrer">
-      Get v0.1
+    <a class:list={["btn-primary", className]} href={href} target="_blank" rel="noreferrer">
+      Get {label}
     </a>
   ) : (
     <div class:list={["flex flex-col gap-3", centered ? "items-center" : "items-start", className]}>
       <div class:list={["flex flex-wrap items-center gap-2", centered && "justify-center"]}>
-        <a class="btn-primary" href={RELEASE_HREF} target="_blank" rel="noreferrer">
-          Get v0.1
+        <a class="btn-primary" href={href} target="_blank" rel="noreferrer">
+          Get {label}
         </a>
         {
           github ? (
@@ -40,7 +56,7 @@ const centered = align === "center";
           centered && "justify-center",
         ]}
       >
-        <span class="text-tva-gold/70">{RELEASE_TAG}</span>
+        <span class="text-tva-gold/70">{tag}</span>
         <span class="text-tva-gold/35" aria-hidden="true">
           ·
         </span>

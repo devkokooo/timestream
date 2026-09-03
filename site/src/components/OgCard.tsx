@@ -1,4 +1,4 @@
-import { SITE_DESCRIPTION } from "../lib/site";
+import { RELEASE_LABEL, SITE_DESCRIPTION } from "../lib/site";
 import { OgReviewBackdrop, type OgDiffHighlight } from "./OgReviewBackdrop";
 
 /** 1200×630 share card: review desk as the field, title over the lower third. */
@@ -29,7 +29,7 @@ export function OgCard({ highlight }: { highlight: OgDiffHighlight }) {
           </div>
           <p className="mt-4 max-w-[44rem] text-[1.05rem] leading-snug text-tva-paper-dim">{SITE_DESCRIPTION}</p>
         </div>
-        <span className="stamp stamp-gold mb-2 shrink-0">v0.1</span>
+        <span className="stamp stamp-gold mb-2 shrink-0">{RELEASE_LABEL}</span>
       </div>
     </div>
   );

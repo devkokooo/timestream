@@ -4,6 +4,7 @@ import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
 import DownloadButtons from "../../components/DownloadButtons.astro";
 import { formatPostDates, getBlogPost, readTimeLabel } from "../../lib/blog";
+import { HiArrowRight } from "react-icons/hi2";
 
 export const prerender = true;
 
@@ -141,9 +142,13 @@ if (!post) throw new Error("Missing blog registry entry for v0.1");
       </p>
     </div>
     <div class="mt-10 flex flex-col items-start gap-3">
-      <DownloadButtons github />
+      <DownloadButtons github tag="v0.1.0" />
       <div class="flex flex-wrap gap-2">
         <a class="btn" href="/blog/">All dispatches</a>
+        <a class="btn inline-flex items-center gap-1.5" href="/blog/v0.2/">
+          Next version
+          <HiArrowRight size={14} aria-hidden={true} />
+        </a>
         <a class="btn" href="/">Return to bureau</a>
       </div>
     </div>

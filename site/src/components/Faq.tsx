@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RELEASE_LABEL } from "../lib/site";
 
 const ITEMS = [
   {
@@ -14,8 +15,8 @@ const ITEMS = [
     a: "No. The TVA look is the theme — orange tile, gold veining, dossiers, stamps. The product is a Git client. Sacred Timeline just means the default branch graph. But we do recommend you to watch Loki.",
   },
   {
-    q: "Which platforms ship in v0.1?",
-    a: "Windows (NSIS installer), macOS (DMG), and Linux (AppImage). Get v0.1 from the GitHub release.",
+    q: `Which platforms ship in ${RELEASE_LABEL}?`,
+    a: `Windows (NSIS installer), macOS (DMG), and Linux (AppImage). Get ${RELEASE_LABEL} from the GitHub release.`,
   },
   {
     q: "Is it open source?",

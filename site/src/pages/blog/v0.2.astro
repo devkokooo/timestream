@@ -1,0 +1,185 @@
+---
+import Bureau from "../../layouts/Bureau.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import DownloadButtons from "../../components/DownloadButtons.astro";
+import { formatPostDates, getBlogPost, readTimeLabel } from "../../lib/blog";
+import { HiArrowLeft } from "react-icons/hi2";
+
+export const prerender = true;
+
+const post = getBlogPost("v0.2");
+if (!post) throw new Error("Missing blog registry entry for v0.2");
+---
+
+<Bureau title={`v0.2 ${post.title} - Timestream VCS`} description={post.description}>
+  <Header />
+  <main id="main" class="mx-auto max-w-3xl px-5 py-20 md:px-8 md:py-28">
+    <span class="stamp stamp-gold mb-6 w-fit">{post.stamp}</span>
+    <p class="eyebrow mb-3">Dispatch</p>
+    <h1 class="mb-4 max-w-full font-display text-[clamp(1.35rem,5.5vw+0.4rem,3rem)] leading-[1.15] font-semibold tracking-tight break-words md:tracking-[-0.03em]">
+      {post.title}
+    </h1>
+    <div class="filing">
+      <div class="meta flex flex-col gap-1.5">
+        <a
+          class="inline-flex w-fit items-center gap-1.5"
+          href={post.author.href}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img
+            src={post.author.avatar}
+            alt=""
+            width="18"
+            height="18"
+            class="size-[1.125rem] rounded-full object-cover ring-1 ring-tva-gold/35"
+          />
+          {post.author.name}
+        </a>
+        <p class="mt-1">
+          {formatPostDates(post)}
+          <span class="mx-2 text-tva-gold/35" aria-hidden="true">·</span>
+          {readTimeLabel(post.readMinutes)}
+        </p>
+      </div>
+      <p>
+        This filing is about performance improvements and local Git UX after
+        <a href="/blog/v0.1/"><code>v0.1</code></a>.
+        <br/><br/>
+        In the first dispatch I admitted that opening
+        <a href="https://github.com/astral-sh/uv" target="_blank" rel="noreferrer"><code>uv</code></a>
+        lagged, and
+        <a href="https://github.com/oven-sh/bun" target="_blank" rel="noreferrer"><code>bun</code></a>
+        destroyed the app. I wanted to improve rendering performance while keeping the app
+        open to more future features, like comments and merge conflicts.
+      </p>
+
+      <h2>Diffs by Pierre</h2>
+      <figure>
+        <img
+          src="/v0.2/timestream-new-diff-viewer.png"
+          alt="Timestream review desk showing a Pierre split diff of a TypeScript file with hunk headers and syntax color."
+          width="1351"
+          height="811"
+        />
+        <figcaption>Review desk · Diffs by Pierre</figcaption>
+      </figure>
+      <p>
+        So I replaced Timestream's old hunk viewer with
+        <a href="https://diffs.com" target="_blank" rel="noreferrer">Diffs by Pierre</a>.
+        The review panel still has split and inline modes, but the renderer
+        itself is Pierre's virtualized CodeView.
+        <br/><br/>
+        Diffs by Pierre showcased all the features I wanted to add in my Git client on
+        <a href="https://diffshub.com/torvalds/linux/compare/v6.0...v7.0" target="_blank" rel="noreferrer">DiffsHub</a>,
+        so I used their package instead of making my own.
+      </p>
+
+      <h2>File tree (Trees by Pierre)</h2>
+      <figure class="shot-panel">
+        <img
+          src="/v0.2/timestream-new-file-tree.png"
+          alt="Timestream review desk with a nested Pierre file tree of changed paths and git status beside the diff."
+          width="315"
+          height="599"
+        />
+        <figcaption>Review desk · Trees by Pierre</figcaption>
+      </figure>
+      <p>
+        In the file tree, displaying the changed files in a flat list made it
+        hard to know which files were changed, and where (some had the same name, but different
+        paths).
+        <br/><br/>
+        Using <a href="https://trees.dev" target="_blank" rel="noreferrer">Trees by Pierre</a>,
+        changed files are no longer a flat list. All the changes are
+        now displayed in a virtualized file tree, keeping the git status on each path.
+      </p>
+
+      <h2>Tag management</h2>
+      <figure class="shot-panel">
+        <img
+          src="/v0.2/timestream-tag-management.png"
+          alt="Timestream chronomonitor with the Seals rail listing local tags, separate from GitHub HQ."
+          width="427"
+          height="394"
+        />
+        <figcaption>Chronomonitor · Seals</figcaption>
+      </figure>
+      <p>
+        The tag manager now lives separately from the GitHub view. You can now handle tags
+        locally, and make new ones directly on the timeline by right-clicking on a commit.
+        <br/><br/>
+        The GitHub view now only focuses on releases, using existing tags.
+      </p>
+
+      <h2>Remotes management</h2>
+      <figure class="shot-panel">
+        <img
+          src="/v0.2/timestream-remotes-management.png"
+          alt="Timestream Remotes Desk listing named remotes with add, rename, URL, and cull controls."
+          width="487"
+          height="428"
+        />
+        <figcaption>Review desk · Remotes</figcaption>
+      </figure>
+      <p>
+        When filing changes, you can now manage remotes directly from the review desk.
+        <br/><br/>
+        <code>v0.1</code> already fetched, ff-only pulled, and pushed.
+        <code>v0.2</code> now lets you add, rename, set the URL, or cull remotes without leaving the app.
+        <br/><br/>
+        Common remotes added are <code>origin</code>, <code>upstream</code>, and <code>mirror</code>, with
+        origin being the default remote for fetching and pushing.
+      </p>
+
+      <h2>What's next</h2>
+      <ul>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">01</span>
+          <span>Editing PRs, issues, comments</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">02</span>
+          <span>Inline review comments on the diff</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">03</span>
+          <span>Stash, blame, file history</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">04</span>
+          <span>Notification inbox</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">05</span>
+          <span>Conflict editor</span>
+        </li>
+        <li>
+          <span class="stamp stamp-gold stamp-flat">06</span>
+          <span>Metrics telemetry (lines reviewed, # of commits, # of PRs and issues)</span>
+        </li>
+      </ul>
+      <p>And even more features that I'll think of later.</p>
+
+      <h2>Other notes</h2>
+      <p>
+        Even though <code>v0.2</code> is slightly better than <code>v0.1</code>,
+        there will still be bugs and weird UX flows. I'm just making sure these features
+        exist first before I perfect them.
+      </p>
+    </div>
+    <div class="mt-10 flex flex-col items-start gap-3">
+      <DownloadButtons github tag="v0.2.0" />
+      <div class="flex flex-wrap gap-2">
+        <a class="btn" href="/blog/">All dispatches</a>
+        <a class="btn inline-flex items-center gap-1.5" href="/blog/v0.1/">
+          <HiArrowLeft size={14} aria-hidden={true} />
+          Previous version
+        </a>
+        <a class="btn" href="/">Return to bureau</a>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Bureau>
