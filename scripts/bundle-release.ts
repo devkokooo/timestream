@@ -217,12 +217,12 @@ function withNightlySuffix(name: string, sha: string): string {
   return `${name.slice(0, i)}-${suffix}${name.slice(i)}`;
 }
 
-function run(cmd: string, args: string[]): void {
+function run(cmd: string, args: string[], env: NodeJS.ProcessEnv = process.env): void {
   console.log(`\n$ ${cmd} ${args.join(" ")}`);
   const result = spawnSync(cmd, args, {
     cwd: root,
     stdio: "inherit",
-    env: process.env,
+    env,
     shell: process.platform === "win32",
   });
   if (result.error) throw result.error;
@@ -279,8 +279,12 @@ if (target) {
   tauriArgs.push("--target", target);
 }
 
+const buildEnv: NodeJS.ProcessEnv = { ...process.env };
 let nightlyConfigPath: string | undefined;
-if (nightly && version !== syncedVersion) {
+if (nightly && commitSha) {
+  // Plain semver stays in tauri.conf for installer naming; Vite bake carries the
+  // full nightly label into About (e.g. 0.2.0+a1b2c3d-nightly).
+  buildEnv.VITE_TIMESTREAM_APP_VERSION = `${version}+${commitSha}-nightly`;
   // File path avoids Windows shell mangling of inline JSON --config.
   nightlyConfigPath = join(tmpdir(), `timestream-nightly-${commitSha}.json`);
   writeFileSync(nightlyConfigPath, `${JSON.stringify({ version })}\n`, "utf8");
@@ -288,7 +292,7 @@ if (nightly && version !== syncedVersion) {
 }
 
 try {
-  run(process.execPath, tauriArgs);
+  run(process.execPath, tauriArgs, buildEnv);
 } finally {
   if (nightlyConfigPath && existsSync(nightlyConfigPath)) {
     unlinkSync(nightlyConfigPath);

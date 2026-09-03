@@ -11,9 +11,10 @@ interface Props {
   onCloseFolder: () => void;
   onRescan: () => void;
   onSettings: () => void;
+  onAbout: () => void;
 }
 
-type MenuId = "file" | "view";
+type MenuId = "file" | "view" | "help";
 
 interface MenuItemDef {
   label: string;
@@ -36,6 +37,7 @@ export function TitleBar({
   onCloseFolder,
   onRescan,
   onSettings,
+  onAbout,
 }: Props) {
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [maximized, setMaximized] = useState(false);
@@ -57,6 +59,11 @@ export function TitleBar({
       id: "view",
       label: "View",
       items: [{ label: "Rescan", disabled: !folderOpen, onSelect: onRescan }],
+    },
+    {
+      id: "help",
+      label: "Help",
+      items: [{ label: "About…", onSelect: onAbout }],
     },
   ];
 

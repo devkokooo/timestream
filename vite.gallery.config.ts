@@ -26,6 +26,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(root, "src"),
+      "@tauri-apps/api/app": mock("app.ts"),
       "@tauri-apps/api/core": mock("core.ts"),
       "@tauri-apps/api/event": mock("event.ts"),
       "@tauri-apps/api/window": mock("window.ts"),

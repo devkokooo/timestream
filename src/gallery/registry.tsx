@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AboutDialogExhibit } from "./exhibits/AboutDialog";
 import { AuthDialogExhibit, GithubSignInExhibit } from "./exhibits/AuthDialog";
 import { BranchPickerExhibit } from "./exhibits/BranchPicker";
 import { BureauHeaderExhibit } from "./exhibits/BureauHeader";
@@ -106,6 +107,13 @@ export const EXHIBITS: Exhibit[] = [
     group: "Chrome",
     stamps: NO_IPC,
     render: (scenario) => <TitleBarExhibit scenario={scenario} />,
+  },
+  {
+    id: "about-dialog",
+    title: "About dialog",
+    group: "Chrome",
+    stamps: ["success"],
+    render: () => <AboutDialogExhibit />,
   },
   {
     id: "bureau-header",

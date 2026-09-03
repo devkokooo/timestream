@@ -11,6 +11,7 @@ const FROZEN = [
   ["rail-strip", ["success"]],
   ["command-palette", ["success", "empty"]],
   ["title-bar", ["success", "empty"]],
+  ["about-dialog", ["success"]],
   ["bureau-header", ["success", "loading", "empty"]],
   ["status-bar", ["success", "loading", "error", "empty"]],
   ["branch-picker", ["success", "loading", "error", "empty"]],

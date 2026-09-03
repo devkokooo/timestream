@@ -13,6 +13,7 @@ export function TitleBarExhibit({ scenario }: { scenario: Scenario }) {
         onCloseFolder={noop}
         onRescan={noop}
         onSettings={noop}
+        onAbout={noop}
       />
     </Frame>
   );

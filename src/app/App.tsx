@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthDialog } from "@/auth/AuthDialog";
 import { useAuth } from "@/auth/useAuth";
 import { BranchPicker } from "@/branches/BranchPicker";
 import { useBranches } from "@/branches/useBranches";
+import { AboutDialog } from "@/shell/AboutDialog";
 import { BureauHeader } from "@/shell/BureauHeader";
 import { CommandPalette, type PaletteCommand } from "@/settings/CommandPalette";
 import { DiffViewer } from "@/diff/DiffViewer";
@@ -45,6 +46,7 @@ const appShell =
 
 export default function App() {
   const afterQuietLoadRef = useRef<(() => Promise<void>) | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const session = useRepoSession(afterQuietLoadRef);
   const settings = useSettings();
   const auth = useAuth(session.setError);
@@ -246,6 +248,7 @@ export default function App() {
     },
     { id: "docket", title: "Toggle case file", run: () => timelineUi.setDocketOpen((open) => !open) },
     { id: "settings", title: "Open settings", hint: "File", run: () => settings.setSettingsOpen(true) },
+    { id: "about", title: "About Timestream", hint: "Help", run: () => setAboutOpen(true) },
     {
       id: "timeline-toggle",
       title: timelineEnabled ? "Hide Sacred Timeline" : "Show Sacred Timeline",
@@ -310,6 +313,7 @@ export default function App() {
         onChange={settings.setSettingsState}
       />
       <AuthDialog open={auth.authOpen} onClose={() => auth.setAuthOpen(false)} onSignedIn={auth.setUser} />
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <BranchPicker
         open={branches.branchDeskOpen}
         path={repo?.path ?? null}
@@ -335,6 +339,7 @@ export default function App() {
         if (repo) void remotes.openRepo(repo.path, { keepSelection: true });
       }}
       onSettings={() => settings.setSettingsOpen(true)}
+      onAbout={() => setAboutOpen(true)}
     />
   );
 
