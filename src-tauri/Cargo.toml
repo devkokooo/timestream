@@ -1,6 +1,6 @@
 [package]
 name = "timestream"
-version = "0.2.0"
+version = "0.2.1"
 description = "A local-first TVA-styled Git client with GitHub integration."
 license = "AGPL-3.0-or-later"
 edition = "2021"

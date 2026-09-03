@@ -9,7 +9,7 @@ export function releaseHref(tag: string): string {
   return `${GITHUB_REPO}/releases/tag/${tag}`;
 }
 
-export const RELEASE_TAG = "v0.2.0";
+export const RELEASE_TAG = "v0.2.1";
 export const RELEASE_HREF = releaseHref(RELEASE_TAG);
 /** Short stamp for CTAs (`v0.2.0` → `v0.2`). */
 export const RELEASE_LABEL = releaseLabel(RELEASE_TAG);
