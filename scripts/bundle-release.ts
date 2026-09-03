@@ -28,10 +28,16 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const root = resolve(join(dirname(fileURLToPath(import.meta.url)), ".."));
+import { basename, join, resolve } from "node:path";
+import {
+  bumpMinor,
+  compareSemVer,
+  formatSemVer,
+  parseSemVer,
+  readSyncedVersion,
+  root,
+  type SemVer,
+} from "./lib/version";
 
 type Host = "windows" | "linux" | "macos";
 
@@ -58,8 +64,6 @@ const BUNDLES: Record<Host, BundleKind> = {
     match: (name) => name.endsWith(".dmg"),
   },
 };
-
-type SemVer = { major: number; minor: number; patch: number };
 
 function host(): Host {
   switch (process.platform) {
@@ -116,54 +120,6 @@ Options:
   }
 
   return { outDir, skipTests, nightly, target };
-}
-
-function readSyncedVersion(): string {
-  const tauri = JSON.parse(
-    readFileSync(join(root, "src-tauri", "tauri.conf.json"), "utf8"),
-  ) as { version: string };
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
-    version: string;
-  };
-  const cargo = readFileSync(join(root, "src-tauri", "Cargo.toml"), "utf8").match(
-    /^version\s*=\s*"([^"]+)"/m,
-  )?.[1];
-
-  if (!tauri.version || !pkg.version || !cargo) {
-    throw new Error("Could not read version from tauri.conf.json, package.json, or Cargo.toml");
-  }
-  if (tauri.version !== pkg.version || tauri.version !== cargo) {
-    throw new Error(
-      `Version mismatch: tauri.conf.json=${tauri.version} package.json=${pkg.version} Cargo.toml=${cargo}`,
-    );
-  }
-  return tauri.version;
-}
-
-function parseSemVer(raw: string): SemVer | null {
-  const match = raw.match(/^(\d+)\.(\d+)\.(\d+)$/);
-  if (!match) return null;
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-  };
-}
-
-function formatSemVer(v: SemVer): string {
-  return `${v.major}.${v.minor}.${v.patch}`;
-}
-
-function compareSemVer(a: SemVer, b: SemVer): number {
-  if (a.major !== b.major) return a.major - b.major;
-  if (a.minor !== b.minor) return a.minor - b.minor;
-  return a.patch - b.patch;
-}
-
-function bumpMinor(version: string): string {
-  const parsed = parseSemVer(version);
-  if (!parsed) throw new Error(`Not a plain semver X.Y.Z: ${version}`);
-  return formatSemVer({ major: parsed.major, minor: parsed.minor + 1, patch: 0 });
 }
 
 function gitCapture(args: string[]): string {

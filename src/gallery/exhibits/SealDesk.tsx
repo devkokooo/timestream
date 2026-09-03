@@ -39,7 +39,7 @@ export function TvaContextMenuExhibit() {
             items: [
               { id: "seal", label: "Seal this nexus", onSelect: noop },
               { id: "dossier", label: "Open dossier", onSelect: noop },
-              { id: "cull", label: "Cull seal · v0.1.0", danger: true, onSelect: noop },
+              { id: "cull", label: "Cull seal · v0.2.0", danger: true, onSelect: noop },
             ],
           }}
           onClose={noop}

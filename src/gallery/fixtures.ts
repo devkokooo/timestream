@@ -306,12 +306,12 @@ export const CHECKS: CheckRunSummary[] = [
 export const RELEASES: ReleaseSummary[] = [
   {
     id: 1,
-    tagName: "v0.1.0",
+    tagName: "v0.2.0",
     name: "First chronomonitor",
     body: "Sacred Timeline layout and local filing.",
     draft: false,
     prerelease: false,
-    htmlUrl: "https://github.com/tva/timestream/releases/tag/v0.1.0",
+    htmlUrl: "https://github.com/tva/timestream/releases/tag/v0.2.0",
     publishedAt: ISO,
   },
 ];

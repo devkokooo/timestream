@@ -3,7 +3,7 @@ export async function getName(): Promise<string> {
 }
 
 export async function getVersion(): Promise<string> {
-  return "0.1.0";
+  return "0.2.0";
 }
 
 export async function getTauriVersion(): Promise<string> {

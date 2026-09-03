@@ -1,6 +1,6 @@
 export const GITHUB_REPO = "https://github.com/devkokooo/timestream";
 
-/** Short CTA stamp from a full git tag (`v0.1.0` → `v0.1`). */
+/** Short CTA stamp from a full git tag (`v0.2.0` → `v0.2`). */
 export function releaseLabel(tag: string): string {
   return tag.replace(/\.0$/, "");
 }

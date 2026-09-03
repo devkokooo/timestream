@@ -63,13 +63,19 @@ Fixtures cover linear history, many simultaneous branches, and branches that div
 | Linux   | AppImage    |
 | macOS   | DMG         |
 
-Output lands in `release/` with `SHA256SUMS`. Pass `--skip-tests` to skip Vitest/Cargo, `--out <dir>` to change the destination. Filenames use the synced version number only (e.g. `Timestream_0.1.0_x64-setup.exe`).
+Output lands in `release/` with `SHA256SUMS`. Pass `--skip-tests` to skip Vitest/Cargo, `--out <dir>` to change the destination. Filenames use the synced version number only (e.g. `Timestream_0.2.0_x64-setup.exe`).
 
-`bun run bundle:nightly` is the local nightly path: same host installer, but the bundled version is the **next minor after the latest local `v*` tag** (e.g. after `v0.1.0`, nightlies are `0.2.0`), and the copied filename ends with `-<shortSha>-nightly` (e.g. `Timestream_0.2.0_x64-setup-a1b2c3d-nightly.exe`). With no `v*` tags yet, it uses the synced package version as the base. Version files on disk are not modified.
+`bun run bundle:nightly` is the local nightly path: same host installer, but the bundled version is the **next minor after the latest local `v*` tag** (e.g. after `v0.2.0`, nightlies are `0.3.0`), and the copied filename ends with `-<shortSha>-nightly` (e.g. `Timestream_0.3.0_x64-setup-a1b2c3d-nightly.exe`). With no `v*` tags yet, it uses the synced package version as the base. Version files on disk are not modified.
 
-To ship all three, push a version tag (`v0.1.0`) or run **Actions → Release → Run workflow** and enter that tag. Both build Windows NSIS, Linux AppImage, and macOS arm64 + x64 DMGs, then open a draft GitHub release on the tag (created on the workflow SHA if it does not exist yet). Set the `TIMESTREAM_GITHUB_CLIENT_ID` repository secret so the GitHub App client ID is baked in.
+To ship all three, first bump the synced version, commit, then push a version tag (`v0.2.0`) or run **Actions → Release → Run workflow** and enter that tag. Both build Windows NSIS, Linux AppImage, and macOS arm64 + x64 DMGs, then open a draft GitHub release on the tag (created on the workflow SHA if it does not exist yet). Set the `TIMESTREAM_GITHUB_CLIENT_ID` repository secret so the GitHub App client ID is baked in.
 
-Bump `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` together — the script refuses a mismatch.
+```
+bun run version --minor   # or --set 0.3.0 / --patch / --major
+# commit the bump, then:
+git tag v0.3.0 && git push origin v0.3.0
+```
+
+`bun run version` rewrites `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `Cargo.lock`, the site `RELEASE_TAG`, and gallery fixtures together. `bundle:release` still refuses a mismatch among the three product files. New announcement posts still need a hand-written `/blog/vX.Y/` page; the bump only keeps the current CTA / app version aligned.
 
 ## Marketing site
 
@@ -81,7 +87,7 @@ bun install
 bun run dev
 ```
 
-Opens at http://localhost:4321. Primary CTA is Get v0.1, with supported platforms listed underneath, linking to the GitHub release.
+Opens at http://localhost:4321. Primary CTA is Get v0.2, with supported platforms listed underneath, linking to the GitHub release.
 
 Tour diffs use **baked** syntax tokens (no Shiki in the browser). After editing hunk fixtures in `site/src/lib/tourData.ts`:
 

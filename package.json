@@ -1,7 +1,7 @@
 {
   "name": "timestream",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "AGPL-3.0-or-later",
   "packageManager": "bun@1.3.14",
   "type": "module",
@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "gallery": "vite --config vite.gallery.config.ts",
+    "version": "bun scripts/version.ts",
     "bundle:release": "bun scripts/bundle-release.ts",
     "bundle:nightly": "bun scripts/bundle-release.ts --nightly",
     "test": "vitest run",

@@ -1,5 +1,5 @@
 # Bundle Timestream for Windows (NSIS), Linux (AppImage), and macOS (DMG).
-# Trigger: push a version tag (`v0.1.0`) or Actions → Release → Run workflow
+# Trigger: push a version tag (`v0.2.0`) or Actions → Release → Run workflow
 # (enter the same tag). Both cut a draft GitHub release on that tag.
 name: Release
 
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v0.1.0). Created on this SHA if missing."
+        description: "Release tag (e.g. v0.2.0). Created on this SHA if missing."
         required: true
         type: string
   push:
@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9] ]]; then
-            echo "Tag must look like v0.1.0, got: $RELEASE_TAG"
+            echo "Tag must look like v0.2.0, got: $RELEASE_TAG"
             exit 1
           fi
           echo "Publishing draft $RELEASE_TAG"
