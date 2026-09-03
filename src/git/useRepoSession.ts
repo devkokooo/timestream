@@ -2,12 +2,16 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { openRepository } from "@/git/api";
 import { getTimeline } from "@/timeline/api";
 import { getStatus } from "@/worktree/api";
-import { aheadBehind, githubOrigin } from "@/remotes/api";
+import { aheadBehind, githubOrigin, listRemotes } from "@/remotes/api";
 import { errMessage, sameJson } from "@/app/helpers";
 import type { RepoSummary } from "@/git/types";
 import type { Timeline } from "@/timeline/types";
 import type { StatusPayload } from "@/worktree/types";
 import type { AheadBehind, RemoteInfo } from "@/remotes/types";
+
+function originRemote(remotes: RemoteInfo[]): RemoteInfo | null {
+  return remotes.find((r) => r.name === "origin") ?? null;
+}
 
 const RESCAN_MS = 2500;
 
@@ -36,6 +40,7 @@ export function useRepoSession(
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [origin, setOrigin] = useState<RemoteInfo | null>(null);
+  const [pushRemote, setPushRemote] = useState<RemoteInfo | null>(null);
   const [sync, setSync] = useState<AheadBehind | null>(null);
 
   const busyRef = useRef(false);
@@ -51,16 +56,18 @@ export function useRepoSession(
     }
     try {
       const summary = await openRepository(path);
-      const [nextTimeline, nextStatus, nextOrigin, nextSync] = await Promise.all([
+      const [nextTimeline, nextStatus, nextOrigin, remotes, nextSync] = await Promise.all([
         getTimeline(path),
         getStatus(path),
         githubOrigin(path).catch(() => null),
+        listRemotes(path).catch(() => [] as RemoteInfo[]),
         aheadBehind(path).catch(() => null),
       ]);
       setRepo((prev) => (sameRepo(prev, summary) ? prev! : summary));
       setTimeline((prev) => (prev && sameJson(prev, nextTimeline) ? prev : nextTimeline));
       setStatus((prev) => (prev && sameJson(prev, nextStatus) ? prev : nextStatus));
       setOrigin(nextOrigin);
+      setPushRemote(originRemote(remotes));
       setSync(nextSync);
       setSelectedId((current) => {
         if (keepSelection && current && nextTimeline.nodes.some((n) => n.id === current)) {
@@ -127,6 +134,7 @@ export function useRepoSession(
     setStatus(null);
     setSelectedId(null);
     setOrigin(null);
+    setPushRemote(null);
     setSync(null);
   }, []);
 
@@ -142,6 +150,7 @@ export function useRepoSession(
     busy,
     setBusy,
     origin,
+    pushRemote,
     sync,
     loadAll,
     resetSession,

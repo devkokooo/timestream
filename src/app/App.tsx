@@ -317,7 +317,7 @@ export default function App() {
     { id: "close-folder", title: "Close folder", hint: "File", run: closeFolder },
     { id: "rescan", title: "Rescan", hint: "View", run: () => repo && void remotes.openRepo(repo.path, { keepSelection: true }) },
     { id: "fetch", title: "Fetch from origin", hint: "Dispatch", run: remotes.fetch },
-    { id: "push", title: "Push branch", hint: "Upload to HQ", run: remotes.push },
+    { id: "push", title: "Push branch", hint: remotes.includeTagsOnPush ? "Upload to HQ · with seals" : "Upload to HQ", run: remotes.push },
     { id: "pull", title: "Fast-forward pull", hint: "Sync inbound", run: remotes.pull },
     { id: "ssh-pick", title: "GitHub: Choose SSH key for this remote", run: () => remotes.setIdentityOpen(true) },
     {
@@ -379,7 +379,7 @@ export default function App() {
         target={tags.sealTarget}
         timeline={timeline}
         busy={session.busy}
-        canPush={Boolean(session.origin)}
+        canPush={Boolean(session.pushRemote)}
         dispatchDefault={tags.dispatchDefault}
         onDispatchDefault={tags.setDispatchDefault}
         onClose={tags.closeSealDesk}
@@ -508,6 +508,8 @@ export default function App() {
           onBranch={Boolean(repo.branch)}
           hasHead={Boolean(timeline?.head ?? repo.head)}
           headFiling={worktree.headFiling}
+          includeTagsOnPush={remotes.includeTagsOnPush}
+          onIncludeTagsOnPush={remotes.setIncludeTagsOnPush}
           onPush={remotes.push}
           onFetch={remotes.fetch}
           onPull={remotes.pull}
@@ -577,7 +579,7 @@ export default function App() {
           branch={repo.branch}
           prByBranch={github.prByBranch}
           aheadBehind={session.sync}
-          canPush={Boolean(session.origin)}
+          canPush={Boolean(session.pushRemote)}
           canFileSeal={Boolean(session.selectedId)}
           onStow={() => timelineUi.setVariantRailOpen(false)}
           onSelectTag={(id) => {

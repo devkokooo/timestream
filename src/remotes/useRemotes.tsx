@@ -48,6 +48,7 @@ export function useRemotes({
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
   const [remoteOp, setRemoteOp] = useState<RemoteKind>(null);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [includeTagsOnPush, setIncludeTagsOnPush] = useState(false);
   const [cloneLog, setCloneLog] = useState<string[]>([]);
   const [cloning, setCloning] = useState(false);
   const pendingRemote = useRef<{
@@ -173,8 +174,13 @@ export function useRemotes({
     [runRemote],
   );
   const push = useCallback(
-    () => void runRemote(pushBranch, undefined, "push"),
-    [runRemote],
+    () =>
+      void runRemote(
+        (args) => pushBranch(args, undefined, includeTagsOnPush),
+        undefined,
+        "push",
+      ),
+    [includeTagsOnPush, runRemote],
   );
 
   const identityPicker = (
@@ -210,7 +216,8 @@ export function useRemotes({
         }
         const pending = pendingRemote.current;
         pendingRemote.current = null;
-        const op = pending?.op ?? pushBranch;
+        const op =
+          pending?.op ?? ((args: RemoteAuthArgs) => pushBranch(args, undefined, includeTagsOnPush));
         await runRemote(op, auth, pending?.kind ?? "push");
       }}
     />
@@ -222,6 +229,8 @@ export function useRemotes({
     remoteOp,
     identityOpen,
     setIdentityOpen,
+    includeTagsOnPush,
+    setIncludeTagsOnPush,
     cloneLog,
     cloning,
     browse,

@@ -23,6 +23,8 @@ export function ReviewModeExhibit({ scenario }: { scenario: Scenario }) {
         onBranch
         hasHead
         headFiling={{ summary: "Keep the sacred river centered.", body: "" }}
+        includeTagsOnPush={scenario === "success"}
+        onIncludeTagsOnPush={noop}
         onPush={noop}
         onFetch={noop}
         onPull={noop}

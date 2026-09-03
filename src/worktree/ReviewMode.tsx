@@ -15,6 +15,7 @@ import type { StatusPayload } from "@/worktree/types";
 import { AnomalyColumnSkeleton } from "@/ui/TvaSkeleton";
 import { TransmitButton } from "@/ui/TransmitButton";
 import { TvaScrollArea } from "@/ui/TvaScrollArea";
+import { TvaTerm } from "@/ui/TvaTerm";
 import { PierreFileTree } from "@/diff/PierreFileTree";
 
 export type AnomalySide = "staged" | "unstaged";
@@ -36,6 +37,8 @@ interface Props {
   onBranch?: boolean;
   hasHead?: boolean;
   headFiling?: { summary: string; body: string } | null;
+  includeTagsOnPush?: boolean;
+  onIncludeTagsOnPush?: (next: boolean) => void;
   onPush: () => void;
   onFetch: () => void;
   onPull: () => void;
@@ -67,6 +70,8 @@ export function ReviewMode({
   onBranch = false,
   hasHead = false,
   headFiling = null,
+  includeTagsOnPush = false,
+  onIncludeTagsOnPush,
   onPush,
   onFetch,
   onPull,
@@ -280,12 +285,24 @@ export function ReviewMode({
           noun="Pull"
           busyNoun="Pulling…"
         />
+        {onIncludeTagsOnPush ? (
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs text-tva-paper-dim">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={includeTagsOnPush}
+              disabled={busy || pushed}
+              onChange={(e) => onIncludeTagsOnPush(e.target.checked)}
+            />
+            <TvaTerm flavor="Also dispatch seals" noun="Include tags on push" />
+          </label>
+        ) : null}
         <TransmitButton
           active={pushing}
           disabled={busy || pushed}
           idleClass={ahead > 0 && !pushed ? btnPrimary : btn}
           onClick={onPush}
-          title="Push branch"
+          title={includeTagsOnPush ? "Push branch and tags" : "Push branch"}
           label="Pushing…"
           flavor={
             pushed

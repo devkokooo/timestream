@@ -326,6 +326,7 @@ pub fn push_branch(
     path: &Path,
     remote_name: &str,
     branch: Option<&str>,
+    include_tags: bool,
     auth: &GitAuth,
 ) -> Result<AheadBehind> {
     let repo = Repository::discover(path)?;
@@ -354,11 +355,19 @@ pub fn push_branch(
             }
         }
     }
+    let mut refspecs = vec![format!("{local_ref}:{local_ref}")];
+    if include_tags {
+        let tags = repo.tag_names(None)?;
+        for name in tags.iter().flatten() {
+            refspecs.push(format!("refs/tags/{name}:refs/tags/{name}"));
+        }
+    }
     with_ssh(auth, || {
         let mut remote = repo.find_remote(remote_name)?;
         let mut opts = PushOptions::new();
         opts.remote_callbacks(make_callbacks(auth));
-        remote.push(&[&format!("{local_ref}:{local_ref}")], Some(&mut opts))?;
+        let specs: Vec<&str> = refspecs.iter().map(|s| s.as_str()).collect();
+        remote.push(&specs, Some(&mut opts))?;
         Ok(())
     })?;
     // set upstream if missing
@@ -829,6 +838,63 @@ mod tests {
             std::fs::read_to_string(local_dir.join("a.txt")).unwrap(),
             "one",
             "worktree stays on the variant"
+        );
+    }
+
+    #[test]
+    fn github_origin_skips_non_github_hosts() {
+        let root = tempfile::TempDir::new().unwrap();
+        let dir = root.path().join("repo");
+        let repo = Repository::init(&dir).unwrap();
+        write_commit(&repo, &dir, "a.txt", "one", "root");
+        repo.remote("origin", "git@gitlab.example:acme/app.git")
+            .unwrap();
+        let remotes = list_remotes(&dir).unwrap();
+        assert_eq!(remotes.len(), 1);
+        assert_eq!(remotes[0].name, "origin");
+        assert_eq!(remotes[0].host.as_deref(), Some("gitlab.example"));
+        assert!(github_origin(&dir).unwrap().is_none());
+    }
+
+    #[test]
+    fn push_branch_with_tags_updates_origin() {
+        let root = tempfile::TempDir::new().unwrap();
+        let origin_dir = root.path().join("origin.git");
+        let local_dir = root.path().join("local");
+        Repository::init_bare(&origin_dir).unwrap();
+
+        let local = Repository::init(&local_dir).unwrap();
+        let oid = write_commit(&local, &local_dir, "a.txt", "one", "root");
+        let trunk = trunk_name(&local);
+        local
+            .remote("origin", origin_dir.to_str().unwrap())
+            .unwrap();
+        let sig = git2::Signature::now("Analyst", "analyst@tva.local").unwrap();
+        let commit = local.find_commit(oid).unwrap();
+        local
+            .tag("v1.0.0", commit.as_object(), &sig, "first seal", false)
+            .unwrap();
+
+        push_branch(&local_dir, "origin", None, false, &no_auth()).unwrap();
+        let origin = Repository::open(&origin_dir).unwrap();
+        assert!(
+            origin.find_reference("refs/tags/v1.0.0").is_err(),
+            "tags stay local when include_tags is false"
+        );
+        assert!(origin
+            .find_reference(&format!("refs/heads/{trunk}"))
+            .is_ok());
+
+        push_branch(&local_dir, "origin", None, true, &no_auth()).unwrap();
+        let origin = Repository::open(&origin_dir).unwrap();
+        assert_eq!(
+            origin
+                .find_reference("refs/tags/v1.0.0")
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .id(),
+            oid
         );
     }
 }

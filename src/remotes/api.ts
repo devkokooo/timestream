@@ -40,8 +40,16 @@ export function fetchRemote(args: RemoteAuthArgs): Promise<AheadBehind> {
   return invoke("fetch_remote", { args });
 }
 
-export function pushBranch(args: RemoteAuthArgs, branch?: string): Promise<AheadBehind> {
-  return invoke("push_branch", { args, branch: branch ?? null });
+export function pushBranch(
+  args: RemoteAuthArgs,
+  branch?: string,
+  includeTags = false,
+): Promise<AheadBehind> {
+  return invoke("push_branch", {
+    args,
+    branch: branch ?? null,
+    includeTags,
+  });
 }
 
 export function pullFfOnly(args: RemoteAuthArgs, branch?: string): Promise<AheadBehind> {

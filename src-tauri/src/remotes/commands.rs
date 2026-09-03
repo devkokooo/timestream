@@ -96,6 +96,7 @@ pub fn push_branch(
     app: AppHandle,
     args: RemoteAuthArgs,
     branch: Option<String>,
+    include_tags: Option<bool>,
 ) -> Result<AheadBehind> {
     let path = PathBuf::from(&args.path);
     let remote = args.remote.clone().unwrap_or_else(|| "origin".into());
@@ -107,7 +108,13 @@ pub fn push_branch(
         args.key_path.as_deref(),
         args.passphrase.as_deref(),
     )?;
-    super::push_branch(&path, &remote, branch.as_deref(), &auth)
+    super::push_branch(
+        &path,
+        &remote,
+        branch.as_deref(),
+        include_tags.unwrap_or(false),
+        &auth,
+    )
 }
 
 #[tauri::command]
