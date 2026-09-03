@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { quantizeRect, rectKey } from "@/ui/cull";
 import {
   clipRiverX,
@@ -19,9 +19,14 @@ import {
   type Camera,
   type ViewNode,
 } from "@/timeline/timelineView";
-import type { CommitDetail, Timeline } from "@/timeline/types";
+import type { CommitDetail, Timeline, TimelineNode } from "@/timeline/types";
 import { NexusDossier } from "@/timeline/NexusDossier";
 import { NexusTooltip } from "@/timeline/NexusTooltip";
+import {
+  menuAtPointer,
+  TvaContextMenu,
+  type TvaContextMenuState,
+} from "@/ui/TvaContextMenu";
 
 const DEFAULT_SCALE = 1.65;
 const MIN_SCALE = 0.45;
@@ -43,6 +48,8 @@ interface Props {
   failingShas?: Set<string>;
   onSelectCommit?: (id: string) => void;
   onOpenFile?: (path: string) => void;
+  onSealNexus?: (node: TimelineNode) => void;
+  onCullTag?: (name: string) => void;
 }
 
 export function SacredTimeline({
@@ -59,6 +66,8 @@ export function SacredTimeline({
   failingShas,
   onSelectCommit,
   onOpenFile,
+  onSealNexus,
+  onCullTag,
 }: Props) {
   const view = useMemo(() => layoutTimelineView(timeline, { incursion }), [timeline, incursion]);
   const index = useMemo(() => indexTimelineView(view), [view]);
@@ -66,6 +75,7 @@ export function SacredTimeline({
   const worldRef = useRef<SVGGElement | null>(null);
   const tipRef = useRef<HTMLDivElement | null>(null);
   const [dossierOpen, setDossierOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<TvaContextMenuState | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 400 });
   const [pan, setPan] = useState<Camera>({ x: 0, y: 0, scale: DEFAULT_SCALE });
   const panRef = useRef(pan);
@@ -190,6 +200,10 @@ export function SacredTimeline({
   }, [selectedId]);
 
   useEffect(() => {
+    setContextMenu(null);
+  }, [selectedId]);
+
+  useEffect(() => {
     if (!dossierOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setDossierOpen(false);
@@ -197,6 +211,39 @@ export function SacredTimeline({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [dossierOpen]);
+
+  const openNexusMenu = useCallback(
+    (e: MouseEvent, node: ViewNode) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drag.current = null;
+      onSelect(node.id);
+      const tags = node.refs.filter((r) => r.kind === "tag").map((r) => r.name);
+      setContextMenu(
+        menuAtPointer(e, [
+          {
+            id: "seal",
+            label: "Seal this nexus",
+            onSelect: () => onSealNexus?.(node),
+            disabled: !onSealNexus,
+          },
+          {
+            id: "dossier",
+            label: "Open dossier",
+            onSelect: () => setDossierOpen(true),
+          },
+          ...tags.map((name) => ({
+            id: `cull-${name}`,
+            label: `Cull seal · ${name}`,
+            danger: true as const,
+            disabled: !onCullTag,
+            onSelect: () => onCullTag?.(name),
+          })),
+        ]),
+      );
+    },
+    [onCullTag, onSealNexus, onSelect],
+  );
 
   useEffect(() => {
     if (!focus) return;
@@ -463,6 +510,7 @@ export function SacredTimeline({
                 }
                 onSelect(node.id);
               }}
+              onContextMenu={(e) => openNexusMenu(e, node)}
               opacity={tone === "remote" ? 0.55 : 1}
             >
               {node.isHead && (
@@ -565,8 +613,10 @@ export function SacredTimeline({
         onStow={() => setDossierOpen(false)}
         onSelectCommit={onSelectCommit ?? onSelect}
         onOpenFile={onOpenFile}
+        onSeal={onSealNexus ? () => onSealNexus(selectedNode) : undefined}
       />
     ) : null}
+    <TvaContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} />
     <div
       className="pointer-events-none absolute bottom-2 left-3 flex items-center gap-3 font-mono text-[9px] tracking-[0.16em] text-tva-muted"
       aria-hidden

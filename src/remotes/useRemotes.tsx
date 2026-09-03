@@ -13,6 +13,7 @@ import {
   pullFfOnly,
   pushBranch,
   pushTag,
+  deleteRemoteTag,
 } from "@/remotes/api";
 import { sshAddKey, sshAgentEnsure } from "@/ssh/api";
 import { appendCloneLog } from "@/remotes/cloneLog";
@@ -231,7 +232,9 @@ export function useRemotes({
     fetch,
     pull,
     push,
-    pushTag: (name: string) => void runRemote((args) => pushTag(args, name)),
+    pushTag: (name: string) => runRemote((args) => pushTag(args, name), undefined, "push"),
+    deleteRemoteTag: (name: string) =>
+      runRemote((args) => deleteRemoteTag(args, name), undefined, "push"),
     checkoutPr: (number: number) => runRemote((args) => checkoutPullRequest(args, number)),
     pullBase: (base: string) => runRemote((args) => pullFfOnly(args, base), undefined, "pull"),
     identityPicker,

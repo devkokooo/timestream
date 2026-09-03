@@ -30,26 +30,9 @@ export function CanonPanel(props: HqModeProps) {
 
   return (
     <TvaScrollArea className="min-h-0 flex-1" axis="y" fill viewportClassName="p-3">
-      <p className={`${fieldLabel} mb-1`}>
-        Marker · Tag on selected nexus
+      <p className={`${fieldLabel} mb-2`}>
+        File seals on the chronomonitor (right-click a nexus), then declare them canon here.
       </p>
-      <div className="mb-3 flex gap-1">
-        <input className={fieldInput} value={tag} onChange={(e) => setTag(e.target.value)} placeholder="v1.0.0" />
-        <button
-          type="button"
-          className={btn}
-          disabled={!tag.trim() || !props.selectedSha}
-          onClick={() => {
-            if (!props.selectedSha) return;
-            props.onCreateTag(tag.trim(), props.selectedSha);
-          }}
-        >
-          Create tag
-        </button>
-        <button type="button" className={btn} disabled={!tag.trim()} onClick={() => props.onPushTag(tag.trim())}>
-          Push tag
-        </button>
-      </div>
       {!props.signedIn ? <NeedClearance /> : null}
       {props.signedIn && props.owner ? (
         <>

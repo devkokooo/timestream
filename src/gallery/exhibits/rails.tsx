@@ -35,7 +35,18 @@ export function TagsRailExhibit({ scenario }: { scenario: Scenario }) {
   const timeline = scenario === "empty" ? emptyTimeline() : TAGGED;
   return (
     <Frame>
-      <TagsRail timeline={timeline} selectedId={timeline.nodes.at(-1)?.id ?? null} onSelect={noop} />
+      <TagsRail
+        timeline={timeline}
+        selectedId={timeline.nodes.at(-1)?.id ?? null}
+        onSelect={noop}
+        canFileSeal={scenario === "success"}
+        canPush={scenario === "success"}
+        busy={scenario === "loading"}
+        onFileSeal={noop}
+        onCullLocal={noop}
+        onPush={noop}
+        onCullRemote={noop}
+      />
     </Frame>
   );
 }

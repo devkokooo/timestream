@@ -1,7 +1,7 @@
 import { cn } from "@/ui/cn";
 import { btnStow } from "@/ui/ui";
 import type { AheadBehind } from "@/remotes/types";
-import type { RailTab, Timeline } from "@/timeline/types";
+import type { RailTab, Timeline, TimelineNode } from "@/timeline/types";
 import { HistoryRail } from "@/timeline/HistoryRail";
 import { TagsRail } from "@/timeline/TagsRail";
 import { TvaTerm } from "@/ui/TvaTerm";
@@ -13,12 +13,22 @@ interface Props {
   timeline: Timeline;
   selectedId: string | null;
   onSelectTag: (id: string) => void;
+  onSelectCommit?: (id: string) => void;
   onCheckout: (name: string) => void;
   onStow: () => void;
   busy: boolean;
   prByBranch?: Record<string, number>;
   aheadBehind?: AheadBehind | null;
   branch?: string | null;
+  canPush?: boolean;
+  onSealNexus?: (node: TimelineNode) => void;
+  onOpenDossier?: (id: string) => void;
+  onCullTag?: (name: string) => void;
+  onCullLocal?: (name: string) => void;
+  onFileSeal?: () => void;
+  onPushTag?: (name: string) => void;
+  onCullRemoteTag?: (name: string) => void;
+  canFileSeal?: boolean;
 }
 
 export function LeftRail({
@@ -27,12 +37,22 @@ export function LeftRail({
   timeline,
   selectedId,
   onSelectTag,
+  onSelectCommit,
   onCheckout,
   onStow,
   busy,
   prByBranch,
   aheadBehind,
   branch,
+  canPush = false,
+  onSealNexus,
+  onOpenDossier,
+  onCullTag,
+  onCullLocal,
+  onFileSeal,
+  onPushTag,
+  onCullRemoteTag,
+  canFileSeal = false,
 }: Props) {
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden border-r border-tva-gold/16 bg-[#1b1713] p-0">
@@ -58,11 +78,25 @@ export function LeftRail({
         <HistoryRail
           timeline={timeline}
           selectedId={selectedId}
-          onSelect={onSelectTag}
+          onSelect={onSelectCommit ?? onSelectTag}
           branch={branch}
+          onSealNexus={onSealNexus}
+          onOpenDossier={onOpenDossier ?? onSelectTag}
+          onCullTag={onCullTag}
         />
       ) : (
-        <TagsRail timeline={timeline} selectedId={selectedId} onSelect={onSelectTag} />
+        <TagsRail
+          timeline={timeline}
+          selectedId={selectedId}
+          onSelect={onSelectTag}
+          canFileSeal={canFileSeal}
+          canPush={canPush}
+          busy={busy}
+          onFileSeal={onFileSeal}
+          onCullLocal={onCullLocal ?? onCullTag}
+          onPush={onPushTag}
+          onCullRemote={onCullRemoteTag}
+        />
       )}
     </aside>
   );

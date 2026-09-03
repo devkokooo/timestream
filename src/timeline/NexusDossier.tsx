@@ -19,6 +19,7 @@ interface Props {
   onStow: () => void;
   onSelectCommit: (id: string) => void;
   onOpenFile?: (path: string) => void;
+  onSeal?: () => void;
 }
 
 export function NexusDossier({
@@ -32,6 +33,7 @@ export function NexusDossier({
   onStow,
   onSelectCommit,
   onOpenFile,
+  onSeal,
 }: Props) {
   const loading = !detail || detail.id !== node.id;
   const parsed = useMemo(() => parseCommitBody(detail && !loading ? detail.body : ""), [detail, loading]);
@@ -60,7 +62,12 @@ export function NexusDossier({
           {failed ? <span className={stamp}>FAILED</span> : null}
           {isPr ? <span className={cn(stamp, stampGold)}>REQUEST</span> : null}
           <span className={cn(stamp, node.column === 0 && stampGold)}>{stampLabel}</span>
-          <button type="button" className={cn(btnStow, "ml-1")} onClick={onStow}>
+          {onSeal ? (
+            <button type="button" className={cn(btnStow, "ml-1")} onClick={onSeal} title="File a seal on this nexus">
+              Seal
+            </button>
+          ) : null}
+          <button type="button" className={cn(btnStow, onSeal ? undefined : "ml-1")} onClick={onStow}>
             Stow
           </button>
         </div>

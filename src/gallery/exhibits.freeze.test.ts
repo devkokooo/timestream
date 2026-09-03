@@ -20,6 +20,8 @@ const FROZEN = [
   ["variant-rail", ["success", "loading", "empty"]],
   ["history-rail", ["success", "empty"]],
   ["tags-rail", ["success", "empty"]],
+  ["seal-desk", ["success", "loading", "empty"]],
+  ["tva-context-menu", ["success"]],
   ["left-rail", ["success", "loading", "empty"]],
   ["docket", ["success", "loading", "empty"]],
   ["diff-viewer", ["success", "loading", "error", "empty"]],

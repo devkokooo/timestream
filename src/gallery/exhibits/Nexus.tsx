@@ -39,6 +39,7 @@ export function NexusDossierExhibit({ scenario }: { scenario: Scenario }) {
         onStow={noop}
         onSelectCommit={noop}
         onOpenFile={noop}
+        onSeal={scenario === "success" ? noop : undefined}
       />
     </Frame>
   );

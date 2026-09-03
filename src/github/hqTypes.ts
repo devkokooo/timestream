@@ -14,8 +14,6 @@ export interface HqModeProps {
   timeline: Timeline | null;
   onCheckoutPr: (number: number) => void | Promise<void>;
   onSyncAfterMerge: (base: string) => void | Promise<void>;
-  onCreateTag: (name: string, sha: string, message?: string) => void;
-  onPushTag: (name: string) => void;
   selectedSha: string | null;
   tab?: HqTab;
   onTab?: (tab: HqTab) => void;

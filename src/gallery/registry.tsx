@@ -23,6 +23,7 @@ import { PrCompareExhibit } from "./exhibits/PrCompare";
 import { HistoryRailExhibit, LeftRailExhibit, TagsRailExhibit, VariantRailExhibit } from "./exhibits/rails";
 import { ReviewModeExhibit } from "./exhibits/ReviewMode";
 import { SacredTimelineExhibit } from "./exhibits/SacredTimeline";
+import { SealDeskExhibit, TvaContextMenuExhibit } from "./exhibits/SealDesk";
 import { SettingsPageExhibit } from "./exhibits/SettingsPage";
 import { StatusBarExhibit } from "./exhibits/StatusBar";
 import { TitleBarExhibit } from "./exhibits/TitleBar";
@@ -170,6 +171,20 @@ export const EXHIBITS: Exhibit[] = [
     group: "Local",
     stamps: NO_IPC,
     render: (scenario) => <TagsRailExhibit scenario={scenario} />,
+  },
+  {
+    id: "seal-desk",
+    title: "Seal desk",
+    group: "Local",
+    stamps: LOCAL,
+    render: (scenario) => <SealDeskExhibit scenario={scenario} />,
+  },
+  {
+    id: "tva-context-menu",
+    title: "Context menu",
+    group: "Chrome",
+    stamps: ["success"],
+    render: () => <TvaContextMenuExhibit />,
   },
   {
     id: "left-rail",

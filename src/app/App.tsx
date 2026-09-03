@@ -25,7 +25,9 @@ import { TitleBar } from "@/shell/TitleBar";
 import { LeftRail } from "@/timeline/LeftRail";
 import { TvaTerm } from "@/ui/TvaTerm";
 import { WelcomeGate } from "@/remotes/WelcomeGate";
-import { createLocalTag } from "@/timeline/api";
+import { SealDesk } from "@/timeline/SealDesk";
+import { CullSealConfirm } from "@/timeline/CullSealConfirm";
+import { useTags } from "@/timeline/useTags";
 import { githubSearchRepos } from "@/github/api";
 import { isAuthError, isGithubDispatchError } from "@/github/dispatch";
 import { switchBranch } from "@/branches/api";
@@ -117,14 +119,23 @@ export default function App() {
     loadAll: remotes.openRepo,
     setBusy: session.setBusy,
   });
+  const tags = useTags({
+    repo: session.repo,
+    loadAll: remotes.openRepo,
+    setBusy: session.setBusy,
+    setError: session.setError,
+    pushTag: remotes.pushTag,
+  });
 
   const reviewOpenRef = worktree.reviewOpenRef;
   const hqOpenRef = useRef(false);
   const paletteOpenRef = useRef(false);
   const branchDeskOpenRef = useRef(false);
+  const sealDeskOpenRef = useRef(false);
   hqOpenRef.current = github.hqOpen;
   paletteOpenRef.current = settings.paletteOpen;
   branchDeskOpenRef.current = branches.branchDeskOpen;
+  sealDeskOpenRef.current = tags.sealDeskOpen;
 
   const timelineEnabled = settings.settings.timeline.enabled;
   const { repo, timeline, status } = session;
@@ -151,6 +162,7 @@ export default function App() {
         return;
       }
       if (branchDeskOpenRef.current) return;
+      if (sealDeskOpenRef.current) return;
       if (reviewOpenRef.current) {
         worktree.setReviewOpen(false);
         diffPane.setDiffTarget((target) => (target && target.kind !== "commit" ? null : target));
@@ -256,6 +268,17 @@ export default function App() {
       },
     },
     {
+      id: "seal",
+      title: "File seal on selected nexus",
+      hint: "Create local tag",
+      run: () => {
+        if (!repo || !timeline || !session.selectedId) return;
+        const node = timeline.nodes.find((n) => n.id === session.selectedId);
+        if (!node) return;
+        tags.openSealDesk({ sha: node.id, shortId: node.shortId, summary: node.summary });
+      },
+    },
+    {
       id: "ledger",
       title: "Show commit ledger",
       hint: "History",
@@ -350,6 +373,22 @@ export default function App() {
         onCreate={branches.create}
         onRename={branches.rename}
         onDelete={branches.remove}
+      />
+      <SealDesk
+        open={tags.sealDeskOpen}
+        target={tags.sealTarget}
+        timeline={timeline}
+        busy={session.busy}
+        canPush={Boolean(session.origin)}
+        dispatchDefault={tags.dispatchDefault}
+        onDispatchDefault={tags.setDispatchDefault}
+        onClose={tags.closeSealDesk}
+        onCreate={tags.create}
+      />
+      <CullSealConfirm
+        name={tags.pendingCull}
+        onCancel={tags.cancelCull}
+        onConfirm={(name) => void tags.remove(name)}
       />
       {remotes.identityPicker}
     </>
@@ -519,12 +558,6 @@ export default function App() {
           onSyncAfterMerge={async (base) => {
             await remotes.pullBase(base);
           }}
-          onCreateTag={(name, sha, message) => {
-            void createLocalTag(repo.path, name, sha, message)
-              .then(() => remotes.openRepo(repo.path, { keepSelection: true }))
-              .catch((err) => session.setError(errMessage(err)));
-          }}
-          onPushTag={remotes.pushTag}
         />
       ) : (
       <div
@@ -544,12 +577,32 @@ export default function App() {
           branch={repo.branch}
           prByBranch={github.prByBranch}
           aheadBehind={session.sync}
+          canPush={Boolean(session.origin)}
+          canFileSeal={Boolean(session.selectedId)}
           onStow={() => timelineUi.setVariantRailOpen(false)}
           onSelectTag={(id) => {
             session.setSelectedId(id);
             timelineUi.setDocketOpen(true);
           }}
+          onSelectCommit={session.setSelectedId}
           onCheckout={(name) => void runLocalCheckout(name)}
+          onSealNexus={(node) => {
+            tags.openSealDesk({ sha: node.id, shortId: node.shortId, summary: node.summary });
+          }}
+          onOpenDossier={(id) => {
+            session.setSelectedId(id);
+            timelineUi.setDocketOpen(true);
+          }}
+          onCullTag={tags.requestCull}
+          onCullLocal={(name) => void tags.remove(name)}
+          onFileSeal={() => {
+            if (!session.selectedId) return;
+            const node = timeline.nodes.find((n) => n.id === session.selectedId);
+            if (!node) return;
+            tags.openSealDesk({ sha: node.id, shortId: node.shortId, summary: node.summary });
+          }}
+          onPushTag={(name) => void remotes.pushTag(name)}
+          onCullRemoteTag={(name) => void remotes.deleteRemoteTag(name)}
         />
         ) : (
           <RailStrip
@@ -580,6 +633,10 @@ export default function App() {
               failingShas={github.failingShas}
               onSelectCommit={session.setSelectedId}
               onOpenFile={(path) => openDiff({ kind: "commit", path })}
+              onSealNexus={(node) => {
+                tags.openSealDesk({ sha: node.id, shortId: node.shortId, summary: node.summary });
+              }}
+              onCullTag={tags.requestCull}
             />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">

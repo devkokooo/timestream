@@ -20,8 +20,6 @@ const HQ: Omit<HqModeProps, "tab" | "onTab" | "deskTab" | "onDeskTab" | "signedI
   timeline: MANY_BRANCHES,
   onCheckoutPr: noopAsync,
   onSyncAfterMerge: noopAsync,
-  onCreateTag: noop,
-  onPushTag: noop,
   selectedSha: MANY_BRANCHES.head,
 };
 
