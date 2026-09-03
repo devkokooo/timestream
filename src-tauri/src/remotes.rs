@@ -114,23 +114,109 @@ fn strip_git_suffix(name: &str) -> String {
         .to_string()
 }
 
+fn remote_info(name: &str, url: &str) -> RemoteInfo {
+    let parsed = parse_remote_url(url);
+    RemoteInfo {
+        name: name.to_string(),
+        url: url.to_string(),
+        transport: parsed.transport,
+        host: parsed.host,
+        owner: parsed.owner,
+        name_on_host: parsed.name,
+    }
+}
+
 pub fn list_remotes(path: &Path) -> Result<Vec<RemoteInfo>> {
     let repo = Repository::discover(path)?;
     let mut out = Vec::new();
     for name in repo.remotes()?.iter().flatten() {
         let remote = repo.find_remote(name)?;
         let url = remote.url().unwrap_or("").to_string();
-        let parsed = parse_remote_url(&url);
-        out.push(RemoteInfo {
-            name: name.to_string(),
-            url,
-            transport: parsed.transport,
-            host: parsed.host,
-            owner: parsed.owner,
-            name_on_host: parsed.name,
-        });
+        out.push(remote_info(name, &url));
     }
     Ok(out)
+}
+
+fn validate_remote_name(name: &str) -> Result<()> {
+    if name.trim().is_empty() {
+        return Err(AppError::msg("remote name is required"));
+    }
+    if name != name.trim() {
+        return Err(AppError::msg(
+            "remote name cannot start or end with whitespace",
+        ));
+    }
+    if name.eq_ignore_ascii_case("HEAD") {
+        return Err(AppError::msg("HEAD is not a valid remote name"));
+    }
+    match git2::Remote::is_valid_name(name) {
+        true => Ok(()),
+        false => Err(AppError::msg(format!("invalid remote name '{name}'"))),
+    }
+}
+
+fn validate_remote_url(url: &str) -> Result<()> {
+    if url.trim().is_empty() {
+        return Err(AppError::msg("remote URL is required"));
+    }
+    if url != url.trim() {
+        return Err(AppError::msg(
+            "remote URL cannot start or end with whitespace",
+        ));
+    }
+    Ok(())
+}
+
+fn remote_exists(repo: &Repository, name: &str) -> bool {
+    repo.find_remote(name).is_ok()
+}
+
+pub fn add_remote(path: &Path, name: &str, url: &str) -> Result<RemoteInfo> {
+    validate_remote_name(name)?;
+    validate_remote_url(url)?;
+    let repo = Repository::discover(path)?;
+    if remote_exists(&repo, name) {
+        return Err(AppError::msg(format!("remote '{name}' already exists")));
+    }
+    repo.remote(name, url)?;
+    Ok(remote_info(name, url))
+}
+
+pub fn set_remote_url(path: &Path, name: &str, url: &str) -> Result<RemoteInfo> {
+    validate_remote_url(url)?;
+    let repo = Repository::discover(path)?;
+    if !remote_exists(&repo, name) {
+        return Err(AppError::msg(format!("unknown remote '{name}'")));
+    }
+    repo.remote_set_url(name, url)?;
+    Ok(remote_info(name, url))
+}
+
+pub fn rename_remote(path: &Path, from: &str, to: &str) -> Result<RemoteInfo> {
+    validate_remote_name(to)?;
+    let repo = Repository::discover(path)?;
+    if !remote_exists(&repo, from) {
+        return Err(AppError::msg(format!("unknown remote '{from}'")));
+    }
+    if from == to {
+        let url = repo.find_remote(from)?.url().unwrap_or("").to_string();
+        return Ok(remote_info(from, &url));
+    }
+    if remote_exists(&repo, to) {
+        return Err(AppError::msg(format!("remote '{to}' already exists")));
+    }
+    let _ = repo.remote_rename(from, to)?;
+    let url = repo.find_remote(to)?.url().unwrap_or("").to_string();
+    Ok(remote_info(to, &url))
+}
+
+pub fn remove_remote(path: &Path, name: &str) -> Result<()> {
+    let repo = Repository::discover(path)?;
+    if !remote_exists(&repo, name) {
+        return Err(AppError::msg(format!("unknown remote '{name}'")));
+    }
+    repo.remote_delete(name)?;
+    Ok(())
 }
 
 pub fn github_origin(path: &Path) -> Result<Option<RemoteInfo>> {
@@ -896,5 +982,64 @@ mod tests {
                 .id(),
             oid
         );
+    }
+
+    #[test]
+    fn add_list_set_url_rename_remove_remote() {
+        let root = tempfile::TempDir::new().unwrap();
+        let dir = root.path().join("repo");
+        let repo = Repository::init(&dir).unwrap();
+        write_commit(&repo, &dir, "a.txt", "one", "root");
+
+        let added = add_remote(&dir, "origin", "git@github.com:acme/app.git").unwrap();
+        assert_eq!(added.name, "origin");
+        assert_eq!(added.transport, "ssh");
+        let listed = list_remotes(&dir).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].url, "git@github.com:acme/app.git");
+
+        let updated = set_remote_url(&dir, "origin", "https://github.com/acme/app.git").unwrap();
+        assert_eq!(updated.transport, "https");
+        assert_eq!(
+            list_remotes(&dir).unwrap()[0].url,
+            "https://github.com/acme/app.git"
+        );
+
+        let renamed = rename_remote(&dir, "origin", "upstream").unwrap();
+        assert_eq!(renamed.name, "upstream");
+        let names: Vec<_> = list_remotes(&dir)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        assert_eq!(names, vec!["upstream".to_string()]);
+
+        remove_remote(&dir, "upstream").unwrap();
+        assert!(list_remotes(&dir).unwrap().is_empty());
+    }
+
+    #[test]
+    fn add_remote_rejects_duplicate_and_invalid() {
+        let root = tempfile::TempDir::new().unwrap();
+        let dir = root.path().join("repo");
+        let repo = Repository::init(&dir).unwrap();
+        write_commit(&repo, &dir, "a.txt", "one", "root");
+        add_remote(&dir, "origin", "git@github.com:acme/app.git").unwrap();
+
+        let dup = add_remote(&dir, "origin", "git@github.com:acme/other.git").unwrap_err();
+        assert!(dup.to_string().contains("already exists"));
+        assert!(add_remote(&dir, "", "git@github.com:acme/app.git").is_err());
+        assert!(add_remote(&dir, "origin", "  ").is_err());
+        assert!(add_remote(&dir, "HEAD", "git@github.com:acme/app.git").is_err());
+    }
+
+    #[test]
+    fn set_url_and_remove_unknown_remote() {
+        let root = tempfile::TempDir::new().unwrap();
+        let dir = root.path().join("repo");
+        Repository::init(&dir).unwrap();
+        assert!(set_remote_url(&dir, "origin", "git@github.com:acme/app.git").is_err());
+        assert!(rename_remote(&dir, "origin", "upstream").is_err());
+        assert!(remove_remote(&dir, "origin").is_err());
     }
 }

@@ -30,6 +30,10 @@ export const IPC_COMMANDS = [
   "github_whoami",
   "github_logout",
   "list_remotes",
+  "add_remote",
+  "set_remote_url",
+  "rename_remote",
+  "remove_remote",
   "github_origin",
   "ahead_behind",
   "fetch_remote",
@@ -69,4 +73,4 @@ export const IPC_COMMANDS = [
   "github_search_repos",
 ] as const;
 
-export const IPC_COMMAND_COUNT = 67;
+export const IPC_COMMAND_COUNT = 71;

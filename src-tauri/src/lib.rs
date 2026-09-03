@@ -29,8 +29,9 @@ use github::{
     github_whoami,
 };
 use remotes::commands::{
-    ahead_behind, checkout_pull_request, clone_repository, delete_remote_tag, fetch_remote,
-    github_origin, list_remotes, pull_ff_only, push_branch, push_tag,
+    add_remote, ahead_behind, checkout_pull_request, clone_repository, delete_remote_tag,
+    fetch_remote, github_origin, list_remotes, pull_ff_only, push_branch, push_tag, remove_remote,
+    rename_remote, set_remote_url,
 };
 use settings::{get_settings, set_settings, settings_toml_path};
 use ssh::{list_ssh_keys, ssh_add_key, ssh_agent_ensure, ssh_agent_status};
@@ -73,6 +74,10 @@ pub fn run() {
             github_whoami,
             github_logout,
             list_remotes,
+            add_remote,
+            set_remote_url,
+            rename_remote,
+            remove_remote,
             github_origin,
             ahead_behind,
             fetch_remote,

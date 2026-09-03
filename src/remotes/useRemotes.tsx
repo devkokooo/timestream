@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IdentityPicker, type IdentityChoice } from "@/ssh/IdentityPicker";
 import {
+  addRemote,
   checkoutPullRequest,
   cloneRepository,
   fetchRemote,
@@ -14,6 +15,9 @@ import {
   pushBranch,
   pushTag,
   deleteRemoteTag,
+  renameRemote,
+  removeRemote,
+  setRemoteUrl,
 } from "@/remotes/api";
 import { sshAddKey, sshAgentEnsure } from "@/ssh/api";
 import { appendCloneLog } from "@/remotes/cloneLog";
@@ -25,7 +29,8 @@ import {
 } from "@/remotes/recentRepos";
 import { cloneUrl, errMessage } from "@/app/helpers";
 import type { LoadOptions } from "@/git/useRepoSession";
-import type { AheadBehind, RemoteAuthArgs } from "@/remotes/types";
+import { pickSelectedRemote } from "@/remotes/remoteName";
+import type { AheadBehind, RemoteAuthArgs, RemoteInfo } from "@/remotes/types";
 import type { RepoSummary } from "@/git/types";
 
 type RemoteKind = "fetch" | "pull" | "push" | null;
@@ -34,12 +39,14 @@ type LoadAll = (path: string, options?: LoadOptions) => Promise<RepoSummary | nu
 
 export function useRemotes({
   repoPath,
+  listedRemotes,
   cloneProtocol,
   loadAll,
   setError,
   setBusy,
 }: {
   repoPath: string | null;
+  listedRemotes: RemoteInfo[];
   cloneProtocol: string;
   loadAll: LoadAll;
   setError: (message: string | null) => void;
@@ -47,6 +54,8 @@ export function useRemotes({
 }) {
   const [recent, setRecent] = useState<RecentRepo[]>(() => loadRecentRepos());
   const [remoteOp, setRemoteOp] = useState<RemoteKind>(null);
+  const [selectedRemote, setSelectedRemote] = useState<string | null>(null);
+  const [remotesDeskOpen, setRemotesDeskOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [includeTagsOnPush, setIncludeTagsOnPush] = useState(false);
   const [cloneLog, setCloneLog] = useState<string[]>([]);
@@ -56,6 +65,11 @@ export function useRemotes({
     kind: RemoteKind;
   } | null>(null);
   const pendingClone = useRef<{ url: string; dest: string } | null>(null);
+
+  useEffect(() => {
+    const names = listedRemotes.map((remote) => remote.name);
+    setSelectedRemote((current) => pickSelectedRemote(names, current));
+  }, [listedRemotes]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -138,7 +152,12 @@ export function useRemotes({
       kind: RemoteKind = null,
     ) => {
       if (!repoPath) return;
-      const args: RemoteAuthArgs = { path: repoPath, remote: "origin", ...extra };
+      const remote = extra?.remote ?? selectedRemote;
+      if (!remote) {
+        setError("Add a remote before fetching, pulling, or pushing.");
+        return;
+      }
+      const args: RemoteAuthArgs = { path: repoPath, remote, ...extra };
       try {
         setBusy(true);
         if (kind) setRemoteOp(kind);
@@ -152,7 +171,7 @@ export function useRemotes({
         }
         if (isDivergedError(err)) {
           setError(
-            "Variant diverged — local branch and origin have diverged; pull would not fast-forward.",
+            `Variant diverged — local branch and ${remote} have diverged; pull would not fast-forward.`,
           );
           return;
         }
@@ -162,7 +181,7 @@ export function useRemotes({
         if (kind) setRemoteOp(null);
       }
     },
-    [openRepo, repoPath, setBusy, setError],
+    [openRepo, repoPath, selectedRemote, setBusy, setError],
   );
 
   const fetch = useCallback(
@@ -181,6 +200,21 @@ export function useRemotes({
         "push",
       ),
     [includeTagsOnPush, runRemote],
+  );
+
+  const runCrud = useCallback(
+    async (op: () => Promise<void>) => {
+      if (!repoPath) return;
+      setBusy(true);
+      try {
+        await op();
+        await openRepo(repoPath, { keepSelection: true });
+      } catch (err) {
+        setBusy(false);
+        throw err;
+      }
+    },
+    [openRepo, repoPath, setBusy],
   );
 
   const identityPicker = (
@@ -227,6 +261,11 @@ export function useRemotes({
     recent,
     removeRecent: (path: string) => setRecent(removeRecentRepo(path)),
     remoteOp,
+    listedRemotes,
+    selectedRemote,
+    setSelectedRemote,
+    remotesDeskOpen,
+    setRemotesDeskOpen,
     identityOpen,
     setIdentityOpen,
     includeTagsOnPush,
@@ -247,11 +286,37 @@ export function useRemotes({
     checkoutPr: (number: number) => runRemote((args) => checkoutPullRequest(args, number)),
     pullBase: (base: string) => runRemote((args) => pullFfOnly(args, base), undefined, "pull"),
     identityPicker,
+    add: async (name: string, url: string) => {
+      if (!repoPath) return;
+      await runCrud(async () => {
+        await addRemote(repoPath, name, url);
+        setSelectedRemote(name);
+      });
+    },
+    setUrl: async (name: string, url: string) => {
+      if (!repoPath) return;
+      await runCrud(async () => {
+        await setRemoteUrl(repoPath, name, url);
+      });
+    },
+    rename: async (from: string, to: string) => {
+      if (!repoPath) return;
+      await runCrud(async () => {
+        await renameRemote(repoPath, from, to);
+        setSelectedRemote((current) => (current === from ? to : current));
+      });
+    },
+    remove: async (name: string) => {
+      if (!repoPath) return;
+      await runCrud(() => removeRemote(repoPath, name));
+    },
     resetRemotes: () => {
       pendingClone.current = null;
       pendingRemote.current = null;
       setRemoteOp(null);
       setIdentityOpen(false);
+      setRemotesDeskOpen(false);
+      setSelectedRemote(null);
     },
   };
 }

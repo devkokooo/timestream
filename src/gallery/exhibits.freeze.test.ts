@@ -15,6 +15,7 @@ const FROZEN = [
   ["bureau-header", ["success", "loading", "empty"]],
   ["status-bar", ["success", "loading", "error", "empty"]],
   ["branch-picker", ["success", "loading", "error", "empty"]],
+  ["remotes-desk", ["success", "loading", "error", "empty"]],
   ["welcome-gate", ["success", "loading", "error", "empty", "outage"]],
   ["sacred-timeline", ["success", "loading", "empty"]],
   ["variant-rail", ["success", "loading", "empty"]],

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AboutDialogExhibit } from "./exhibits/AboutDialog";
 import { AuthDialogExhibit, GithubSignInExhibit } from "./exhibits/AuthDialog";
 import { BranchPickerExhibit } from "./exhibits/BranchPicker";
+import { RemotesDeskExhibit } from "./exhibits/RemotesDesk";
 import { BureauHeaderExhibit } from "./exhibits/BureauHeader";
 import {
   FileKindIconExhibit,
@@ -136,6 +137,13 @@ export const EXHIBITS: Exhibit[] = [
     group: "Chrome",
     stamps: ALL,
     render: (scenario) => <BranchPickerExhibit scenario={scenario} />,
+  },
+  {
+    id: "remotes-desk",
+    title: "Remotes desk",
+    group: "Chrome",
+    stamps: ALL,
+    render: (scenario) => <RemotesDeskExhibit scenario={scenario} />,
   },
   {
     id: "welcome-gate",

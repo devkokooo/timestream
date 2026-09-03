@@ -67,6 +67,26 @@ pub fn list_remotes(path: String) -> Result<Vec<RemoteInfo>> {
 }
 
 #[tauri::command]
+pub fn add_remote(path: String, name: String, url: String) -> Result<RemoteInfo> {
+    super::add_remote(&PathBuf::from(path), &name, &url)
+}
+
+#[tauri::command]
+pub fn set_remote_url(path: String, name: String, url: String) -> Result<RemoteInfo> {
+    super::set_remote_url(&PathBuf::from(path), &name, &url)
+}
+
+#[tauri::command]
+pub fn rename_remote(path: String, from: String, to: String) -> Result<RemoteInfo> {
+    super::rename_remote(&PathBuf::from(path), &from, &to)
+}
+
+#[tauri::command]
+pub fn remove_remote(path: String, name: String) -> Result<()> {
+    super::remove_remote(&PathBuf::from(path), &name)
+}
+
+#[tauri::command]
 pub fn github_origin(path: String) -> Result<Option<RemoteInfo>> {
     super::github_origin(&PathBuf::from(path))
 }

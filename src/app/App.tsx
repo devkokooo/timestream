@@ -25,6 +25,7 @@ import { TitleBar } from "@/shell/TitleBar";
 import { LeftRail } from "@/timeline/LeftRail";
 import { TvaTerm } from "@/ui/TvaTerm";
 import { WelcomeGate } from "@/remotes/WelcomeGate";
+import { RemotesDesk } from "@/remotes/RemotesDesk";
 import { SealDesk } from "@/timeline/SealDesk";
 import { CullSealConfirm } from "@/timeline/CullSealConfirm";
 import { useTags } from "@/timeline/useTags";
@@ -59,6 +60,7 @@ export default function App() {
   const auth = useAuth(session.setError);
   const remotes = useRemotes({
     repoPath: session.repo?.path ?? null,
+    listedRemotes: session.remotes,
     cloneProtocol: settings.settings.github.cloneProtocol,
     loadAll: session.loadAll,
     setError: session.setError,
@@ -131,10 +133,12 @@ export default function App() {
   const hqOpenRef = useRef(false);
   const paletteOpenRef = useRef(false);
   const branchDeskOpenRef = useRef(false);
+  const remotesDeskOpenRef = useRef(false);
   const sealDeskOpenRef = useRef(false);
   hqOpenRef.current = github.hqOpen;
   paletteOpenRef.current = settings.paletteOpen;
   branchDeskOpenRef.current = branches.branchDeskOpen;
+  remotesDeskOpenRef.current = remotes.remotesDeskOpen;
   sealDeskOpenRef.current = tags.sealDeskOpen;
 
   const timelineEnabled = settings.settings.timeline.enabled;
@@ -162,6 +166,7 @@ export default function App() {
         return;
       }
       if (branchDeskOpenRef.current) return;
+      if (remotesDeskOpenRef.current) return;
       if (sealDeskOpenRef.current) return;
       if (reviewOpenRef.current) {
         worktree.setReviewOpen(false);
@@ -239,6 +244,7 @@ export default function App() {
     github.resetGithub();
     worktree.setReviewOpen(false);
     branches.setBranchDeskOpen(false);
+    remotes.setRemotesDeskOpen(false);
     timelineUi.resetRails();
   }
 
@@ -265,6 +271,14 @@ export default function App() {
       hint: "Create, rename, cull",
       run: () => {
         if (repo) branches.setBranchDeskOpen(true);
+      },
+    },
+    {
+      id: "remotes",
+      title: "Manage remotes",
+      hint: "Add, revise URL, cull",
+      run: () => {
+        if (repo) remotes.setRemotesDeskOpen(true);
       },
     },
     {
@@ -316,9 +330,9 @@ export default function App() {
     { id: "open", title: "Open folder", hint: "File", run: () => void remotes.browse() },
     { id: "close-folder", title: "Close folder", hint: "File", run: closeFolder },
     { id: "rescan", title: "Rescan", hint: "View", run: () => repo && void remotes.openRepo(repo.path, { keepSelection: true }) },
-    { id: "fetch", title: "Fetch from origin", hint: "Dispatch", run: remotes.fetch },
-    { id: "push", title: "Push branch", hint: remotes.includeTagsOnPush ? "Upload to HQ · with seals" : "Upload to HQ", run: remotes.push },
-    { id: "pull", title: "Fast-forward pull", hint: "Sync inbound", run: remotes.pull },
+    { id: "fetch", title: remotes.selectedRemote ? `Fetch from ${remotes.selectedRemote}` : "Fetch", hint: "Dispatch", run: remotes.fetch },
+    { id: "push", title: remotes.selectedRemote ? `Push branch to ${remotes.selectedRemote}` : "Push branch", hint: remotes.includeTagsOnPush ? "Upload to HQ · with seals" : "Upload to HQ", run: remotes.push },
+    { id: "pull", title: remotes.selectedRemote ? `Fast-forward pull from ${remotes.selectedRemote}` : "Fast-forward pull", hint: "Sync inbound", run: remotes.pull },
     { id: "ssh-pick", title: "GitHub: Choose SSH key for this remote", run: () => remotes.setIdentityOpen(true) },
     {
       id: "ssh-agent",
@@ -374,12 +388,24 @@ export default function App() {
         onRename={branches.rename}
         onDelete={branches.remove}
       />
+      <RemotesDesk
+        open={remotes.remotesDeskOpen}
+        path={repo?.path ?? null}
+        busy={session.busy}
+        selectedRemote={remotes.selectedRemote}
+        onClose={() => remotes.setRemotesDeskOpen(false)}
+        onSelect={remotes.setSelectedRemote}
+        onAdd={remotes.add}
+        onSetUrl={remotes.setUrl}
+        onRename={remotes.rename}
+        onRemove={remotes.remove}
+      />
       <SealDesk
         open={tags.sealDeskOpen}
         target={tags.sealTarget}
         timeline={timeline}
         busy={session.busy}
-        canPush={Boolean(session.pushRemote)}
+        canPush={Boolean(remotes.selectedRemote)}
         dispatchDefault={tags.dispatchDefault}
         onDispatchDefault={tags.setDispatchDefault}
         onClose={tags.closeSealDesk}
@@ -510,6 +536,10 @@ export default function App() {
           headFiling={worktree.headFiling}
           includeTagsOnPush={remotes.includeTagsOnPush}
           onIncludeTagsOnPush={remotes.setIncludeTagsOnPush}
+          remotes={session.remotes}
+          selectedRemote={remotes.selectedRemote}
+          onSelectRemote={remotes.setSelectedRemote}
+          onManageRemotes={() => remotes.setRemotesDeskOpen(true)}
           onPush={remotes.push}
           onFetch={remotes.fetch}
           onPull={remotes.pull}
@@ -579,7 +609,7 @@ export default function App() {
           branch={repo.branch}
           prByBranch={github.prByBranch}
           aheadBehind={session.sync}
-          canPush={Boolean(session.pushRemote)}
+          canPush={Boolean(remotes.selectedRemote)}
           canFileSeal={Boolean(session.selectedId)}
           onStow={() => timelineUi.setVariantRailOpen(false)}
           onSelectTag={(id) => {

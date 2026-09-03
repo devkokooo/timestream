@@ -9,7 +9,7 @@ import { canReviseLastFiling } from "@/worktree/amendFiling";
 import { composeCommitMessage } from "@/worktree/commitMessage";
 import { cn } from "@/ui/cn";
 import { btn, btnPrimary, btnStow, emptyText, eyebrow, fieldInput, fieldLabel } from "@/ui/ui";
-import type { AheadBehind } from "@/remotes/types";
+import type { AheadBehind, RemoteInfo } from "@/remotes/types";
 import type { FileChange } from "@/git/types";
 import type { StatusPayload } from "@/worktree/types";
 import { AnomalyColumnSkeleton } from "@/ui/TvaSkeleton";
@@ -39,6 +39,10 @@ interface Props {
   headFiling?: { summary: string; body: string } | null;
   includeTagsOnPush?: boolean;
   onIncludeTagsOnPush?: (next: boolean) => void;
+  remotes?: RemoteInfo[];
+  selectedRemote?: string | null;
+  onSelectRemote?: (name: string) => void;
+  onManageRemotes?: () => void;
   onPush: () => void;
   onFetch: () => void;
   onPull: () => void;
@@ -72,6 +76,10 @@ export function ReviewMode({
   headFiling = null,
   includeTagsOnPush = false,
   onIncludeTagsOnPush,
+  remotes,
+  selectedRemote = null,
+  onSelectRemote,
+  onManageRemotes,
   onPush,
   onFetch,
   onPull,
@@ -93,6 +101,9 @@ export function ReviewMode({
   const ahead = sync?.ahead ?? 0;
   const canFile = !busy && hasSubject && (amend ? canRevise : staged.length > 0);
   const stacked = layout === "stack";
+  const gated = remotes !== undefined;
+  const canTransmit = !gated || Boolean(selectedRemote);
+  const remoteLabel = selectedRemote ?? "origin";
 
   useEffect(() => {
     if (amend && !canRevise) setAmend(false);
@@ -263,12 +274,42 @@ export function ReviewMode({
         onPrimary
       />
       <div className="mt-auto flex flex-col gap-2 border-t border-tva-gold/16 pt-3">
+        {remotes !== undefined || onManageRemotes ? (
+          <div className="flex flex-col gap-1.5">
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-[0.14em] text-tva-muted">Remote</span>
+              <select
+                className={fieldInput}
+                value={selectedRemote ?? ""}
+                disabled={busy || !remotes?.length}
+                onChange={(e) => onSelectRemote?.(e.target.value)}
+                aria-label="Transmit remote"
+              >
+                {(remotes ?? []).length === 0 ? (
+                  <option value="">No remotes</option>
+                ) : (
+                  (remotes ?? []).map((remote) => (
+                    <option key={remote.name} value={remote.name}>
+                      {remote.name}
+                      {remote.transport === "ssh" ? " · ssh" : remote.transport === "https" ? " · https" : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            {onManageRemotes ? (
+              <button type="button" className={btnStow} disabled={busy} onClick={onManageRemotes}>
+                Manage remotes…
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <TransmitButton
           active={fetching}
-          disabled={busy}
+          disabled={busy || !canTransmit}
           idleClass={btn}
           onClick={onFetch}
-          title="Fetch from origin"
+          title={`Fetch from ${remoteLabel}`}
           label="Fetching…"
           flavor="Dispatch"
           noun="Fetch"
@@ -276,10 +317,10 @@ export function ReviewMode({
         />
         <TransmitButton
           active={pulling}
-          disabled={busy}
+          disabled={busy || !canTransmit}
           idleClass={btn}
           onClick={onPull}
-          title="Fast-forward pull"
+          title={`Fast-forward pull from ${remoteLabel}`}
           label="Pulling…"
           flavor="Sync inbound"
           noun="Pull"
@@ -299,10 +340,14 @@ export function ReviewMode({
         ) : null}
         <TransmitButton
           active={pushing}
-          disabled={busy || pushed}
+          disabled={busy || pushed || !canTransmit}
           idleClass={ahead > 0 && !pushed ? btnPrimary : btn}
           onClick={onPush}
-          title={includeTagsOnPush ? "Push branch and tags" : "Push branch"}
+          title={
+            includeTagsOnPush
+              ? `Push branch and tags to ${remoteLabel}`
+              : `Push branch to ${remoteLabel}`
+          }
           label="Pushing…"
           flavor={
             pushed

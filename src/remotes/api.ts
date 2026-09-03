@@ -28,6 +28,22 @@ export function listRemotes(path: string): Promise<RemoteInfo[]> {
   return invoke("list_remotes", { path });
 }
 
+export function addRemote(path: string, name: string, url: string): Promise<RemoteInfo> {
+  return invoke("add_remote", { path, name, url });
+}
+
+export function setRemoteUrl(path: string, name: string, url: string): Promise<RemoteInfo> {
+  return invoke("set_remote_url", { path, name, url });
+}
+
+export function renameRemote(path: string, from: string, to: string): Promise<RemoteInfo> {
+  return invoke("rename_remote", { path, from, to });
+}
+
+export function removeRemote(path: string, name: string): Promise<void> {
+  return invoke("remove_remote", { path, name });
+}
+
 export function githubOrigin(path: string): Promise<RemoteInfo | null> {
   return invoke("github_origin", { path });
 }

@@ -357,11 +357,7 @@ fn decode_blob(bytes: &[u8]) -> (Option<String>, bool) {
     (Some(String::from_utf8_lossy(bytes).into_owned()), false)
 }
 
-fn tree_file_bytes(
-    repo: &Repository,
-    tree: &git2::Tree<'_>,
-    rel: &str,
-) -> Result<Option<Vec<u8>>> {
+fn tree_file_bytes(repo: &Repository, tree: &git2::Tree<'_>, rel: &str) -> Result<Option<Vec<u8>>> {
     match tree.get_path(Path::new(rel)) {
         Ok(entry) => {
             let obj = entry.to_object(repo)?;

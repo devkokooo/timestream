@@ -9,10 +9,6 @@ import type { Timeline } from "@/timeline/types";
 import type { StatusPayload } from "@/worktree/types";
 import type { AheadBehind, RemoteInfo } from "@/remotes/types";
 
-function originRemote(remotes: RemoteInfo[]): RemoteInfo | null {
-  return remotes.find((r) => r.name === "origin") ?? null;
-}
-
 const RESCAN_MS = 2500;
 
 export type LoadOptions = {
@@ -40,7 +36,7 @@ export function useRepoSession(
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [origin, setOrigin] = useState<RemoteInfo | null>(null);
-  const [pushRemote, setPushRemote] = useState<RemoteInfo | null>(null);
+  const [remotes, setRemotes] = useState<RemoteInfo[]>([]);
   const [sync, setSync] = useState<AheadBehind | null>(null);
 
   const busyRef = useRef(false);
@@ -67,7 +63,7 @@ export function useRepoSession(
       setTimeline((prev) => (prev && sameJson(prev, nextTimeline) ? prev : nextTimeline));
       setStatus((prev) => (prev && sameJson(prev, nextStatus) ? prev : nextStatus));
       setOrigin(nextOrigin);
-      setPushRemote(originRemote(remotes));
+      setRemotes((prev) => (prev && sameJson(prev, remotes) ? prev : remotes));
       setSync(nextSync);
       setSelectedId((current) => {
         if (keepSelection && current && nextTimeline.nodes.some((n) => n.id === current)) {
@@ -134,7 +130,7 @@ export function useRepoSession(
     setStatus(null);
     setSelectedId(null);
     setOrigin(null);
-    setPushRemote(null);
+    setRemotes([]);
     setSync(null);
   }, []);
 
@@ -150,7 +146,7 @@ export function useRepoSession(
     busy,
     setBusy,
     origin,
-    pushRemote,
+    remotes,
     sync,
     loadAll,
     resetSession,

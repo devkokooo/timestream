@@ -43,6 +43,15 @@ export const ORIGIN: RemoteInfo = {
   nameOnHost: "timestream",
 };
 
+export const UPSTREAM: RemoteInfo = {
+  name: "upstream",
+  url: "https://github.com/tva/timestream.git",
+  transport: "https",
+  host: "github.com",
+  owner: "tva",
+  nameOnHost: "timestream",
+};
+
 export const SYNC: AheadBehind = {
   ahead: 1,
   behind: 2,

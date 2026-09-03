@@ -14,6 +14,7 @@ import {
   LINEAR,
   MANY_BRANCHES,
   ORIGIN,
+  UPSTREAM,
   PULL,
   PULL_COMMITS,
   PULL_COUNTS,
@@ -136,7 +137,13 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
     case "github_whoami":
       return (empty ? null : ANALYST) as T;
     case "list_remotes":
-      return (empty ? [] : [ORIGIN]) as T;
+      return (empty ? [] : [ORIGIN, UPSTREAM]) as T;
+    case "add_remote":
+    case "set_remote_url":
+    case "rename_remote":
+      return ORIGIN as T;
+    case "remove_remote":
+      return undefined as T;
     case "github_origin":
       return (empty ? null : ORIGIN) as T;
     case "ahead_behind":
